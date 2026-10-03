@@ -46,12 +46,14 @@ type agentDraftData struct {
 }
 
 type agentDraftItem struct {
-	Revision        int64  `json:"revision,string,omitempty"`
-	Title           string `json:"title"`
-	Description     string `json:"description"`
-	AssigneeID      int64  `json:"assignee_id,string"`
-	DueAtUnixMs     int64  `json:"due_at_unix_ms"`
-	SourceMessageID int64  `json:"source_message_id,string"`
+	Revision           int64  `json:"revision,string,omitempty"`
+	Title              string `json:"title"`
+	Description        string `json:"description"`
+	AssigneeID         int64  `json:"assignee_id,string"`
+	AssigneeName       string `json:"assignee_name"`
+	AssigneeResolution string `json:"assignee_resolution"`
+	DueAtUnixMs        int64  `json:"due_at_unix_ms"`
+	SourceMessageID    int64  `json:"source_message_id,string"`
 }
 
 func draftToken(r *http.Request) (string, bool) {
@@ -70,6 +72,34 @@ func draftToken(r *http.Request) (string, bool) {
 func parseDraftRevision(value string) (int64, bool) {
 	version, err := strconv.ParseInt(value, 10, 64)
 	return version, err == nil && version > 0 && strconv.FormatInt(version, 10) == value
+}
+
+func parseDraftAssigneeID(value string) (int64, bool) {
+	id, err := strconv.ParseInt(value, 10, 64)
+	return id, err == nil && id >= 0 && strconv.FormatInt(id, 10) == value
+}
+
+func validDraftAssignee(draft *pb.TaskDraftItem) bool {
+	if draft == nil || draft.GetAssigneeId() < 0 || !utf8.ValidString(draft.GetAssigneeName()) ||
+		utf8.RuneCountInString(draft.GetAssigneeName()) > 64 || strings.TrimSpace(draft.GetAssigneeName()) != draft.GetAssigneeName() {
+		return false
+	}
+	switch draft.GetAssigneeResolution() {
+	case "": // Older responses do not carry name/resolution metadata.
+		return draft.GetAssigneeName() == ""
+	case "none":
+		return draft.GetAssigneeName() == "" && draft.GetAssigneeId() == 0
+	case "matched":
+		return draft.GetAssigneeName() != "" && draft.GetAssigneeId() > 0
+	case "not_found", "ambiguous", "truncated":
+		return draft.GetAssigneeName() != "" && draft.GetAssigneeId() == 0
+	case "selected":
+		return draft.GetAssigneeId() > 0
+	case "unassigned":
+		return draft.GetAssigneeId() == 0
+	default:
+		return false
+	}
 }
 
 func draftRPCError(w http.ResponseWriter, err error) {
@@ -179,7 +209,7 @@ func writeTaskDraftResult(w http.ResponseWriter, runID int64, result *pb.GetTask
 			validResult = false
 		}
 	}
-	if !validResult || !validDraftReplyResult(result) {
+	if !validResult || !validDraftReplyResult(result) || !validDraftAssignee(result.GetDraft()) {
 		httpx.WriteJson(w, http.StatusBadGateway, agentDraftResponse{Code: errcode.ErrInternal, Msg: "AI draft service returned invalid draft"})
 		return
 	}
@@ -188,7 +218,7 @@ func writeTaskDraftResult(w http.ResponseWriter, runID int64, result *pb.GetTask
 		RunID: result.GetRunId(), TeamID: result.GetTeamId(), GroupID: result.GetGroupId(), Status: result.GetStatus(),
 		TaskID:      result.GetTaskId(),
 		ReplyStatus: result.GetReplyStatus(), ReplyMsgID: result.GetReplyMsgId(),
-		Draft: &agentDraftItem{Revision: draft.GetRevision(), Title: draft.GetTitle(), Description: draft.GetDescription(), AssigneeID: draft.GetAssigneeId(), DueAtUnixMs: draft.GetDueAtUnixMs(), SourceMessageID: draft.GetSourceMessageId()},
+		Draft: &agentDraftItem{Revision: draft.GetRevision(), Title: draft.GetTitle(), Description: draft.GetDescription(), AssigneeID: draft.GetAssigneeId(), AssigneeName: draft.GetAssigneeName(), AssigneeResolution: draft.GetAssigneeResolution(), DueAtUnixMs: draft.GetDueAtUnixMs(), SourceMessageID: draft.GetSourceMessageId()},
 	}})
 }
 

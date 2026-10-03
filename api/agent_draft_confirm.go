@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -30,15 +29,16 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			httpx.WriteJson(w, http.StatusUnauthorized, agentDraftResponse{Code: errcode.ErrUnAuth, Msg: "login required"})
 			return
 		}
-		runID, err := strconv.ParseInt(pathvar.Vars(r)["run_id"], 10, 64)
-		if err != nil || runID <= 0 {
+		runID, validRunID := parseDraftRevision(pathvar.Vars(r)["run_id"])
+		if !validRunID {
 			httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "invalid run ID"})
 			return
 		}
 		var body struct {
-			ExpectedRevision    string  `json:"expected_revision"`
-			ExpectedTitle       *string `json:"expected_title"`
-			ExpectedDescription *string `json:"expected_description"`
+			ExpectedAssigneeID  json.RawMessage `json:"expected_assignee_id"`
+			ExpectedRevision    string          `json:"expected_revision"`
+			ExpectedTitle       *string         `json:"expected_title"`
+			ExpectedDescription *string         `json:"expected_description"`
 		}
 		// Supplementary Unicode characters can need 12 bytes per escaped rune.
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32768))
@@ -63,11 +63,26 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "saved draft revision is required"})
 			return
 		}
+		var expectedAssigneeID *int64
+		if len(body.ExpectedAssigneeID) != 0 {
+			var value string
+			if err := json.Unmarshal(body.ExpectedAssigneeID, &value); err != nil {
+				httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "invalid reviewed assignee ID"})
+				return
+			}
+			id, validID := parseDraftAssigneeID(value)
+			if !validID {
+				httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "invalid reviewed assignee ID"})
+				return
+			}
+			expectedAssigneeID = &id
+		}
 		// Task's stable operation key belongs to Agent, never HTTP headers/body.
 		ctx := metadata.NewOutgoingContext(r.Context(), metadata.Pairs("authorization", token))
 		result, err := client.ConfirmTaskDraft(ctx, &pb.ConfirmTaskDraftRequest{
-			ExpectedRevision: revision,
-			RunId:            runID, ExpectedTitle: *body.ExpectedTitle, ExpectedDescription: *body.ExpectedDescription,
+			ExpectedAssigneeId: expectedAssigneeID,
+			ExpectedRevision:   revision,
+			RunId:              runID, ExpectedTitle: *body.ExpectedTitle, ExpectedDescription: *body.ExpectedDescription,
 		})
 		if err != nil {
 			switch status.Code(err) {
@@ -80,7 +95,8 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			}
 			return
 		}
-		if result == nil || result.GetStatus() != "succeeded" || result.GetTaskId() <= 0 || result.GetDraft().GetRevision() != revision {
+		if result == nil || result.GetStatus() != "succeeded" || result.GetTaskId() <= 0 || result.GetDraft().GetRevision() != revision ||
+			(expectedAssigneeID != nil && result.GetDraft().GetAssigneeId() != *expectedAssigneeID) {
 			httpx.WriteJson(w, http.StatusBadGateway, agentDraftResponse{Code: errcode.ErrInternal, Msg: "confirmation returned no saved task result; reload the same run"})
 			return
 		}
