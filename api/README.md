@@ -144,10 +144,10 @@ go test ./api -v
 `POST /api/v1/agent/runs/{run_id}/confirm` 接收原 Token，以及最近读取的已保存文字：
 
 ```json
-{"expected_title":"整理会议记录","expected_description":"","expected_revision":"1"}
+{"expected_title":"整理会议记录","expected_description":"","expected_revision":"1","expected_assignee_id":"0"}
 ```
 
-三字段必须显式提供字符串，版本规则同 PUT；空说明使用 `""`，不能省略或为 `null`。标题最多 200 字且非空，说明最多 2000 字；旧值原样传递，不去除空白。请求体上限 32 KiB。仅 Agent 决定 Task 创建键；HTTP `Idempotency-Key` 不使用也不转发，正文不能指定创建键、用户 ID 或团队群范围。确认路由预算现为 19 秒，Agent 整体 18 秒；创建阶段保留 12 秒、其中 Task 调用最多 5 秒，回帖阶段最多 5 秒、IM 调用最多 4 秒。Agent 服务端 20 秒与此处 Agent RPC 客户端 21 秒容纳该调用链，较短调用方截止时间仍优先。成功须返回已持久记录的 `succeeded` 和正任务 ID，例如：
+文字及版本三字段必须显式提供字符串，版本规则同 PUT；空说明使用 `""`，不能省略或为 `null`。新增 `expected_assignee_id` 必须为规范非负十进制字符串，显式 `"0"` 和缺失不同；含称呼或人工选择的草稿由 Agent 要求提供，旧草稿/无称呼兼容缺失，新页面始终提交。标题最多 200 字且非空，说明最多 2000 字；旧值原样传递，不去除空白。请求体上限 32 KiB。仅 Agent 决定 Task 创建键；HTTP `Idempotency-Key` 不使用也不转发，正文不能指定创建键、用户 ID 或团队群范围。确认路由预算现为 19 秒，Agent 整体 18 秒；创建阶段保留 12 秒、其中 Task 调用最多 5 秒，回帖阶段最多 5 秒、IM 调用最多 4 秒。Agent 服务端 20 秒与此处 Agent RPC 客户端 21 秒容纳该调用链，较短调用方截止时间仍优先。成功须返回已持久记录的 `succeeded` 和正任务 ID，例如：
 
 ```json
 {"code":0,"msg":"success","data":{"run_id":"9001","team_id":"2","group_id":"3","status":"succeeded","task_id":"9223372036854775806","draft":{"revision":"1","title":"整理会议记录","description":"","assignee_id":"0","due_at_unix_ms":0,"source_message_id":"0"}}}
@@ -196,3 +196,17 @@ HTTP/实际 Agent/本机 mTLS 客户端联调用 SQL 与业务替身验证确认
 Agent、Gateway、原生页面须协调更新版本契约。已迁移的旧草稿可读取，但旧客户端缺少 expected_revision 的写入返回 400（RPC 为 InvalidArgument），不自动补当前版本。旧 Agent 读取响应省略 revision 时保留只读展示，页面禁用保存/确认；编辑成功必须有正版本，确认结果版本必须与请求一致，异常返回 502。
 
 页面保存/确认使用最近成功读取或保存响应的版本字符串；冲突保留输入并要求 Load，重读后才以新版本再次提交。内容改后恢复仍能识别过时窗口，无变化保存版本不变；冻结重试沿用固定版本和原 Task 键。Node 80 项及全量 Go 通过，真实浏览器、MySQL/017 迁移、容器与云端尚未验收。[本轮完整审查](../docs/agent-assignee-design.md#10-草稿版本基础与现有写入接线审查2026-10-03)。
+
+### 负责人展示与本人选择（2026-10-03）
+
+共享草稿响应始终输出 `assignee_name` 和 `assignee_resolution` 字符串，包括空称呼及旧数据的空状态，ID/版本仍使用十进制字符串。页面展示原称呼、实际 ID、解析或人工选择状态；`matched` 供本人审查，`not_found/ambiguous/truncated` 必须先处理，`selected/unassigned` 是已保存的人工选择。非法状态/称呼/ID 组合返回 502，不据此开放确认。
+
+`PUT /api/v1/agent/runs/{run_id}/draft/assignee` 转调专用 Agent RPC，使用原登录 Token，15 秒路由预算。正文上限 1 KiB，仅接受两个必填字符串：
+
+```json
+{"assignee_id":"123","expected_revision":"2"}
+```
+
+`assignee_id` 允许 `"0"` 明确未指派，版本必须正；拒绝数值、null、负数、前导零、越界或额外字段。成功返回完整待确认草稿，ID/状态与请求一致，版本为原版本或加一；冲突返回 409，依赖错误沿用已有映射，异常成功结果返回 502。Gateway 不查数据库或决定成员权限。
+
+页面通过显式按钮加载已有团队成员分页目录，每页最多 100；选择非零须来自目录，下拉框区分未选择与未指派。未保存文字或选择不能确认；负责人保存与其他草稿操作互斥。冲突/不确定结果保留输入并要求重新 Load；账号、团队群或运行切换后旧结果不会重新开放写入。确认提交最近快照中的负责人 ID，冻结后的重试保留该 ID 与版本。旧响应完全缺少两元数据字段时兼容原契约，不把部分缺失当作已审查。完整验证和文件见[本批审查](../docs/agent-assignee-design.md#11-负责人选择闭环与并行集成审查2026-10-03)。

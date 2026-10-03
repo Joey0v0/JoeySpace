@@ -35,7 +35,7 @@
 
 ## 单项草稿同步确认
 
-`ConfirmTaskDraft(run_id, expected_title, expected_description, expected_revision)` 接收本人原 Token 和最近读取的已保存文字，不接受客户端创建键。Agent 重新核对身份与团队群资格，短事务锁定运行/草稿、比较版本及文字，保存 `agent-task-{run_id}-0` 并进入 `creating`；事务提交后以冻结字段、原 Token、固定键调用 Task `CreateTask`。Task 返回正任务 ID 后，短事务保存 ID 并进入 `succeeded`，随后才返回成功。创建阶段保留 12 秒上限，Task 调用最多 5 秒；启用回帖后总预算 18 秒，回帖阶段最多 5 秒，其中 IM 调用最多 4 秒。Gateway 确认路由 19 秒，Agent 服务端 20 秒、Gateway 的 Agent RPC 客户端 21 秒，实际仍受调用方更短截止时间限制。
+`ConfirmTaskDraft(run_id, expected_title, expected_description, expected_revision, optional expected_assignee_id)` 接收本人原 Token、最近读取的已保存文字及负责人审查值，不接受客户端创建键。含称呼或人工选择的草稿必须明确提供负责人 ID，零表示已审查未指派；未处理歧义不能直接确认。Agent 重新核对身份与团队群资格，待确认的正负责人经 User 复核后，短事务锁定运行/草稿、比较版本、文字及负责人，保存 `agent-task-{run_id}-0` 并进入 `creating`；事务提交后以冻结字段、原 Token、固定键调用 Task `CreateTask`。Task 返回正任务 ID 后，短事务保存 ID 并进入 `succeeded`，随后才返回成功。创建阶段保留 12 秒上限，Task 调用最多 5 秒；启用回帖后总预算 18 秒，回帖阶段最多 5 秒，其中 IM 调用最多 4 秒。Gateway 确认路由 19 秒，Agent 服务端 20 秒、Gateway 的 Agent RPC 客户端 21 秒，实际仍受调用方更短截止时间限制。
 
 创建错误不会解冻草稿或标记“没有创建”。调用方须重读状态，本人用同一运行和已保存文字显式重试；Task 的请求键及内容指纹复用原任务。已成功的重复确认仍核对当前权限，然后返回原结果和回帖状态，不自动重发。没有后台自动恢复；发起人失去权限后不能由别人接手，未确定结果需后续核对流程。详情与取舍见[确认设计](../../docs/agent-confirmation-design.md)和 A41。
 
@@ -61,7 +61,7 @@ SQL/业务替身与本机 gRPC 测试覆盖响应丢失、受理保存失败、�
 
 更新 Agent 前已有库须执行一次 [016 迁移](../../deploy/mysql/migrations/016_agent_draft_assignee.sql)，因为草稿读取、锁定和新增写入均使用新列。旧行默认两列为空，保留原负责人、请求键与结果；新库初始化已同步。幂等重试仍先检查原运行，不重新请求模型、解析姓名或改写原草稿。
 
-**本步尚未开放含称呼草稿的创建。** 现有确认契约只审查标题/说明，所有含称呼的新草稿（包含唯一匹配）暂返回 `FailedPrecondition`；在 RPC 编排和持久冻结处都检查，不能先冻结或调用 Task。旧草稿与新 `none` 草稿保持原确认行为。本人选择/确认审查字段、Gateway 字段透出及页面操作将在后续小步接入；当前旧页面不能展示或处理解析状态。
+含称呼草稿的旧确认保护保留：缺少 `expected_assignee_id` 仍返回 `FailedPrecondition`，不能只携带新版本绕过审查。当前接口允许本人审查唯一 `matched`，或先处理未匹配/重名/截断后确认；详情见下方负责人选择。旧草稿与新 `none` 草稿兼容未提供负责人审查值的旧请求；新版页面始终明确提供，包括零。
 
 Agent/进程/Gateway 定向、全量 Go、Linux Agent 编译通过；本机 TCP 测试使用实际生产构造/Eino 链/数据库适配，User、IM、Task 业务和模型、SQL 数据为替身。未执行真实 MySQL、方舟或浏览器联调。全部文件、三步调用链和取舍见[本轮审查记录](../../docs/agent-assignee-design.md#8-agent-提取解析与持久化审查2026-10-03)。
 
@@ -69,6 +69,12 @@ Agent/进程/Gateway 定向、全量 Go、Linux Agent 编译通过；本机 TCP 
 
 `TaskDraftItem.revision` 是正 int64；旧行经 [017 迁移](../../deploy/mysql/migrations/017_agent_draft_revision.sql)从 1 开始，新草稿同样从 1 开始。更新 Agent 前须在 016 后执行尚未执行的 017，读取旧草稿也依赖 revision 列。文字实际改变在原锁定事务内递增一次；无变化保存不递增，版本耗尽拒绝编辑。
 
-Edit/Confirm RPC 必须携带 `expected_revision`；缺失或非正值返回 InvalidArgument，版本不匹配返回 Aborted，要求本人重读。检查本人当前资格后仍在事务内比较，避免读取与写入间的并发变更。冻结、任务成功、回帖受理不递增内容版本；超时后本人读取原版本并沿用原任务键重试。版本不替代权限或 Task 幂等键。含称呼草稿仍被旧确认保护拦截，负责人选择接口尚未完成。
+Edit/Select/Confirm RPC 必须携带 `expected_revision`；缺失或非正值返回 InvalidArgument，版本不匹配返回 Aborted，要求本人重读。检查本人当前资格后仍在事务内比较，避免读取与写入间的并发变更。冻结、任务成功、回帖受理不递增内容版本；超时后本人读取原版本并沿用原任务键重试。版本不替代权限、负责人审查或 Task 幂等键。
 
 [选项、兼容与完整审查](../../docs/agent-assignee-design.md#10-草稿版本基础与现有写入接线审查2026-10-03)。本地 Go/页面替身与编译通过，不代表真实迁移或完整生产链验收。
+
+## 本人选择负责人与确认审查（2026-10-03）
+
+`SelectTaskDraftAssignee(run_id, optional assignee_id, expected_revision)` 只允许原发起人操作待确认草稿。负责人字段必须存在，正 ID 经原 Token 调 User `CheckTeamMemberByID`，零表示本人明确未指派；目录展示不能替代这个资格检查。数据库事务内再次比较范围、版本和完整草稿，正 ID 保存 `selected`，零保存 `unassigned`，保留最初提取的称呼。ID/选择状态实际改变才递增版本，相同选择不递增；文字编辑保留选择，冻结后不能再改。
+
+确认在编排和锁定事务内都比较本人审查的 ID，并拒绝未处理的 `not_found/ambiguous/truncated`。待确认阶段复核目标成员；`creating/succeeded` 的重试不再解析或改选冻结负责人，也不因目标后来离队否定已保存结果。仍检查发起人当前群资格，Task 用原创建键继续其幂等规则；没有自动后台重试。HTTP 与页面按[共同契约](../../docs/assignee-collaboration-contract.md)接线；本批验证范围和所有修改文件见[审查记录](../../docs/agent-assignee-design.md#11-负责人选择闭环与并行集成审查2026-10-03)。现有 016/017 列足够，本批没有新增迁移。

@@ -1,6 +1,6 @@
 # Agent 任务负责人匹配方案
 
-日期：2026-10-03。状态：**按推荐 A/A 推进、待逐项复核；User 解析及 Agent 提取/持久化/读取 RPC 本地测试通过，本人选择与确认审查、页面尚未接入**。上轮给出两个 A 方案后，用户回复“继续进行下一步”，据此推进，未将该回复记为逐项明确选择。对应架构记录 A48/A49；第 6 节保留仅准备设计的历史记录，User 实现见第 7 节，Agent 本轮实现见第 8 节。
+日期：2026-10-03。状态：**负责人选择、确认审查、Gateway 与页面闭环已在集成分支通过本地验证；main 合入待用户审查，真实环境未验收**。A48/A49 按推荐 A/A 推进、待逐项复核：上轮给出两个 A 后，用户回复“继续进行下一步”，未记为逐项明确选择；A50 版本方案由用户明确选择。第 6—10 节为此前各步历史，第 11 节是本批最新九步交付、全部文件和验证范围。
 
 ## 1. 要解决的问题与现有能力
 
@@ -307,4 +307,78 @@ A50 已确认版本号；备选扩大旧值比较、选择理由、迁移/协调
 - 没有执行真实 MySQL 017（以及此前未执行的 016）迁移，没有请求方舟模型，真实数据库并发、浏览器、容器与云端链路尚未验收。测试替身不能替代最终环境验收。
 
 下一步：本人负责人审查与选择使用此版本机制，完成选择状态与确认规则后再接 Gateway/页面。阶段 6 仍在实现中，负责人完整链、模糊时间、多项草稿及群内 @AI 尚未完成。
+
+## 11. 负责人选择闭环与并行集成审查（2026-10-03）
+
+本批按用户确认的 worktree 方案执行：主 agent 统一契约、审查、提交和集成，三位执行 agent 分别在独立后端/Gateway/页面 worktree 工作。共同基线 `2daef47`，后端 `4c70758`、Gateway `eebb365`、页面 `576907a`；按该顺序合入 `codex/assignee-integration`，没有冲突。main 仍为 `7a717cc`，合入须经用户审查，本批没有推送或部署。各子 agent 只改任务范围内文件，没有自行创建迁移或更改依赖。
+
+### 九个小步骤、目的与结果
+
+| 步骤 | 目标与解决的问题 | 实际改动和验证 |
+| --- | --- | --- |
+| 1：主 agent 统一契约 | 三层使用相同的状态、版本和审查字段，避免各自实现不同含义 | 固定 optional ID、selected/unassigned、HTTP 字符串契约及文件归属；协议生成与 Agent/进程/API 基线测试通过。初次输出目录错误已纠正，没有残留错误生成文件 |
+| 2：后端选择保存 | 只有原发起人可以保存当前真实成员或明确未指派，不能覆盖并发编辑 | 新选择 RPC、User 资格检查、事务内完整草稿/版本比较；保留原称呼，实际变化加一、相同选择 no-op |
+| 3：后端确认审查 | 版本不能代替本人看过负责人，歧义不能默认为零 | optional reviewed ID 区分缺失与零；编排与冻结事务均核对。待确认正 ID 复核当前成员；冻结后保持原 ID/版本/任务键 |
+| 4：后端业务回归 | 新规则不能破坏已有创建和回帖恢复 | Agent 与进程全包回归通过，覆盖权限撤销、版本过时、冻结禁改、缺审查、明确零、目标离队及文字保留选择；旧过时确认保护包装删除 |
+| 5：Gateway 展示/选择 | 页面需要看到原称呼和状态，并有独立保存入口 | 共享响应始终输出两字段，新增 PUT 路由及严格 ID/版本校验；返回状态/ID/版本异常拒绝，含版本加一溢出保护 |
+| 6：Gateway 确认 | HTTP 不能丢失审查值，不能把缺失当零 | optional 字段透传原 Token，成功核对负责人/版本；API 回归通过，新增 9 个处理器测试含实际 JSON 输出及大整数 |
+| 7：页面展示与目录 | 本人能识别原称呼和当前实际 ID，重名不靠猜测 | 显式加载已有成员分页目录；显示匹配/歧义状态，下拉框分开未选择与明确未指派，不假定第一页完整 |
+| 8：页面保存与确认 | 未保存选择不能用于创建，旧请求结果不能误开放新上下文 | 保存携带最新版本，确认携带已保存 ID；所有草稿操作互斥，冲突保留输入并要求重读，身份/范围切换丢弃旧结果；新增 20 项页面测试 |
+| 9：主 agent 集成 | 替身单测通过还需要检查三层组合与其他业务回归 | 实际 HTTP→TCP gRPC Agent→SQL/业务替身测试通过；全量 Go、页面 100 项及 Linux Agent/Gateway 编译通过，更新计划、ADR、接口和验收记录 |
+
+调用链：页面显式加载 User 团队成员目录 → 选择 PUT 经 Gateway → Agent 以原 Token 核对本人/当前群与目标成员 → 短事务保存选择并返回版本 → 页面审查后确认 → Agent 比较版本/文字/负责人并冻结 → Task 使用固定键创建 → Agent 保存原任务 ID → 按既有配置尝试独立机器人回帖。成员资料仍归 User，草稿选择仍归 Agent，任务创建规则仍归 Task；没有跨服务表查询或后台自动重试。
+
+### 全部实际修改文件：37 个
+
+以下清单以 `main 7a717cc` 为基准，包含共同协议、生成代码、测试和文档，不把不同 worktree 的相同文件重复计算。仅新增本批相关内容，没有更换语言/框架、部署配置或新增数据库迁移。
+
+| 文件 | 用途 |
+| --- | --- |
+| [.gitignore](../.gitignore) | 忽略独立 worktree 目录 |
+| [AGENTS.md](../AGENTS.md) | 保存用户确认的协作、文件归属和批次规则 |
+| [api/README.md](../api/README.md) | HTTP 选择、元数据及确认审查契约 |
+| [api/agent_draft.go](../api/agent_draft.go) | 共享字段与负责人形状校验 |
+| [api/agent_draft_assignee.go](../api/agent_draft_assignee.go) | 专用选择 HTTP 处理器 |
+| [api/agent_draft_assignee_test.go](../api/agent_draft_assignee_test.go) | 选择、元数据、版本及错误用例 |
+| [api/agent_draft_confirm.go](../api/agent_draft_confirm.go) | 确认 optional reviewed ID 解析/转发 |
+| [api/agent_draft_confirm_assignee_test.go](../api/agent_draft_confirm_assignee_test.go) | 缺失、零、大 ID 和异常确认结果 |
+| [api/assignee_flow_integration_test.go](../api/assignee_flow_integration_test.go) | 实际 HTTP/TCP gRPC 选择、审查及冻结重试组合 |
+| [api/main.go](../api/main.go) | 新 PUT 路由，15 秒预算 |
+| [cmd/agent/main_test.go](../cmd/agent/main_test.go) | 现有启动 User 替身补目标成员检查 |
+| [docs/agent-assignee-design.md](agent-assignee-design.md) | 本文及完整审查清单 |
+| [docs/architecture-decisions.md](architecture-decisions.md) | A49/A50 内方案、备选、代价和验证记录 |
+| [docs/assignee-collaboration-contract.md](assignee-collaboration-contract.md) | 三个 worktree 的共同协议和归属 |
+| [docs/project-plan.md](project-plan.md) | 当前本地能力、main 审查状态和下一步 |
+| [docs/stage6-acceptance.md](stage6-acceptance.md) | 更新负责人/版本及真实验收场景 |
+| [docs/worktree-collaboration-plan.md](worktree-collaboration-plan.md) | 用户采用的协作方案与执行记录 |
+| [examples/chat.html](../examples/chat.html) | 原生页面目录、选择、审查与上下文保护 |
+| [examples/chat.test.cjs](../examples/chat.test.cjs) | 新增 20 项，页面总计 100 项 |
+| [rpc/agent/README.md](../rpc/agent/README.md) | 选择、确认保护、冻结重试说明 |
+| [rpc/agent/agent.proto](../rpc/agent/agent.proto) | 选择 RPC 和 optional reviewed ID，保留已有字段号 |
+| [rpc/agent/draft_access.go](../rpc/agent/draft_access.go) | reader 接入选择存储和成员客户端 |
+| [rpc/agent/draft_access_test.go](../rpc/agent/draft_access_test.go) | 原访问替身声明适配 |
+| [rpc/agent/draft_assignee_confirm_test.go](../rpc/agent/draft_assignee_confirm_test.go) | 审查、冻结、目标资格与文字保留选择用例 |
+| [rpc/agent/draft_assignee_test.go](../rpc/agent/draft_assignee_test.go) | 原确认保护测试适配审查方法 |
+| [rpc/agent/draft_confirm_rpc.go](../rpc/agent/draft_confirm_rpc.go) | 待确认成员检查、审查 ID 和完整冻结草稿核对 |
+| [rpc/agent/draft_confirm_rpc_test.go](../rpc/agent/draft_confirm_rpc_test.go) | 原 confirmer 替身签名适配 |
+| [rpc/agent/draft_confirm_store.go](../rpc/agent/draft_confirm_store.go) | 锁定后比较负责人审查值 |
+| [rpc/agent/draft_confirm_store_test.go](../rpc/agent/draft_confirm_store_test.go) | 原冻结事务测试签名适配 |
+| [rpc/agent/draft_revision_test.go](../rpc/agent/draft_revision_test.go) | 原版本回归签名适配 |
+| [rpc/agent/draft_rpc.go](../rpc/agent/draft_rpc.go) | 生产 ConfigureDraftAccess 接入现有 User 客户端/存储 |
+| [rpc/agent/draft_select_rpc.go](../rpc/agent/draft_select_rpc.go) | 本人选择 RPC 和目标成员核对 |
+| [rpc/agent/draft_select_store.go](../rpc/agent/draft_select_store.go) | 事务版本比较、no-op 与选择写入 |
+| [rpc/agent/draft_select_test.go](../rpc/agent/draft_select_test.go) | 选择、明确零、权限、状态和事务用例 |
+| [rpc/agent/pb/agent.pb.go](../rpc/agent/pb/agent.pb.go) | 重新生成消息定义 |
+| [rpc/agent/pb/agent_grpc.pb.go](../rpc/agent/pb/agent_grpc.pb.go) | 重新生成选择 RPC 客户端/服务声明 |
+| [rpc/agent/task_draft.go](../rpc/agent/task_draft.go) | selected/unassigned 合法组合及审查规则 |
+
+### 验证结果与未验证部分
+
+- 共同起点及执行分支定向回归通过；集成后全量 `go test ./... -count=1` 通过。
+- `TestAssigneeHTTPAndAgentRPCReviewSelectionAndFrozenRetry` 单独及全量回归通过：大整数 ID `9007199254740993` 不失真；歧义/旧确认拦截；保存选择后版本更新；Task 首次超时后重读 creating，目标资格撤销仍使用冻结 ID/版本/键恢复原任务；重复成功确认不再创建，发起人群资格撤销仍拒绝。
+- `node --test examples/chat.test.cjs` 100/100 通过，覆盖选择/分页/显式零、未保存保护、冲突保留输入、上下文切换、互斥和冻结结果。
+- Linux `CGO_ENABLED=0` 编译 `./cmd/agent` 和 `./api` 通过，产物放在临时目录；未构建容器。
+- SQL、User/IM/Task 业务和模型使用替身；组合测试运行生产 Agent 处理与存储适配、本机 HTTP/TCP gRPC，不运行实际 Gateway/Agent 进程或真实 MySQL。没有执行 016/017 或此前真实迁移，没有请求方舟，没有真实浏览器/中间件/容器/云端验收。
+
+当前阶段 6 仍未全完成。用户审查本集成结果后再合入 main；下一业务批次先讨论时间处理，再逐步推进多项草稿和群内 `@AI`，阶段 7 仍须真实部署与整体验收。既定选型内接口取舍记录在 A49/A50 补充，新的技术或架构选择仍先讨论。
 

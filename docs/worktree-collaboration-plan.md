@@ -1,6 +1,6 @@
 # Worktree 多 Agent 协作方案
 
-日期：2026-10-03。状态：**用户已确认，开始准备共同契约与 worktree**。
+日期：2026-10-03。状态：**首批负责人闭环已在集成分支通过本地验证，main 合入待用户审查**。
 
 本方案中的 Agent 指参与项目开发的 Codex agent，与项目运行时的 Eino Agent 服务不同。依据 [项目计划](project-plan.md)、[负责人方案](agent-assignee-design.md)和现行 [AGENTS.md](../AGENTS.md)。方案讨论时仅新增本文；用户随后明确要求按方案执行，已将协作要求加入 AGENTS.md，准备共同契约。实际进展另见本文第 9 节。
 
@@ -26,7 +26,7 @@
 
 ## 3. 首批只完成负责人选择闭环
 
-当前已实现姓名提取、User 解析、草稿存储和 A50 版本检查；本人选择、Gateway 解析字段、页面选择与确认审查尚未完成。首批围绕这一条业务链工作，不同时铺开时间解析、多项草稿、群内 @AI 或阶段 7。
+开始本批时已实现姓名提取、User 解析、草稿存储和 A50 版本检查；本人选择、Gateway 解析字段、页面选择与确认审查当时尚未完成，现有实施进展见第 9 节。首批仅围绕这一条业务链，不同时铺开时间解析、多项草稿、群内 @AI 或阶段 7。
 
 | 角色 | 独立分支建议 | 本批目标与负责文件 | 验证责任 |
 | --- | --- | --- | --- |
@@ -80,7 +80,7 @@
 - Git worktree 可由主 agent用 Git 命令创建；若用户自行从桌面应用建立 worktree 聊天，需核对是否为 detached HEAD，并创建具名分支供集成。
 - 本批先使用各自替身测试。worktree 不隔离端口、MySQL、Redis、Kafka 或 Docker 卷；如需并行启动实际进程，先统一分配端口与测试环境，不能各自操作同一数据库或共用 Compose 项目来验收。
 - 被忽略的本地配置、证书和 protoc 工具不会随普通 worktree 自动出现。统一指定已有工具或按实际测试需要准备环境，不要求复制生产密钥，也不把缺少工具视为业务已验证。
-- 新工作区路径的沙箱权限需按实际工具规则配置或审批；工作目录约束也写进每位 agent 的任务书。本轮尚未创建目录或请求这些权限。
+- 新工作区路径的沙箱权限按实际工具规则配置或审批，工作目录约束写进每位 agent 的任务书。本批使用项目内被忽略的 `.worktrees` 目录；受保护的 Git 元数据写入及默认缓存不可访问的 Go 测试，按工具审批后执行。
 
 ## 7. 后续批次
 
@@ -99,6 +99,17 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 
 ## 9. 执行记录（2026-10-03）
 
-第一步：协作约定已落入 AGENTS.md、项目计划；.worktrees/ 从 Git 忽略，独立工作目录位于项目可写范围。共同协议与[契约](assignee-collaboration-contract.md)先准备，新增 RPC 未实现时保持 Unimplemented；负责人原确认保护尚未解除。协议生成/编译、共同提交、三个工作区以及实施结果在完成后补记。
+第一步：协作约定落入 AGENTS.md、项目计划，`.worktrees/` 从 Git 忽略。共同协议与[契约](assignee-collaboration-contract.md)先准备，协议准备阶段新增 RPC 保持 Unimplemented，原负责人确认保护保留；后续在执行分支实施，不能把协议准备测试当成功能验证。
 
-协议准备验证：纠正生成输出目录后，`go test ./rpc/agent ./cmd/agent ./api -count=1` 通过；新方法当前由 UnimplementedAgentServer 拒绝，不能算负责人选择已实现。协调分支为 codex/assignee-contract，main 保持 7a717cc。工作区建立和业务实现接下来执行。
+协议准备验证：纠正生成输出目录后，`go test ./rpc/agent ./cmd/agent ./api -count=1` 通过。共同基线 `2daef47` 位于 `codex/assignee-contract`，三个分支均从该提交建立；这是准备阶段记录，当时选择方法尚未实现。
+
+| 工作目录（相对仓库） | 分支 | 交付 |
+| --- | --- | --- |
+| `.worktrees/assignee-backend` | `codex/assignee-backend` | 15 个文件；负责人选择、成员检查、事务版本比较及确认冻结；提交 `4c70758` |
+| `.worktrees/assignee-gateway` | `codex/assignee-gateway` | 六个文件；负责人元数据、选择入口及确认审查字段；提交 `eebb365` |
+| `.worktrees/assignee-ui` | `codex/assignee-ui` | 两个文件；目录分页、选择保存及审查操作；提交 `576907a` |
+| 主工作区 | `codex/assignee-integration` | 主 agent 按后端 → Gateway → 页面合并并做跨层验证，main 合入待用户审查 |
+
+各执行 agent 不改共同协议/文档，不自行提交、合并或推送；交付由主 agent 审查允许文件后逐个提交。完整实际修改文件、测试与未验证范围统一记录在[本批审查](agent-assignee-design.md#11-负责人选择闭环与并行集成审查2026-10-03)。本批没有执行真实迁移、请求模型或同步云端。
+
+集成顺序已执行：后端快进、Gateway 合并 `de88e94`、页面合并 `1e4c6e6`，没有冲突。主 agent 另补 HTTP→实际 TCP gRPC Agent→SQL/业务替身组合测试，验证歧义拒绝、选择、旧确认保护、固定负责人/版本/请求键、Task 响应丢失后重试及发起人群权限撤销。全量 `go test ./... -count=1` 通过，页面 100/100 通过，Linux Agent/Gateway 编译通过。main 保持 `7a717cc`；集成审查交付不会自动推送或部署。
