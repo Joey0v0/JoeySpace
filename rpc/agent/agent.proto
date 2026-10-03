@@ -64,6 +64,20 @@ message TaskDraftItem {
   string assignee_resolution = 7;
   // 正整数内容版本；实际编辑才递增，任务冻结/创建/回帖不递增。
   int64 revision = 8;
+  // 旧草稿缺失；新草稿包含原始依据和当前本人处理状态。
+  TaskDraftDeadline deadline = 9;
+}
+
+message TaskDraftDeadline {
+  string text = 1;
+  string source = 2; // none / instruction / message
+  int64 source_message_id = 3;
+  int64 reference_unix_ms = 4;
+  string timezone = 5;
+  string resolution = 6; // none / parsed / needs_input / selected / unset
+  string reason = 7;
+  int64 parsed_unix_ms = 8; // 原解析候选，不随本人编辑改变
+  int64 instruction_reference_unix_ms = 9;
 }
 
 message PrepareTaskDraftRequest {
@@ -99,6 +113,8 @@ message ConfirmTaskDraftRequest {
   optional int64 expected_assignee_id = 5;
   // 新页面始终审查截止时间；非零截止时间须明确提供，缺失不默认零。
   optional int64 expected_due_at_unix_ms = 6;
+  // 新依据草稿必须明确审查状态；旧草稿为空仍兼容。
+  string expected_deadline_resolution = 7;
 }
 
 message SelectTaskDraftAssigneeRequest {
