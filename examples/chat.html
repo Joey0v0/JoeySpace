@@ -214,9 +214,10 @@
     </div>
     <div class="config-row">
       <label>Request key:</label>
-      <input type="text" id="draftRequestKey" placeholder="generated on first submit; keep for retries">
+      <input type="text" id="draftRequestKey" placeholder="generated on first submit; keep for retries" oninput="clearTaskDraftResult()">
       <button onclick="newDraftRequestKey()">New key</button>
     </div>
+    <div id="draftReferenceSummary" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;">Generation reference appears when you submit. Check your device clock. Unknown keys cannot be safely resumed after refresh; use New key or read by Run ID.</div>
     <div class="config-row">
       <label>Run ID:</label>
       <input type="text" inputmode="numeric" id="draftRunID" placeholder="returned after preparation; keep for later reads" oninput="clearTaskDraftResult()">
@@ -320,8 +321,7 @@ let draftConfirmNeedsReload = false;
 let loadedTaskDraft = null;
 let draftEditNeedsReload = false;
 let draftEditorEpoch = 0;
-let preparedDraftKey = '';
-let preparedDraftSignature = '';
+const draftPreparationRequests = new Map();
 const updatingTasks = new Set();
 
 function validID(value) {
@@ -394,6 +394,7 @@ function clearTaskDraftResult() {
   document.getElementById('draftAssigneeSummary').textContent = '';
   document.getElementById('draftDeadlineSummary').textContent = '';
   document.getElementById('draftDueAt').value = '';
+  document.getElementById('draftReferenceSummary').textContent = 'Generation reference appears when you submit. Check your device clock. Unknown keys cannot be safely resumed after refresh; use New key or read by Run ID.';
   document.getElementById('draftMemberHint').textContent = 'Load members explicitly to select a real teammate.';
   renderDraftAssigneeOptions('');
   draftEditNeedsReload = false;
@@ -806,9 +807,9 @@ function newDraftRequestKey() {
   }
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
   const key = 'draft-' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  if (draftPreparationRequests.has(key)) throw new Error('request key collision; generate a new key again');
   document.getElementById('draftRequestKey').value = key;
-  preparedDraftKey = '';
-  preparedDraftSignature = '';
+  draftPreparationRequests.set(key, { signature: null, reference: null });
   document.getElementById('draftRunID').value = '';
   clearTaskDraftResult();
   return key;
@@ -836,6 +837,7 @@ async function loadTaskDraft(expectedScope, expectedInstruction) {
   const scope = expectedScope || taskDraftScope();
   const runID = document.getElementById('draftRunID').value.trim();
   if (!validID(runID)) throw new Error('enter a valid run ID');
+  if (!expectedScope) document.getElementById('draftReferenceSummary').textContent = 'Reading by Run ID does not retrieve its saved instruction reference. The current generation reference is shown only when submitting.';
   const resultBox = document.getElementById('draftResult');
   const epoch = draftEditorEpoch;
   loadingDraft = true;
@@ -1087,17 +1089,32 @@ async function prepareTaskDraft() {
   if (!instruction || Array.from(instruction).length > 2000) {
     throw new Error('enter an instruction (1-2000 characters)');
   }
-  const signature = JSON.stringify([scope.teamID, scope.groupID, instruction]);
+  const signature = JSON.stringify([scope.token, scope.teamID, scope.groupID, instruction]);
   const keyField = document.getElementById('draftRequestKey');
-  if (preparedDraftKey && keyField.value.trim() === preparedDraftKey && signature !== preparedDraftSignature) {
-    newDraftRequestKey();
-  }
-  const key = keyField.value.trim() || newDraftRequestKey();
+  let key = keyField.value.trim() || newDraftRequestKey();
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(key)) throw new Error('invalid draft request key');
-  preparedDraftKey = key;
-  preparedDraftSignature = signature;
+  let bundle = draftPreparationRequests.get(key);
+  if (!bundle) {
+    throw new Error('unknown request key: its original reference cannot be recovered here. Use New key or read the existing Run ID; refresh does not restore requests.');
+  }
+  if (bundle.signature !== null && bundle.signature !== signature) {
+    key = newDraftRequestKey();
+    bundle = draftPreparationRequests.get(key);
+  }
+  if (bundle.reference === null) {
+    const reference = Date.now();
+    if (!validDraftDue(reference) || reference === 0) throw new Error('invalid device clock; correct it before preparing a draft');
+    bundle.signature = signature;
+    bundle.reference = reference;
+  }
   const resultBox = document.getElementById('draftResult');
   clearTaskDraftResult();
+  const epoch = draftEditorEpoch;
+  const stillCurrent = () => draftEditorEpoch === epoch && sameTaskDraftScope(scope) &&
+    document.getElementById('draftInstruction').value.trim() === instruction && keyField.value.trim() === key;
+  document.getElementById('draftReferenceSummary').textContent = 'Current generation request reference (not retrieved from a saved run):\n' +
+    shanghaiDeadlineInput(bundle.reference).replace('T', ' ') + ' Asia/Shanghai\nUTC: ' + new Date(bundle.reference).toISOString() +
+    '\nCheck your device clock. Retrying this same request keeps this reference.';
   preparingDraft = true;
   refreshTaskDraftControls();
   resultBox.textContent = 'Preparing draft...';
@@ -1105,15 +1122,14 @@ async function prepareTaskDraft() {
     const resp = await fetch('/api/v1/teams/' + scope.teamID + '/groups/' + scope.groupID + '/task-drafts', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + scope.token, 'Idempotency-Key': key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction })
+      body: JSON.stringify({ instruction, instruction_reference_unix_ms: bundle.reference })
     });
     if (!resp.ok) throw new Error('draft prepare HTTP ' + resp.status);
     const result = await resp.json();
     if (result.code !== 0 || !result.data || !validID(result.data.run_id)) {
       throw new Error('draft prepare failed: ' + (result.msg || 'invalid response'));
     }
-    if (!sameTaskDraftScope(scope) || document.getElementById('draftInstruction').value.trim() !== instruction ||
-        keyField.value.trim() !== key) {
+    if (!stillCurrent()) {
       resultBox.textContent = 'Context changed; return to the original group and retry with the same key.';
       return;
     }
@@ -1121,9 +1137,17 @@ async function prepareTaskDraft() {
     try {
       await loadTaskDraft(scope, instruction);
     } catch (e) {
+      if (!stillCurrent()) return;
       resultBox.textContent = 'Run ID: ' + result.data.run_id + '\nDraft prepared; read failed: ' + e.message;
     }
+    if (!stillCurrent()) return;
     return result.data.run_id;
+  } catch (e) {
+    if (!stillCurrent()) {
+      resultBox.textContent = 'Context changed; return to the original group and retry with the same key.';
+      return;
+    }
+    throw e;
   } finally {
     preparingDraft = false;
     refreshTaskDraftControls();

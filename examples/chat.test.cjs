@@ -46,6 +46,7 @@ function page(fetch) {
     draftRequestKey: { value: '' },
     draftRunID: { value: '' },
     draftResult: { textContent: '' },
+    draftReferenceSummary: { textContent: '' },
     draftAssigneeSummary: { textContent: '' },
     draftDeadlineSummary: { textContent: '' },
     draftDueAt: { value: '', disabled: true },
@@ -960,6 +961,178 @@ test('AI ask does not show an old answer after the group changes or send twice',
   assert.equal(fields.btnAskAI.disabled, false);
 });
 
+function referencePage(fetch, clock) {
+  const result = page(fetch);
+  result.context.Date = class extends Date { static now() { return clock.value; } };
+  Object.assign(result.fields.teamId, { value: '2' });
+  Object.assign(result.fields.toUserId, { value: '3' });
+  result.fields.chatType.value = '2';
+  result.fields.draftInstruction.value = 'Extract tomorrow task';
+  return result;
+}
+
+test('generation reference is frozen at first actual submission and displayed only as current request context', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 15, 59, 59, 987) }, calls = [];
+  const { context, fields } = referencePage(async (url, options) => {
+    calls.push({ url, options });
+    return { ok: false, status: 503 };
+  }, clock);
+  context.newDraftRequestKey();
+  clock.value += 2000; // Explicit new key does not capture the clock before the request is actually submitted.
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  assert.deepEqual(JSON.parse(calls[0].options.body), { instruction: 'Extract tomorrow task', instruction_reference_unix_ms: clock.value });
+  assert.match(fields.draftReferenceSummary.textContent, /Current generation request reference \(not retrieved from a saved run\)/);
+  assert.match(fields.draftReferenceSummary.textContent, /2026-10-04 00:00:01\.987 Asia\/Shanghai/);
+  assert.match(fields.draftReferenceSummary.textContent, /UTC: 2026-10-03T16:00:01\.987Z/);
+  assert.match(fields.draftReferenceSummary.textContent, /Check your device clock/);
+});
+
+test('failed generation retry across Shanghai midnight sends the exact original key and reference', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 15, 59) }, calls = [];
+  const { context } = referencePage(async (url, options) => { calls.push({ url, options }); return { ok: false, status: 504 }; }, clock);
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 504/);
+  clock.value += 3600000;
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 504/);
+  assert.equal(calls[0].options.headers['Idempotency-Key'], calls[1].options.headers['Idempotency-Key']);
+  assert.equal(calls[0].options.body, calls[1].options.body);
+});
+
+test('generation intents include identity, group and instruction; a changed intent creates a fresh key and reference', async () => {
+  for (const [field, next] of [['token', 'another-token'], ['teamId', '4'], ['toUserId', '5'], ['draftInstruction', 'Different instruction']]) {
+    const clock = { value: Date.UTC(2026, 9, 3, 10) }, calls = [];
+    const { context, fields } = referencePage(async (url, options) => { calls.push({ url, options }); return { ok: false, status: 503 }; }, clock);
+    await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+    fields[field].value = next;
+    context.clearTaskDraftResult();
+    clock.value += 1000;
+    await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+    assert.notEqual(calls[0].options.headers['Idempotency-Key'], calls[1].options.headers['Idempotency-Key'], field);
+    assert.equal(JSON.parse(calls[1].options.body).instruction_reference_unix_ms, clock.value, field);
+  }
+});
+
+test('restoring a known same-intent old key restores its original reference after another key was submitted', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 10) }, calls = [];
+  const { context, fields } = referencePage(async (url, options) => { calls.push({ url, options }); return { ok: false, status: 503 }; }, clock);
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  const oldKey = fields.draftRequestKey.value;
+  clock.value += 1000;
+  context.newDraftRequestKey();
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  fields.draftRequestKey.value = oldKey;
+  context.clearTaskDraftResult();
+  clock.value += 1000;
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  assert.equal(calls[0].options.headers['Idempotency-Key'], calls[2].options.headers['Idempotency-Key']);
+  assert.equal(calls[0].options.body, calls[2].options.body);
+  assert.notEqual(calls[1].options.body, calls[2].options.body);
+});
+
+test('unknown manually entered keys are never sent; original in-page bundles still safely recover', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 10) }, calls = [];
+  const { context, fields } = referencePage(async (url, options) => { calls.push({ url, options }); return { ok: false, status: 503 }; }, clock);
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  const original = fields.draftRequestKey.value;
+  fields.draftRequestKey.value = 'manual-unrecoverable-key';
+  await context.doPrepareTaskDraft();
+  assert.match(fields.draftResult.textContent, /unknown request key.*New key.*Run ID.*refresh/);
+  assert.equal(calls.length, 1);
+  fields.draftRequestKey.value = original;
+  clock.value += 1000;
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  assert.equal(calls[0].options.body, calls[1].options.body);
+});
+
+test('a refreshed page does not invent the reference for a previously used key and still permits Run ID reads', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 10) }, { context, fields } = referencePage(async () => ({ ok: false, status: 503 }), clock);
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  let calls = 0;
+  const next = referencePage(async () => { calls++; return reply(draftData()); }, clock);
+  next.fields.draftRequestKey.value = fields.draftRequestKey.value;
+  await assert.rejects(next.context.prepareTaskDraft(), /unknown request key/);
+  assert.equal(calls, 0);
+  next.fields.draftRunID.value = '9';
+  await next.context.loadTaskDraft();
+  assert.match(next.fields.draftReferenceSummary.textContent, /does not retrieve its saved instruction reference/);
+  assert.equal(calls, 1);
+});
+
+test('invalid device reference clocks reject generation before sending any request', async () => {
+  for (const value of [0, -1, 1.5, NaN, Infinity, 253402300800000, '1791000000000']) {
+    let calls = 0;
+    const clock = { value }, { context } = referencePage(async () => { calls++; return reply({ code: 0 }); }, clock);
+    await assert.rejects(context.prepareTaskDraft(), /invalid device clock/);
+    assert.equal(calls, 0);
+  }
+});
+
+test('generation success or error cannot set Run ID or read after changed contexts are restored', async () => {
+  for (const field of ['token', 'teamId', 'toUserId', 'draftInstruction', 'draftRequestKey']) {
+    for (const fails of [false, true]) {
+      const clock = { value: Date.UTC(2026, 9, 3, 10) };
+      let finish, calls = 0;
+      const pending = new Promise((resolve, reject) => { finish = fails ? reject : resolve; });
+      const { context, fields } = referencePage(async () => { calls++; return pending; }, clock);
+      const work = context.doPrepareTaskDraft(), before = fields[field].value;
+      fields[field].value = 'changed'; context.clearTaskDraftResult(); fields[field].value = before;
+      finish(fails ? new Error('stale model error') : reply({ code: 0, data: { run_id: '9' } }));
+      await work;
+      assert.equal(fields.draftRunID.value, '');
+      assert.equal(calls, 1);
+      assert.doesNotMatch(fields.draftResult.textContent, /stale model error|Run ID: 9/);
+      assert.equal(fields.btnConfirmDraft.disabled, true);
+    }
+  }
+});
+
+test('a new key during generation suppresses the original response and obtains a new reference on next submission', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 10) }, calls = [];
+  let finish;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const { context, fields } = referencePage(async (url, options) => {
+    calls.push({ url, options });
+    return calls.length === 1 ? pending : { ok: false, status: 503 };
+  }, clock);
+  const work = context.prepareTaskDraft();
+  clock.value += 1000;
+  context.newDraftRequestKey();
+  finish(reply({ code: 0, data: { run_id: '9' } }));
+  await work;
+  assert.equal(fields.draftRunID.value, '');
+  await assert.rejects(context.prepareTaskDraft(), /HTTP 503/);
+  assert.notEqual(calls[0].options.headers['Idempotency-Key'], calls[1].options.headers['Idempotency-Key']);
+  assert.equal(JSON.parse(calls[1].options.body).instruction_reference_unix_ms, clock.value);
+});
+
+test('generation follow-up read drops its old draft after a context change even when restored', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 10) };
+  let finish, calls = 0;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const { context, fields } = referencePage(async () => ++calls === 1 ? reply({ code: 0, data: { run_id: '9' } }) : pending, clock);
+  const work = context.prepareTaskDraft();
+  await new Promise(resolve => setImmediate(resolve));
+  fields.token.value = 'changed'; context.clearTaskDraftResult(); fields.token.value = 'test-token';
+  finish(reply(draftData()));
+  await work;
+  assert.equal(fields.draftEditTitle.value, '');
+  assert.equal(fields.btnConfirmDraft.disabled, true);
+  assert.doesNotMatch(fields.draftResult.textContent, /Old title/);
+});
+
+test('generation reference remains unchanged when a prepared run follow-up read fails and generation is explicitly retried', async () => {
+  const clock = { value: Date.UTC(2026, 9, 3, 10) }, calls = [];
+  const { context, fields } = referencePage(async (url, options) => {
+    calls.push({ url, options });
+    return url.endsWith('/task-drafts') ? reply({ code: 0, data: { run_id: '9' } }) : { ok: false, status: 503 };
+  }, clock);
+  await context.prepareTaskDraft();
+  clock.value += 86400000;
+  await context.prepareTaskDraft();
+  assert.equal(calls[0].options.body, calls[2].options.body);
+  assert.equal(calls[0].options.headers['Idempotency-Key'], calls[2].options.headers['Idempotency-Key']);
+  assert.equal(fields.draftRunID.value, '9');
+});
+
 test('task draft preparation keeps 64-bit IDs exact and only displays the draft', async () => {
   const calls = [];
   const { context, fields } = page(async (url, options) => {
@@ -979,7 +1152,8 @@ test('task draft preparation keeps 64-bit IDs exact and only displays the draft'
   assert.equal(calls[0].url, '/api/v1/teams/9007199254740993/groups/9007199254740995/task-drafts');
   assert.equal(calls[0].options.headers.Authorization, 'Bearer test-token');
   assert.equal(calls[0].options.headers['Idempotency-Key'], fields.draftRequestKey.value);
-  assert.deepEqual(JSON.parse(calls[0].options.body), { instruction: 'Extract one task' });
+  assert.equal(JSON.parse(calls[0].options.body).instruction, 'Extract one task');
+  assert.ok(Number.isSafeInteger(JSON.parse(calls[0].options.body).instruction_reference_unix_ms));
   assert.equal(calls[1].url, '/api/v1/agent/runs/9007199254740997/draft');
   assert.equal(fields.draftRunID.value, '9007199254740997');
   assert.match(fields.draftResult.textContent, /<script>task<\/script>/);
