@@ -29,6 +29,9 @@ func (s *Server) PrepareTaskDraft(ctx context.Context, req *pb.PrepareTaskDraftR
 	if err != nil {
 		return nil, err
 	}
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "draft request is required")
+	}
 	md, _ := metadata.FromIncomingContext(ctx)
 	keys := md.Get("idempotency-key")
 	if len(keys) != 1 || !validDraftRequestKey(keys[0]) {
@@ -39,7 +42,7 @@ func (s *Server) PrepareTaskDraft(ctx context.Context, req *pb.PrepareTaskDraftR
 	}
 	prepareCtx, cancel := context.WithTimeout(ctx, askTimeout)
 	defer cancel()
-	runID, err := s.preparer.prepare(prepareCtx, token, req.GetTeamId(), req.GetGroupId(), req.GetInstruction(), keys[0])
+	runID, err := s.preparer.prepareWithReference(prepareCtx, token, req.GetTeamId(), req.GetGroupId(), req.GetInstruction(), keys[0], req.InstructionReferenceUnixMs)
 	if prepareCtx.Err() != nil {
 		return nil, status.FromContextError(prepareCtx.Err()).Err()
 	}

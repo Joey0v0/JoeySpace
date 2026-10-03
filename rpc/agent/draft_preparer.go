@@ -39,11 +39,18 @@ type draftPreparer struct {
 // prepare creates one draft after resolving the current user and reading the
 // currently authorized group context. A model can suggest content, not scope.
 func (p *draftPreparer) prepare(ctx context.Context, token string, teamID, groupID int64, instruction, requestKey string) (int64, error) {
+	return p.prepareWithReference(ctx, token, teamID, groupID, instruction, requestKey, nil)
+}
+
+// The reference is a client-supplied interpretation input, not authorization or
+// the server creation time. Missing values retain the original request identity.
+func (p *draftPreparer) prepareWithReference(ctx context.Context, token string, teamID, groupID int64, instruction, requestKey string, reference *int64) (int64, error) {
 	if p == nil || p.identity == nil || p.messages == nil || p.generator == nil || p.store == nil || p.idNode == nil {
 		return 0, status.Error(codes.Unavailable, "draft preparation is not configured")
 	}
 	instruction = strings.TrimSpace(instruction)
-	if teamID <= 0 || groupID <= 0 || !utf8.ValidString(instruction) || utf8.RuneCountInString(instruction) < 1 || utf8.RuneCountInString(instruction) > 2000 || !validDraftRequestKey(requestKey) {
+	if teamID <= 0 || groupID <= 0 || !utf8.ValidString(instruction) || utf8.RuneCountInString(instruction) < 1 || utf8.RuneCountInString(instruction) > 2000 || !validDraftRequestKey(requestKey) ||
+		(reference != nil && (*reference <= 0 || *reference > maxDraftDueAtUnixMs)) {
 		return 0, status.Error(codes.InvalidArgument, "invalid draft request")
 	}
 	actorID, err := p.identity.currentUserID(ctx, token)
@@ -58,7 +65,7 @@ func (p *draftPreparer) prepare(ctx context.Context, token string, teamID, group
 		return 0, status.FromContextError(ctx.Err()).Err()
 	}
 	scope := draftRunScope{TeamID: teamID, GroupID: groupID, InitiatorID: actorID}
-	fingerprint := draftPreparationFingerprint(teamID, groupID, instruction)
+	fingerprint := draftPreparationFingerprintWithReference(teamID, groupID, instruction, reference)
 	if existingID, err := p.store.findExistingDraft(ctx, scope, requestKey, fingerprint); err != nil || existingID > 0 {
 		return existingID, err
 	}
@@ -109,11 +116,16 @@ func assigneeMentionInAuthorizedText(instruction string, messages []*impb.TeamGr
 }
 
 func draftPreparationFingerprint(teamID, groupID int64, instruction string) string {
+	return draftPreparationFingerprintWithReference(teamID, groupID, instruction, nil)
+}
+
+func draftPreparationFingerprintWithReference(teamID, groupID int64, instruction string, reference *int64) string {
 	value, _ := json.Marshal(struct {
 		TeamID      int64  `json:"team_id"`
 		GroupID     int64  `json:"group_id"`
 		Instruction string `json:"instruction"`
-	}{teamID, groupID, instruction})
+		Reference   *int64 `json:"instruction_reference_unix_ms,omitempty"`
+	}{teamID, groupID, instruction, reference})
 	sum := sha256.Sum256(value)
 	return hex.EncodeToString(sum[:])
 }
