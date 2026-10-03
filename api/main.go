@@ -72,6 +72,21 @@ func main() {
 		Handler: getTaskDraftItemHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
 	}, rest.WithTimeout(15*time.Second))
 	server.AddRoute(rest.Route{
+		Method:  http.MethodPut,
+		Path:    "/api/v1/agent/runs/:run_id/drafts/:item_index",
+		Handler: editTaskDraftItemTextHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
+		Method:  http.MethodPut,
+		Path:    "/api/v1/agent/runs/:run_id/drafts/:item_index/assignee",
+		Handler: selectTaskDraftItemAssigneeHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
+		Method:  http.MethodPut,
+		Path:    "/api/v1/agent/runs/:run_id/drafts/:item_index/deadline",
+		Handler: editTaskDraftItemDeadlineHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
 		Path:    "/api/v1/agent/runs/:run_id/draft",
 		Handler: getTaskDraftHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
