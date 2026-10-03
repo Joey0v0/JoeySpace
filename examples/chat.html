@@ -242,6 +242,7 @@
       <small>Load before editing. After a conflict, load again and review both the latest draft and your retained changes.</small>
     </div>
     <div id="draftDeadlineSummary" role="status" aria-live="polite" style="white-space:pre-wrap;"></div>
+    <div id="draftDeadlineEvidence" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;"></div>
     <div class="config-row">
       <label>Due (Asia/Shanghai):</label>
       <input type="datetime-local" id="draftDueAt" step="0.001" oninput="refreshTaskDraftControls()" disabled>
@@ -393,6 +394,7 @@ function clearTaskDraftResult() {
   draftMembersLoaded = false;
   document.getElementById('draftAssigneeSummary').textContent = '';
   document.getElementById('draftDeadlineSummary').textContent = '';
+  document.getElementById('draftDeadlineEvidence').textContent = '';
   document.getElementById('draftDueAt').value = '';
   document.getElementById('draftReferenceSummary').textContent = 'Generation reference appears when you submit. Check your device clock. Unknown keys cannot be safely resumed after refresh; use New key or read by Run ID.';
   document.getElementById('draftMemberHint').textContent = 'Load members explicitly to select a real teammate.';
@@ -420,7 +422,7 @@ function refreshTaskDraftControls() {
     loadedTaskDraft.status !== 'waiting_confirmation';
   const button = document.getElementById('btnConfirmDraft');
   button.disabled = busy || !current || !writableDraft(loadedTaskDraft) || draftEditNeedsReload || dirty ||
-    !['waiting_confirmation', 'creating'].includes(loadedTaskDraft.status) || !draftAssigneeResolved(loadedTaskDraft);
+    !['waiting_confirmation', 'creating'].includes(loadedTaskDraft.status) || !draftAssigneeResolved(loadedTaskDraft) || !draftDeadlineResolved(loadedTaskDraft);
   button.textContent = current && loadedTaskDraft.status === 'creating' ? 'Retry confirmation' : 'Confirm and create task';
   const hint = document.getElementById('draftConfirmHint');
   hint.textContent = !current ? 'Load a saved draft before confirming.' :
@@ -429,6 +431,7 @@ function refreshTaskDraftControls() {
     loadedTaskDraft.status === 'succeeded' ? 'Task created. Its ID is shown above.' :
     loadedTaskDraft.status === 'creating' ? 'Creation submitted; result not recorded yet. No automatic background retry. Retry this same run explicitly.' :
     !draftAssigneeResolved(loadedTaskDraft) ? 'Select and save a responsible teammate, or explicitly save Unassigned.' :
+    !draftDeadlineResolved(loadedTaskDraft) ? 'Enter a complete deadline and save, or explicitly save an empty deadline to leave it unset.' :
     dirty ? 'Save your changes and review the saved draft before confirming.' :
     'Confirming will create one task from the saved draft.';
   const retryable = current && loadedTaskDraft.status === 'succeeded' && ['not_started', 'pending'].includes(loadedTaskDraft.replyStatus);
@@ -456,6 +459,69 @@ function refreshTaskDraftControls() {
 
 function validDraftDue(value) {
   return Number.isSafeInteger(value) && value >= 0 && value <= 253402300799999;
+}
+
+const deadlineMetadataFields = ['text', 'source', 'source_message_id', 'reference_unix_ms', 'timezone', 'resolution', 'reason',
+  'parsed_unix_ms', 'instruction_reference_unix_ms'];
+
+function validDeadlineMetadata(meta, due) {
+  if (meta === undefined) return true; // Older responses do not contain interpretation evidence.
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta) || Object.keys(meta).length !== deadlineMetadataFields.length ||
+      !deadlineMetadataFields.every(field => Object.prototype.hasOwnProperty.call(meta, field)) || !validDraftDue(due) ||
+      typeof meta.text !== 'string' || meta.text !== meta.text.trim() || Array.from(meta.text).length > 200 ||
+      Array.from(meta.text).some(char => char.codePointAt(0) >= 0xd800 && char.codePointAt(0) <= 0xdfff) ||
+      meta.timezone !== 'Asia/Shanghai' || !(meta.source_message_id === '0' || validID(meta.source_message_id)) ||
+      !['reference_unix_ms', 'parsed_unix_ms', 'instruction_reference_unix_ms'].every(field => validDraftDue(meta[field])) ||
+      !['', 'unsupported_expression', 'invalid_time', 'invalid_date', 'nonexistent_local_time', 'ambiguous_local_time',
+        'out_of_range', 'missing_reference'].includes(meta.reason)) return false;
+  if (meta.source === 'none') {
+    if (meta.text !== '' || meta.source_message_id !== '0' || meta.reference_unix_ms !== 0 || meta.parsed_unix_ms !== 0 || meta.reason !== '') return false;
+  } else if (meta.source === 'instruction') {
+    if (!meta.text || meta.source_message_id !== '0' || meta.reference_unix_ms !== meta.instruction_reference_unix_ms) return false;
+  } else if (meta.source === 'message') {
+    if (!meta.text || !validID(meta.source_message_id) || meta.reference_unix_ms === 0) return false;
+  } else return false;
+  if (meta.reason === 'missing_reference' && (meta.source !== 'instruction' || meta.reference_unix_ms !== 0)) return false;
+  const expression = meta.source !== 'none';
+  if (expression && !(meta.parsed_unix_ms > 0 && meta.reason === '' || meta.parsed_unix_ms === 0 && meta.reason !== '')) return false;
+  switch (meta.resolution) {
+    case 'none': return !expression && due === 0;
+    case 'parsed': return expression && meta.parsed_unix_ms > 0 && due === meta.parsed_unix_ms;
+    case 'needs_input': return expression && meta.parsed_unix_ms === 0 && meta.reason !== '' && due === 0;
+    case 'selected': return due > 0;
+    case 'unset': return due === 0;
+    default: return false;
+  }
+}
+
+function sameDeadlineMetadata(meta, snapshot, ignoreResolution = false) {
+  if (!snapshot.deadline) return meta === undefined;
+  return meta && deadlineMetadataFields.every(field => ignoreResolution && field === 'resolution' || meta[field] === snapshot.deadline[field]);
+}
+
+function draftDeadlineResolved(draft) {
+  return !draft.deadline || draft.deadline.resolution !== 'needs_input';
+}
+
+function deadlineEvidenceTime(value) {
+  return value === 0 ? 'Not provided' : shanghaiDeadlineInput(value).replace('T', ' ') + ' Asia/Shanghai; UTC: ' + new Date(value).toISOString();
+}
+
+function showDeadlineEvidence(draft) {
+  const evidence = document.getElementById('draftDeadlineEvidence'), meta = draft.deadline;
+  if (!meta) { evidence.textContent = 'Saved interpretation evidence is unavailable for this legacy draft.'; return; }
+  const handling = { none: 'No time expression', parsed: 'Parsed candidate — review before confirming', needs_input: 'Needs your explicit input or saved clearing',
+    selected: 'Your saved deadline overrides the original candidate', unset: 'You explicitly saved no deadline' };
+  const issue = { unsupported_expression: 'Expression needs a complete date and time', invalid_time: 'Invalid time of day',
+    invalid_date: 'Invalid calendar date', nonexistent_local_time: 'This time does not exist in Asia/Shanghai',
+    ambiguous_local_time: 'This time occurs twice in Asia/Shanghai', out_of_range: 'Date is outside the supported range',
+    missing_reference: 'Original instruction reference is missing' };
+  evidence.textContent = 'Time expression: ' + (meta.text || '(none)') + '\nSource: ' +
+    (meta.source === 'message' ? 'Message #' + meta.source_message_id : meta.source === 'instruction' ? 'Instruction' : 'None') +
+    '\nInterpretation reference: ' + deadlineEvidenceTime(meta.reference_unix_ms) + '\nTimezone: ' + meta.timezone +
+    '\nOriginal parsed candidate: ' + deadlineEvidenceTime(meta.parsed_unix_ms) + '\nOriginal issue: ' + (issue[meta.reason] || '(none)') +
+    '\nCurrent handling: ' + handling[meta.resolution] + '\nFirst instruction submission reference (saved): ' +
+    deadlineEvidenceTime(meta.instruction_reference_unix_ms);
 }
 
 function writableDraft(draft) {
@@ -660,7 +726,7 @@ async function saveDraftAssignee() {
         data.team_id !== scope.teamID || data.group_id !== scope.groupID || data.status !== 'waiting_confirmation' ||
         data.draft.title !== snapshot.title || data.draft.description !== snapshot.description ||
         data.draft.assignee_id !== choice || data.draft.assignee_name !== snapshot.assigneeName ||
-        data.draft.assignee_resolution !== (choice === '0' ? 'unassigned' : 'selected') || data.draft.due_at_unix_ms !== snapshot.dueAt) throw new Error('invalid responsible teammate save response');
+        data.draft.assignee_resolution !== (choice === '0' ? 'unassigned' : 'selected') || data.draft.due_at_unix_ms !== snapshot.dueAt || !sameDeadlineMetadata(data.draft.deadline, snapshot)) throw new Error('invalid responsible teammate save response');
     if (!stillCurrent()) return;
     const edits = { title: document.getElementById('draftEditTitle').value !== snapshot.title,
       description: document.getElementById('draftEditDescription').value !== snapshot.description,
@@ -691,7 +757,9 @@ async function saveDraftDeadline() {
   // and a historical repeated wall time that was already persisted unambiguously as UTC.
   const dueAt = input === snapshot.dueInput ? snapshot.dueAt : parseShanghaiDeadline(input);
   const stillCurrent = () => currentDraftOperation(snapshot, scope, runID, epoch);
-  const revision = dueAt === snapshot.dueAt ? snapshot.revision : String(BigInt(snapshot.revision) + 1n);
+  const resolution = snapshot.deadline ? (dueAt === 0 ? 'unset' : 'selected') : null;
+  const changed = dueAt !== snapshot.dueAt || snapshot.deadline && resolution !== snapshot.deadline.resolution;
+  const revision = changed ? String(BigInt(snapshot.revision) + 1n) : snapshot.revision;
   if (!validID(revision)) throw new Error('draft version is exhausted; the deadline cannot be changed');
   savingDraftDeadline = true;
   refreshTaskDraftControls();
@@ -705,7 +773,9 @@ async function saveDraftDeadline() {
     if (result.code !== 0 || !validTaskDraftData(data) || data.run_id !== runID || data.team_id !== scope.teamID ||
         data.group_id !== scope.groupID || data.status !== 'waiting_confirmation' || data.draft.title !== snapshot.title ||
         data.draft.description !== snapshot.description || data.draft.source_message_id !== snapshot.sourceMessageID ||
-        !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== dueAt || data.draft.revision !== revision) {
+        !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== dueAt || data.draft.revision !== revision ||
+        !sameDeadlineMetadata(data.draft.deadline, snapshot, true) ||
+        (snapshot.deadline && data.draft.deadline.resolution !== resolution)) {
       throw new Error('invalid deadline save response');
     }
     if (!stillCurrent()) return;
@@ -733,6 +803,7 @@ async function doSaveDraftDeadline() {
 function validTaskDraftData(data) {
   return data && validID(data.run_id) && validID(data.team_id) && validID(data.group_id) && data.draft &&
     (data.draft.due_at_unix_ms === undefined || validDraftDue(data.draft.due_at_unix_ms)) &&
+    validDeadlineMetadata(data.draft.deadline, data.draft.due_at_unix_ms) &&
     validDraftAssignee(data.draft) && typeof data.draft.title === 'string' && typeof data.draft.description === 'string' &&
     (data.draft.revision === undefined || validID(data.draft.revision)) &&
     (data.status === 'succeeded' ? validID(data.task_id) :
@@ -770,6 +841,7 @@ function showTaskDraft(data, scope, preserveEdits, replyReviewed = false) {
   }
   loadedTaskDraft = { scope, runID: data.run_id, revision: data.draft.revision, dueAt: data.draft.due_at_unix_ms, sourceMessageID: data.draft.source_message_id, title: data.draft.title, description: data.draft.description, status: data.status, taskID: data.task_id,
     assigneeID: data.draft.assignee_id === undefined ? '0' : data.draft.assignee_id, assigneeName: data.draft.assignee_name || '',
+    deadline: data.draft.deadline === undefined ? null : { ...data.draft.deadline },
     assigneeResolution: data.draft.assignee_resolution || '',
     replyStatus: data.reply_status || '', replyMsgID: data.reply_msg_id || '', replyReviewed };
   draftEditNeedsReload = false;
@@ -786,6 +858,7 @@ function showTaskDraft(data, scope, preserveEdits, replyReviewed = false) {
   document.getElementById('draftDeadlineSummary').textContent = loadedTaskDraft.dueAt === undefined ?
     'Saved deadline: unavailable in this response. This draft is read-only.' : 'Saved deadline (Asia/Shanghai): ' +
     (loadedTaskDraft.dueAt === 0 ? 'Not set' : savedInput.replace('T', ' ') + '\nUTC: ' + new Date(loadedTaskDraft.dueAt).toISOString());
+  showDeadlineEvidence(loadedTaskDraft);
   renderDraftAssigneeOptions(preserveEdits && preserveEdits.assignee ? document.getElementById('draftAssigneeSelect').value : savedAssigneeChoice(loadedTaskDraft));
   showDraftAssigneeSummary();
   title.disabled = description.disabled = data.status !== 'waiting_confirmation';
@@ -912,7 +985,7 @@ async function saveTaskDraft() {
     const data = result.data;
     if (result.code !== 0 || !validTaskDraftData(data) || data.run_id !== runID || data.team_id !== scope.teamID || data.group_id !== scope.groupID ||
         data.status !== 'waiting_confirmation' || !validID(data.draft.revision) ||
-        !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt) {
+        !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt || !sameDeadlineMetadata(data.draft.deadline, snapshot)) {
       throw new Error('invalid draft save response; load again to check the result');
     }
     if (!currentDraftOperation(snapshot, scope, runID, epoch)) {
@@ -960,6 +1033,7 @@ async function confirmTaskDraft() {
     throw new Error('save your changes and review the saved draft before confirming');
   }
   if (!draftAssigneeResolved(snapshot)) throw new Error('select and save a responsible teammate, or explicitly save Unassigned, before confirming');
+  if (!draftDeadlineResolved(snapshot)) throw new Error('enter a complete deadline and save it, or explicitly save no deadline, before confirming');
   const epoch = draftEditorEpoch;
   const stillCurrent = () => loadedTaskDraft === snapshot && draftEditorEpoch === epoch && sameTaskDraftScope(scope) &&
     document.getElementById('draftRunID').value.trim() === runID;
@@ -971,7 +1045,8 @@ async function confirmTaskDraft() {
     const resp = await fetch('/api/v1/agent/runs/' + runID + '/confirm', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + scope.token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expected_title: snapshot.title, expected_description: snapshot.description, expected_revision: snapshot.revision, expected_assignee_id: snapshot.assigneeID, expected_due_at_unix_ms: snapshot.dueAt })
+      body: JSON.stringify({ expected_title: snapshot.title, expected_description: snapshot.description, expected_revision: snapshot.revision, expected_assignee_id: snapshot.assigneeID,
+        expected_due_at_unix_ms: snapshot.dueAt, ...(snapshot.deadline ? { expected_deadline_resolution: snapshot.deadline.resolution } : {}) })
     });
     if (!resp.ok) throw new Error('confirmation HTTP ' + resp.status);
     const result = await resp.json();
@@ -979,7 +1054,7 @@ async function confirmTaskDraft() {
     if (result.code !== 0 || !validTaskDraftData(data) || data.status !== 'succeeded' || data.run_id !== runID ||
         data.team_id !== scope.teamID || data.group_id !== scope.groupID ||
         data.draft.title !== snapshot.title || data.draft.description !== snapshot.description ||
-        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt) {
+        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt || !sameDeadlineMetadata(data.draft.deadline, snapshot)) {
       throw new Error('invalid confirmation response');
     }
     if (!stillCurrent()) {
@@ -1051,7 +1126,7 @@ async function retryTaskReply() {
     if (result.code !== 0 || !validTaskDraftData(data) || data.status !== 'succeeded' || data.reply_status !== 'accepted' ||
         data.run_id !== runID || data.team_id !== scope.teamID || data.group_id !== scope.groupID || data.task_id !== snapshot.taskID ||
         data.draft.title !== snapshot.title || data.draft.description !== snapshot.description ||
-        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt ||
+        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt || !sameDeadlineMetadata(data.draft.deadline, snapshot) ||
         (snapshot.replyMsgID && data.reply_msg_id !== snapshot.replyMsgID)) {
       throw new Error('invalid reply retry response');
     }
