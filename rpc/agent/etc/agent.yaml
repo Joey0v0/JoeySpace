@@ -1,0 +1,6 @@
+Name: agent.rpc
+ListenOn: 127.0.0.1:9004
+Mode: dev
+Timeout: 20000
+Log:
+  Mode: console

@@ -1,0 +1,7 @@
+.git
+bin
+logs
+build
+.env
+**/.env
+deploy/docker-config.local.yaml

@@ -1,0 +1,31 @@
+Name: api-gateway
+# 容器需要监听所有网卡；宿主机通过 8082 访问。
+Host: 0.0.0.0
+Port: 8082
+Mode: pro
+Timeout: 3000
+# 避免框架错误日志记录 Authorization 请求头。
+Middlewares:
+  Log: false
+UserRPC:
+  Endpoints:
+    - user-rpc:9001
+  NonBlock: true
+  Timeout: 2000
+IMRPC:
+  Endpoints:
+    - im-rpc:9002
+  NonBlock: true
+  Timeout: 2000
+TaskRPC:
+  Endpoints:
+    - task-rpc:9003
+  NonBlock: true
+  Timeout: 2000
+AgentRPC:
+  Endpoints:
+    - agent-rpc:9004
+  NonBlock: true
+  Timeout: 21000
+Log:
+  Mode: console

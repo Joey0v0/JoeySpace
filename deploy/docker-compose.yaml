@@ -1,0 +1,197 @@
+services:
+  # ============================================
+  # 基础中间件
+  # ============================================
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in deploy/.env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: apache/kafka:3.9.2
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # 双 listener：INTERNAL 给容器间通信，EXTERNAL 给宿主机本地开发
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx384m"
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+      # 开启 auto topic creation 以简化本地开发
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ============================================
+  # Go 微服务
+  # ============================================
+  im-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: api
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./docker-config.local.yaml:/app/config/go-im.yaml:ro
+
+  im-ws:
+    environment:
+      # 将容器网络内可达的 WS RPC 地址注册到 Redis，供 Push 服务调用。
+      WS_RPC_ADDR: "im-ws:9091"
+      IM_RPC_ADDR: "im-rpc:9002"
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: ws
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      im-rpc:
+        condition: service_started
+    volumes:
+      - ./docker-config.local.yaml:/app/config/go-im.yaml:ro
+
+  im-push:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: push
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./docker-config.local.yaml:/app/config/go-im.yaml:ro
+
+  # 阶段 1 新链路：客户端 → API Gateway → 用户 RPC → 现有 MySQL
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: api-gateway
+    ports:
+      - "8082:8082"
+    depends_on:
+      user-rpc:
+        condition: service_started
+      im-rpc:
+        condition: service_started
+      task-rpc:
+        condition: service_started
+
+  user-rpc:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: user-rpc
+    environment:
+      USER_MYSQL_DSN: "root:${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in deploy/.env}@tcp(mysql:3306)/go_im?charset=utf8mb4&parseTime=True&loc=Local"
+      USER_JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in deploy/.env}"
+      USER_SNOWFLAKE_NODE_ID: "${USER_SNOWFLAKE_NODE_ID:-2}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  im-rpc:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: im-rpc
+    environment:
+      IM_MYSQL_DSN: "root:${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in deploy/.env}@tcp(mysql:3306)/go_im?charset=utf8mb4&parseTime=True&loc=Local"
+      IM_JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in deploy/.env}"
+      IM_SNOWFLAKE_NODE_ID: "${IM_SNOWFLAKE_NODE_ID:-3}"
+      USER_RPC_ADDR: "user-rpc:9001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      user-rpc:
+        condition: service_started
+
+  task-rpc:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: task-rpc
+    environment:
+      TASK_MYSQL_DSN: "root:${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in deploy/.env}@tcp(mysql:3306)/go_im?charset=utf8mb4&parseTime=True&loc=Local"
+      TASK_SNOWFLAKE_NODE_ID: "${TASK_SNOWFLAKE_NODE_ID:-4}"
+      USER_RPC_ADDR: "user-rpc:9001"
+      IM_RPC_ADDR: "im-rpc:9002"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      user-rpc:
+        condition: service_started
+      im-rpc:
+        condition: service_started
+
+  # 模型接入点和预算未确定前，只在显式启用 agent profile 时启动。
+  agent-rpc:
+    profiles: ["agent"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: agent-rpc
+    environment:
+      IM_RPC_ADDR: "im-rpc:9002"
+      TASK_RPC_ADDR: "task-rpc:9003"
+      USER_RPC_ADDR: "user-rpc:9001"
+      AGENT_MYSQL_DSN: "root:${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in deploy/.env}@tcp(mysql:3306)/go_im?charset=utf8mb4&parseTime=True&loc=Local"
+      AGENT_SNOWFLAKE_NODE_ID: "${AGENT_SNOWFLAKE_NODE_ID:-5}"
+      ARK_API_KEY: "${ARK_API_KEY:-}"
+      ARK_MODEL_ID: "${ARK_MODEL_ID:-}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      user-rpc:
+        condition: service_started
+      im-rpc:
+        condition: service_started
+      task-rpc:
+        condition: service_started
+
+volumes:
+  mysql_data:
+  kafka_data:

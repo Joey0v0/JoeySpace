@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package agent;
+
+option go_package = "github.com/yjydist/go-im/rpc/agent/pb";
+
+service Agent {
+  // authorization: Bearer <token> 经 gRPC metadata 传入；第一版只读问答。
+  rpc Ask(AskRequest) returns (AskResponse);
+  // 仅草稿发起人可读取；每次读取都重新校验当前团队群资格。
+  rpc GetTaskDraft(GetTaskDraftRequest) returns (GetTaskDraftResponse);
+  // 显式生成一项待确认草稿；authorization 与 idempotency-key 经 metadata 传入。
+  rpc PrepareTaskDraft(PrepareTaskDraftRequest) returns (PrepareTaskDraftResponse);
+  // 仅发起人可修改待确认草稿的标题和说明；每次重新校验当前团队群资格。
+  rpc EditTaskDraft(EditTaskDraftRequest) returns (GetTaskDraftResponse);
+  // 仅发起人可确认；冻结内容及服务端请求键，重复请求复用原任务。
+  rpc ConfirmTaskDraft(ConfirmTaskDraftRequest) returns (GetTaskDraftResponse);
+  // 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
+  rpc RetryTaskReply(GetTaskDraftRequest) returns (GetTaskDraftResponse);
+}
+
+message AskRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+  string question = 3;
+}
+
+message AskResponse {
+  string answer = 1;
+}
+
+message GetTaskDraftRequest {
+  int64 run_id = 1;
+}
+
+message GetTaskDraftResponse {
+  int64 run_id = 1;
+  int64 team_id = 2;
+  int64 group_id = 3;
+  string status = 4;
+  TaskDraftItem draft = 5;
+  // 仅创建结果已持久保存时为正整数；其他状态为 0。
+  int64 task_id = 6;
+  // disabled / not_started / pending / accepted；unknown 仅用于确认后的存储不确定结果。
+  // accepted 只表示 IM 已受理，不表示历史已入库或所有成员送达。
+  string reply_status = 7;
+  string reply_msg_id = 8;
+}
+
+message TaskDraftItem {
+  string title = 1;
+  string description = 2;
+  int64 assignee_id = 3;
+  int64 due_at_unix_ms = 4;
+  int64 source_message_id = 5;
+  // 原始称呼；空值的旧草稿仍兼容，不是模型生成的真实身份。
+  string assignee_name = 6;
+  // 旧草稿为空；新草稿为 none/matched/not_found/ambiguous/truncated。
+  // 含称呼的草稿暂不允许走仅审查标题/说明的旧确认接口。
+  string assignee_resolution = 7;
+  // 正整数内容版本；实际编辑才递增，任务冻结/创建/回帖不递增。
+  int64 revision = 8;
+}
+
+message PrepareTaskDraftRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+  string instruction = 3;
+}
+
+message PrepareTaskDraftResponse {
+  int64 run_id = 1;
+}
+
+message EditTaskDraftRequest {
+  int64 run_id = 1;
+  string title = 2;
+  string description = 3;
+  string expected_title = 4;
+  string expected_description = 5;
+  // 必须提交上次读取的内容版本；缺失或零值拒绝写入。
+  int64 expected_revision = 6;
+}
+
+message ConfirmTaskDraftRequest {
+  int64 run_id = 1;
+  string expected_title = 2;
+  string expected_description = 3;
+  int64 expected_revision = 4;
+}

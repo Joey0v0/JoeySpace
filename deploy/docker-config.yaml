@@ -1,0 +1,35 @@
+# Template only: copy to docker-config.local.yaml and fill credentials locally.
+app:
+  env: "release"
+  server_id: 1
+
+api_server:
+  port: 8080
+
+ws_server:
+  port: 8081
+  rpc_port: 9091
+
+mysql:
+  dsn: "root:CHANGE_ME_MYSQL_PASSWORD@tcp(mysql:3306)/go_im?charset=utf8mb4&parseTime=True&loc=Local"
+  max_open_conns: 100
+  max_idle_conns: 20
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+
+kafka:
+  brokers: ["kafka:19092"]
+  topic_chat: "chat_messages"
+  consumer_group: "im_push_group"
+
+jwt:
+  secret: "CHANGE_ME_JWT_SECRET"
+  access_expire_hours: 24
+  refresh_expire_hours: 168
+
+log:
+  level: "info"
+  filename: "./logs/go-im.log"

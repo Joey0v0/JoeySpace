@@ -1,0 +1,7 @@
+Name: agent.rpc
+# 仅供 Compose 内部服务调用，不映射宿主机端口。
+ListenOn: 0.0.0.0:9004
+Mode: pro
+Timeout: 20000
+Log:
+  Mode: console

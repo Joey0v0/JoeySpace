@@ -1,0 +1,7 @@
+Name: im.rpc
+# 只供 Compose 内部 WS 网关访问，不映射宿主机端口。
+ListenOn: 0.0.0.0:9002
+Mode: pro
+Timeout: 2000
+Log:
+  Mode: console

@@ -1,0 +1,6 @@
+Name: im.rpc
+ListenOn: 127.0.0.1:9002
+Mode: dev
+Timeout: 2000
+Log:
+  Mode: console

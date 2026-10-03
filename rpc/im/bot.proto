@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package im;
+option go_package = "github.com/yjydist/go-im/rpc/im/pb";
+
+// Registered only on IM's dedicated mutual-TLS listener, never the ordinary IM port.
+service IMBot {
+  rpc PostTaskCreatedCard(PostTaskCreatedCardRequest) returns (PostTaskCreatedCardResponse);
+}
+
+message PostTaskCreatedCardRequest {
+  // A persisted Agent run. IM derives the stable message ID from this value.
+  int64 run_id = 1;
+  int64 team_id = 2;
+  int64 group_id = 3;
+  // Versioned result from a confirmed draft and actual Task success.
+  string content = 4;
+  // No bot ID or user ID: IM determines both from trusted context/configuration.
+}
+
+message PostTaskCreatedCardResponse {
+  string msg_id = 1;
+  // True only after Kafka acknowledgement and persistence of that acknowledgement.
+  // This is not a history-persistence or member-delivery receipt.
+  bool accepted = 2;
+}

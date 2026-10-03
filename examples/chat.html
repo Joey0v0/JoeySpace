@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>go-im WebSocket Chat Demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+  h1 { font-size: 1.4em; margin-bottom: 16px; color: #333; }
+  .container { max-width: 800px; margin: 0 auto; }
+
+  /* 连接配置区 */
+  .config-panel { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .config-panel h2 { font-size: 1em; margin-bottom: 12px; color: #555; }
+  .config-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+  .config-row label { min-width: 80px; font-size: 0.85em; color: #666; }
+  .config-row input, .config-row select { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; min-width: 200px; }
+  .config-row button { padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+
+  /* 第一步: 登录 */
+  .step-panel { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .step-panel h2 { font-size: 1em; margin-bottom: 12px; color: #555; }
+  #btnLogin { background: #4CAF50; color: #fff; }
+  #btnLogin:hover { background: #45a049; }
+
+  /* 第二步: WS 连接 */
+  #btnConnect { background: #2196F3; color: #fff; }
+  #btnConnect:hover { background: #1976D2; }
+  #btnDisconnect { background: #f44336; color: #fff; }
+  #btnDisconnect:hover { background: #d32f2f; }
+  .status { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 8px; }
+  .status-disconnected { background: #ffcdd2; color: #c62828; }
+  .status-connected { background: #c8e6c9; color: #2e7d32; }
+  .status-connecting { background: #fff9c4; color: #f57f17; }
+
+  /* 第三步: 发送消息 */
+  .send-panel { display: flex; gap: 8px; margin-top: 8px; }
+  .send-panel input { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; }
+  .send-panel button { padding: 6px 16px; background: #FF9800; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+  .send-panel button:hover { background: #F57C00; }
+
+  /* 日志区 */
+  .log-panel { background: #263238; border-radius: 8px; padding: 16px; color: #eee; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 0.82em; max-height: 400px; overflow-y: auto; }
+  .log-panel .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); word-break: break-all; }
+  .log-entry.sent { color: #81d4fa; }
+  .log-entry.recv { color: #a5d6a7; }
+  .log-entry.error { color: #ef9a9a; }
+  .log-entry.info { color: #fff59d; }
+  .log-entry .ts { color: #78909c; margin-right: 8px; }
+  .log-entry button { margin-left: 8px; padding: 2px 6px; cursor: pointer; }
+
+  .clear-btn { margin-top: 8px; padding: 4px 12px; background: #546e7a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+  .task-card { border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 8px; overflow-wrap: anywhere; }
+  .task-card p { margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🚀 go-im WebSocket Chat Demo</h1>
+
+  <!-- Step 1: Login to get JWT -->
+  <div class="step-panel">
+    <h2>Step 1 — Login (get JWT token)</h2>
+    <div class="config-row">
+      <label>Username:</label>
+      <input type="text" id="username" value="" placeholder="your username">
+    </div>
+    <div class="config-row">
+      <label>Password:</label>
+      <input type="password" id="password" value="" placeholder="your password">
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button id="btnLogin" onclick="doLogin()">Login</button>
+      <span id="loginStatus" style="font-size:0.85em;color:#666;margin-left:8px;"></span>
+    </div>
+    <div class="config-row">
+      <label>Token:</label>
+      <input type="text" id="token" value="" placeholder="JWT token (auto-filled after login, or paste manually)" oninput="clearAIAnswer(); clearTaskDraftResult()">
+    </div>
+  </div>
+
+  <!-- Step 2: Connect WebSocket -->
+  <div class="step-panel">
+    <h2>Step 2 — WebSocket Connection
+      <span id="wsStatus" class="status status-disconnected">Disconnected</span>
+    </h2>
+    <div class="config-row">
+      <label>WS URL:</label>
+      <input type="text" id="wsUrl" value="" placeholder="auto: same host, port 8081">
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button id="btnConnect" onclick="doConnect()">Connect</button>
+      <button id="btnDisconnect" onclick="doDisconnect()" style="display:none;">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Send Message -->
+  <div class="step-panel">
+    <h2>Step 3 — Send Chat Message</h2>
+    <div class="config-row">
+      <label>To User / Group ID:</label>
+      <input type="text" inputmode="numeric" id="toUserId" value="" placeholder="recipient user_id or group_id (int64)" oninput="clearAIAnswer(); clearTaskDraftResult()">
+    </div>
+    <div class="config-row">
+      <label>Chat Type:</label>
+      <input type="number" id="chatType" value="1" placeholder="1=private, 2=group" oninput="clearAIAnswer(); clearTaskDraftResult()">
+    </div>
+    <div class="send-panel">
+      <input type="text" id="msgContent" placeholder="Type your message..." onkeydown="if(event.key==='Enter')doSend()">
+      <button onclick="doSend()">Send</button>
+    </div>
+  </div>
+
+  <!-- Team group history uses the same HTTP origin as this page. -->
+  <div class="step-panel">
+    <h2>Step 4 — Team Groups &amp; History</h2>
+    <div class="config-row">
+      <label>Team ID:</label>
+      <input type="text" inputmode="numeric" id="teamId" placeholder="team_id (int64)" oninput="clearAIAnswer(); clearTaskDraftResult()">
+    </div>
+    <div class="config-row">
+      <label>New group:</label>
+      <input type="text" id="newGroupName" placeholder="group name (team owner only)">
+      <button onclick="doCreateTeamGroup()">Create group</button>
+    </div>
+    <div class="config-row">
+      <label>Request key:</label>
+      <input type="text" id="groupRequestKey" placeholder="generated on first create; keep it for retries">
+      <button onclick="newGroupRequestKey()">New key</button>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <small>Retry with the same key; click New key only when creating another group.</small>
+    </div>
+    <div class="config-row">
+      <label>Groups:</label>
+      <select id="teamGroupSelect" onchange="selectTeamGroup()">
+        <option value="">Choose a group</option>
+      </select>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button onclick="doLoadTeamGroups()">Load more groups</button>
+      <button onclick="doJoinTeamGroup()">Join current group</button>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button onclick="doLoadTeamGroupHistory()">Load older messages for the Group ID above</button>
+    </div>
+  </div>
+
+  <div class="step-panel">
+    <h2>Step 5 — Team Tasks</h2>
+    <div class="config-row">
+      <label>Title:</label>
+      <input type="text" id="taskTitle" maxlength="200" placeholder="task title">
+    </div>
+    <div class="config-row">
+      <label>Description:</label>
+      <input type="text" id="taskDescription" maxlength="2000" placeholder="optional description">
+    </div>
+    <div class="config-row">
+      <label>Assignee ID:</label>
+      <input type="text" inputmode="numeric" id="taskAssigneeID" placeholder="optional team member ID">
+    </div>
+    <div class="config-row">
+      <label>Due (local):</label>
+      <input type="datetime-local" id="taskDueAt">
+    </div>
+    <div class="config-row">
+      <label>Source IDs:</label>
+      <input type="text" inputmode="numeric" id="taskSourceGroupID" placeholder="optional group ID">
+      <input type="text" inputmode="numeric" id="taskSourceMessageID" placeholder="optional message ID">
+    </div>
+    <div class="config-row">
+      <label>Request key:</label>
+      <input type="text" id="taskRequestKey" placeholder="generated on first submit; keep for retries">
+      <button onclick="newTaskRequestKey()">New key</button>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button onclick="doCreateTask()">Create task</button>
+      <small>Retry with the same key after a failed request.</small>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button onclick="doLoadTasks(true)">Refresh tasks</button>
+      <button onclick="doLoadTasks(false)">Load more tasks</button>
+    </div>
+    <div id="taskList"></div>
+  </div>
+
+  <div class="step-panel">
+    <h2>Step 6 — Ask AI (read-only)</h2>
+    <p>Ask about the current team group. The answer appears only here; it does not post to the group or create a task.</p>
+    <div class="config-row">
+      <label>Question:</label>
+      <input type="text" id="aiQuestion" maxlength="2000" placeholder="What did we decide?" oninput="clearAIAnswer()">
+      <button id="btnAskAI" onclick="doAskAI()">Ask AI</button>
+    </div>
+    <div id="aiAnswer" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;"></div>
+  </div>
+
+  <div class="step-panel">
+    <h2>Step 7 — Review and confirm a task draft</h2>
+    <p>Generate one draft from the current team group. Save any edits and review the saved draft before confirming to create a task.</p>
+    <div class="config-row">
+      <label>Instruction:</label>
+      <input type="text" id="draftInstruction" maxlength="2000" placeholder="Extract one actionable task" oninput="clearTaskDraftResult()">
+    </div>
+    <div class="config-row">
+      <label>Request key:</label>
+      <input type="text" id="draftRequestKey" placeholder="generated on first submit; keep for retries">
+      <button onclick="newDraftRequestKey()">New key</button>
+    </div>
+    <div class="config-row">
+      <label>Run ID:</label>
+      <input type="text" inputmode="numeric" id="draftRunID" placeholder="returned after preparation; keep for later reads" oninput="clearTaskDraftResult()">
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button id="btnPrepareDraft" onclick="doPrepareTaskDraft()">Prepare draft</button>
+      <button id="btnLoadDraft" onclick="doLoadTaskDraft()">Load draft</button>
+    </div>
+    <div id="draftResult" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;"></div>
+    <div class="config-row">
+      <label>Draft title:</label>
+      <input type="text" id="draftEditTitle" maxlength="200" oninput="refreshTaskDraftControls()" disabled>
+    </div>
+    <div class="config-row">
+      <label>Description:</label>
+      <textarea id="draftEditDescription" maxlength="2000" rows="3" oninput="refreshTaskDraftControls()" disabled></textarea>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button id="btnSaveDraft" onclick="doSaveTaskDraft()" disabled>Save draft</button>
+      <small>Load before editing. After a conflict, load again and review both the latest draft and your retained changes.</small>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button id="btnConfirmDraft" onclick="doConfirmTaskDraft()" disabled>Confirm and create task</button>
+      <small id="draftConfirmHint">Load a saved draft before confirming.</small>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button id="btnRetryTaskReply" onclick="doRetryTaskReply()" disabled>Retry group reply</button>
+      <small id="taskReplyHint">Create a task and load its reply status before retrying.</small>
+    </div>
+  </div>
+
+  <!-- Log Panel -->
+  <div style="margin-top:16px;">
+    <h2 style="font-size:1em;color:#555;margin-bottom:8px;">Message Log</h2>
+    <div class="log-panel" id="logPanel"></div>
+    <button class="clear-btn" onclick="clearLog()">Clear Log</button>
+  </div>
+</div>
+
+<script>
+let ws = null;
+let msgSeq = 0;
+const seenChatIDs = new Set();
+const maxSeenChatIDs = 5000;
+let historyKey = '';
+let historyCursor = '';
+let historyFinished = false;
+let historyLoading = false;
+let directoryTeamID = '';
+let directoryCursor = '';
+let directoryFinished = false;
+let directoryLoading = false;
+let creatingTeamGroup = false;
+let taskTeamID = '';
+let taskCursor = '';
+let taskFinished = false;
+let taskLoading = false;
+let creatingTask = false;
+let askingAI = false;
+let preparingDraft = false;
+let loadingDraft = false;
+let savingDraft = false;
+let confirmingDraft = false;
+let retryingTaskReply = false;
+let replyRetryNeedsReload = false;
+let draftConfirmNeedsReload = false;
+let loadedTaskDraft = null;
+let draftEditNeedsReload = false;
+let draftEditorEpoch = 0;
+let preparedDraftKey = '';
+let preparedDraftSignature = '';
+const updatingTasks = new Set();
+
+function validID(value) {
+  return typeof value === 'string' && /^[1-9]\d*$/.test(value) &&
+    value.length <= 19 && BigInt(value) <= 9223372036854775807n;
+}
+
+function clearAIAnswer() {
+  document.getElementById('aiAnswer').textContent = '';
+}
+
+async function askAI() {
+  if (askingAI) return;
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  const groupID = document.getElementById('toUserId').value.trim();
+  const question = document.getElementById('aiQuestion').value.trim();
+  if (!token || !validID(teamID) || !validID(groupID) ||
+      document.getElementById('chatType').value !== '2' ||
+      !question || Array.from(question).length > 2000) {
+    throw new Error('enter a token, team group and question (1-2000 characters)');
+  }
+  const answer = document.getElementById('aiAnswer');
+  const button = document.getElementById('btnAskAI');
+  askingAI = true;
+  button.disabled = true;
+  answer.textContent = 'Asking...';
+  try {
+    const resp = await fetch('/api/v1/teams/' + teamID + '/groups/' + groupID + '/ask', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    if (!resp.ok) throw new Error('AI HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.code !== 0 || !result.data || typeof result.data.answer !== 'string' ||
+        !result.data.answer.trim()) {
+      throw new Error('AI answer failed: ' + (result.msg || 'invalid response'));
+    }
+    if (document.getElementById('token').value !== token ||
+        document.getElementById('teamId').value.trim() !== teamID ||
+        document.getElementById('toUserId').value.trim() !== groupID ||
+        document.getElementById('chatType').value !== '2' ||
+        document.getElementById('aiQuestion').value.trim() !== question) {
+      answer.textContent = 'Context changed; ask again.';
+      return;
+    }
+    answer.textContent = result.data.answer;
+  } finally {
+    askingAI = false;
+    button.disabled = false;
+  }
+}
+
+async function doAskAI() {
+  try {
+    await askAI();
+  } catch (e) {
+    document.getElementById('aiAnswer').textContent = 'Ask failed: ' + e.message;
+  }
+}
+
+function clearTaskDraftResult() {
+  document.getElementById('draftResult').textContent = '';
+  loadedTaskDraft = null;
+  draftEditNeedsReload = false;
+  draftConfirmNeedsReload = false;
+  replyRetryNeedsReload = false;
+  draftEditorEpoch++;
+  for (const id of ['draftEditTitle', 'draftEditDescription']) {
+    document.getElementById(id).value = '';
+    document.getElementById(id).disabled = true;
+  }
+  refreshTaskDraftControls();
+}
+
+function refreshTaskDraftControls() {
+  const busy = loadingDraft || preparingDraft || savingDraft || confirmingDraft || retryingTaskReply;
+  document.getElementById('btnPrepareDraft').disabled = busy;
+  document.getElementById('btnLoadDraft').disabled = busy;
+  const current = loadedTaskDraft && sameTaskDraftScope(loadedTaskDraft.scope) &&
+    document.getElementById('draftRunID').value.trim() === loadedTaskDraft.runID;
+  const dirty = current && (document.getElementById('draftEditTitle').value !== loadedTaskDraft.title ||
+    document.getElementById('draftEditDescription').value !== loadedTaskDraft.description);
+  document.getElementById('btnSaveDraft').disabled = busy || !current || !validID(loadedTaskDraft.revision) || draftEditNeedsReload ||
+    loadedTaskDraft.status !== 'waiting_confirmation';
+  const button = document.getElementById('btnConfirmDraft');
+  button.disabled = busy || !current || !validID(loadedTaskDraft.revision) || draftEditNeedsReload || dirty ||
+    !['waiting_confirmation', 'creating'].includes(loadedTaskDraft.status);
+  button.textContent = current && loadedTaskDraft.status === 'creating' ? 'Retry confirmation' : 'Confirm and create task';
+  const hint = document.getElementById('draftConfirmHint');
+  hint.textContent = !current ? 'Load a saved draft before confirming.' :
+    draftEditNeedsReload ? 'Load the same run again to check its state before continuing.' :
+    !validID(loadedTaskDraft.revision) ? 'This saved draft supports viewing only.' :
+    loadedTaskDraft.status === 'succeeded' ? 'Task created. Its ID is shown above.' :
+    loadedTaskDraft.status === 'creating' ? 'Creation submitted; result not recorded yet. No automatic background retry. Retry this same run explicitly.' :
+    dirty ? 'Save your changes and review the saved draft before confirming.' :
+    'Confirming will create one task from the saved draft.';
+  const retryable = current && loadedTaskDraft.status === 'succeeded' && ['not_started', 'pending'].includes(loadedTaskDraft.replyStatus);
+  const replyButton = document.getElementById('btnRetryTaskReply');
+  replyButton.disabled = busy || !retryable || !loadedTaskDraft.replyReviewed || replyRetryNeedsReload || draftEditNeedsReload;
+  replyButton.textContent = current && loadedTaskDraft.replyStatus === 'not_started' ? 'Send group reply' : 'Retry group reply';
+  document.getElementById('taskReplyHint').textContent = !current || loadedTaskDraft.status !== 'succeeded' ?
+    'Create a task and load its reply status before retrying.' :
+    loadedTaskDraft.replyStatus === 'accepted' ? 'Reply accepted; delivery to all members is not confirmed.' :
+    !retryable ? taskReplyStatusText(loadedTaskDraft.replyStatus) :
+    replyRetryNeedsReload || !loadedTaskDraft.replyReviewed ? 'Task stays created. Load this same run to review the reply before retrying.' :
+    retryable ? 'This sends only the original group reply; it does not create another task.' : taskReplyStatusText(loadedTaskDraft.replyStatus);
+  const editable = current && loadedTaskDraft.status === 'waiting_confirmation' && !confirmingDraft && !retryingTaskReply && !draftConfirmNeedsReload;
+  document.getElementById('draftEditTitle').disabled = document.getElementById('draftEditDescription').disabled = !editable;
+}
+
+function validTaskDraftData(data) {
+  return data && validID(data.run_id) && validID(data.team_id) && validID(data.group_id) && data.draft &&
+    typeof data.draft.title === 'string' && typeof data.draft.description === 'string' &&
+    (data.draft.revision === undefined || validID(data.draft.revision)) &&
+    (data.status === 'succeeded' ? validID(data.task_id) :
+      ['waiting_confirmation', 'creating'].includes(data.status) && data.task_id === '0') && validTaskReplyData(data);
+}
+
+function validTaskReplyData(data) {
+  const state = data.reply_status;
+  const noMessage = data.reply_msg_id === undefined || data.reply_msg_id === '';
+  if (state === undefined || state === '' || state === 'disabled' || state === 'not_started') return noMessage;
+  if (state === 'unknown') return data.status === 'succeeded' && noMessage;
+  return ['pending', 'accepted'].includes(state) && data.status === 'succeeded' && data.reply_msg_id === 'bot-task:' + data.run_id;
+}
+
+function taskReplyStatusText(state) {
+  return ({
+    disabled: 'Group reply is disabled.',
+    not_started: 'Group reply has not started.',
+    pending: 'Group reply result is not confirmed; it may already be accepted.',
+    accepted: 'Group reply accepted. Delivery to all members is not confirmed.',
+    unknown: 'Group reply result is unknown. Load this same run before retrying.'
+  })[state] || 'Reply status unavailable. Retry is not available.';
+}
+
+function showTaskDraft(data, scope, preserveEdits, replyReviewed = false) {
+  const title = document.getElementById('draftEditTitle');
+  const description = document.getElementById('draftEditDescription');
+  loadedTaskDraft = { scope, runID: data.run_id, revision: data.draft.revision, title: data.draft.title, description: data.draft.description, status: data.status, taskID: data.task_id,
+    replyStatus: data.reply_status || '', replyMsgID: data.reply_msg_id || '', replyReviewed };
+  draftEditNeedsReload = false;
+  draftConfirmNeedsReload = false;
+  replyRetryNeedsReload = false;
+  if (data.status !== 'waiting_confirmation') preserveEdits = null;
+  if (!preserveEdits || !preserveEdits.title) title.value = data.draft.title;
+  if (!preserveEdits || !preserveEdits.description) description.value = data.draft.description;
+  title.disabled = description.disabled = data.status !== 'waiting_confirmation';
+  document.getElementById('draftResult').textContent = 'Run ID: ' + data.run_id + '\nStatus: ' + data.status +
+    '\nTitle: ' + data.draft.title + '\nDescription: ' + data.draft.description +
+    '\nSource message ID: ' + data.draft.source_message_id;
+  if (data.status === 'succeeded') {
+    document.getElementById('draftResult').textContent += '\nTask created: ' + data.task_id;
+    document.getElementById('draftResult').textContent += '\n' + taskReplyStatusText(loadedTaskDraft.replyStatus);
+    if (loadedTaskDraft.replyMsgID) document.getElementById('draftResult').textContent += '\nReply message ID: ' + loadedTaskDraft.replyMsgID;
+  } else if (data.status === 'creating') {
+    document.getElementById('draftResult').textContent += '\nCreation submitted; result not recorded yet. Load again or explicitly retry this same run.';
+  }
+}
+
+function newDraftRequestKey() {
+  if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
+    throw new Error('secure random generator unavailable');
+  }
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  const key = 'draft-' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  document.getElementById('draftRequestKey').value = key;
+  preparedDraftKey = '';
+  preparedDraftSignature = '';
+  document.getElementById('draftRunID').value = '';
+  clearTaskDraftResult();
+  return key;
+}
+
+function taskDraftScope() {
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  const groupID = document.getElementById('toUserId').value.trim();
+  if (!token || !validID(teamID) || !validID(groupID) || document.getElementById('chatType').value !== '2') {
+    throw new Error('enter a token and select a team group');
+  }
+  return { token, teamID, groupID };
+}
+
+function sameTaskDraftScope(scope) {
+  return document.getElementById('token').value === scope.token &&
+    document.getElementById('teamId').value.trim() === scope.teamID &&
+    document.getElementById('toUserId').value.trim() === scope.groupID &&
+    document.getElementById('chatType').value === '2';
+}
+
+async function loadTaskDraft(expectedScope, expectedInstruction) {
+  if (loadingDraft || savingDraft || confirmingDraft || retryingTaskReply) throw new Error('draft read, save or confirmation already in progress');
+  const scope = expectedScope || taskDraftScope();
+  const runID = document.getElementById('draftRunID').value.trim();
+  if (!validID(runID)) throw new Error('enter a valid run ID');
+  const resultBox = document.getElementById('draftResult');
+  const epoch = draftEditorEpoch;
+  loadingDraft = true;
+  replyRetryNeedsReload = true;
+  refreshTaskDraftControls();
+  resultBox.textContent = 'Loading draft...';
+  try {
+    const resp = await fetch('/api/v1/agent/runs/' + runID + '/draft', {
+      headers: { Authorization: 'Bearer ' + scope.token }
+    });
+    if (!resp.ok) throw new Error('draft read HTTP ' + resp.status);
+    const result = await resp.json();
+    const data = result.data;
+    if (result.code !== 0 || !validTaskDraftData(data) || data.run_id !== runID) {
+      throw new Error('draft read failed: ' + (result.msg || 'invalid response'));
+    }
+    if (draftEditorEpoch !== epoch || !sameTaskDraftScope(scope) || document.getElementById('draftRunID').value.trim() !== runID ||
+        (expectedInstruction !== undefined && document.getElementById('draftInstruction').value.trim() !== expectedInstruction)) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'Context changed; load the draft again.';
+      return;
+    }
+    if (data.team_id !== scope.teamID || data.group_id !== scope.groupID) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'This draft belongs to another team group.';
+      return;
+    }
+    const preserveEdits = loadedTaskDraft && loadedTaskDraft.runID === runID &&
+      loadedTaskDraft.scope.token === scope.token && loadedTaskDraft.scope.teamID === scope.teamID && loadedTaskDraft.scope.groupID === scope.groupID &&
+      { title: document.getElementById('draftEditTitle').value !== loadedTaskDraft.title,
+        description: document.getElementById('draftEditDescription').value !== loadedTaskDraft.description };
+    showTaskDraft(data, scope, preserveEdits, true);
+  } catch (e) {
+    draftEditNeedsReload = true;
+    throw e;
+  } finally {
+    loadingDraft = false;
+    refreshTaskDraftControls();
+  }
+}
+
+async function saveTaskDraft() {
+  if (savingDraft) return;
+  const scope = taskDraftScope();
+  const runID = document.getElementById('draftRunID').value.trim();
+  const snapshot = loadedTaskDraft;
+  if (loadingDraft || preparingDraft || confirmingDraft || retryingTaskReply || !snapshot || !validID(snapshot.revision) || draftEditNeedsReload || snapshot.status !== 'waiting_confirmation' ||
+      snapshot.runID !== runID || snapshot.scope.token !== scope.token || snapshot.scope.teamID !== scope.teamID || snapshot.scope.groupID !== scope.groupID) {
+    throw new Error('load the current waiting draft before saving');
+  }
+  const rawTitle = document.getElementById('draftEditTitle').value;
+  const rawDescription = document.getElementById('draftEditDescription').value;
+  const title = rawTitle.trim(), description = rawDescription.trim();
+  if (!title || Array.from(title).length > 200 || Array.from(description).length > 2000) {
+    throw new Error('draft title must contain 1-200 characters; description at most 2000');
+  }
+  savingDraft = true;
+  refreshTaskDraftControls();
+  const resultBox = document.getElementById('draftResult');
+  resultBox.textContent = 'Saving draft...';
+  try {
+    const resp = await fetch('/api/v1/agent/runs/' + runID + '/draft', {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + scope.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description, expected_title: snapshot.title, expected_description: snapshot.description, expected_revision: snapshot.revision })
+    });
+    if (!resp.ok) throw new Error(resp.status === 409 ? 'draft changed or is no longer waiting; load again to review (HTTP 409)' : 'draft save HTTP ' + resp.status + '; load again to check the result');
+    const result = await resp.json();
+    const data = result.data;
+    if (result.code !== 0 || !validTaskDraftData(data) || data.run_id !== runID || data.team_id !== scope.teamID || data.group_id !== scope.groupID ||
+        data.status !== 'waiting_confirmation') {
+      throw new Error('invalid draft save response; load again to check the result');
+    }
+    if (loadedTaskDraft !== snapshot || !sameTaskDraftScope(scope) || document.getElementById('draftRunID').value.trim() !== runID) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'Context changed; load the draft again.';
+      return;
+    }
+    const newerEdits = { title: document.getElementById('draftEditTitle').value !== rawTitle,
+      description: document.getElementById('draftEditDescription').value !== rawDescription };
+    showTaskDraft(data, scope, newerEdits);
+    resultBox.textContent += newerEdits.title || newerEdits.description ? '\nSaved submitted changes; newer edits remain unsaved.' : '\nDraft saved.';
+  } catch (e) {
+    if (loadedTaskDraft !== snapshot || !sameTaskDraftScope(scope) || document.getElementById('draftRunID').value.trim() !== runID) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'Context changed; load the draft again.';
+      return;
+    }
+    draftEditNeedsReload = true;
+    throw new Error(e.message + ' Your edits are retained.');
+  } finally {
+    savingDraft = false;
+    refreshTaskDraftControls();
+  }
+}
+
+async function doSaveTaskDraft() {
+  try {
+    await saveTaskDraft();
+  } catch (e) {
+    document.getElementById('draftResult').textContent = 'Save draft failed: ' + e.message;
+  }
+}
+
+async function confirmTaskDraft() {
+  if (confirmingDraft) return;
+  const scope = taskDraftScope();
+  const runID = document.getElementById('draftRunID').value.trim();
+  const snapshot = loadedTaskDraft;
+  if (loadingDraft || preparingDraft || savingDraft || retryingTaskReply || !snapshot || !validID(snapshot.revision) || draftEditNeedsReload ||
+      !['waiting_confirmation', 'creating'].includes(snapshot.status) || snapshot.runID !== runID ||
+      snapshot.scope.token !== scope.token || snapshot.scope.teamID !== scope.teamID || snapshot.scope.groupID !== scope.groupID) {
+    throw new Error('load the current saved draft before confirming');
+  }
+  if (document.getElementById('draftEditTitle').value !== snapshot.title || document.getElementById('draftEditDescription').value !== snapshot.description) {
+    throw new Error('save your changes and review the saved draft before confirming');
+  }
+  const epoch = draftEditorEpoch;
+  const stillCurrent = () => loadedTaskDraft === snapshot && draftEditorEpoch === epoch && sameTaskDraftScope(scope) &&
+    document.getElementById('draftRunID').value.trim() === runID;
+  const resultBox = document.getElementById('draftResult');
+  confirmingDraft = true;
+  refreshTaskDraftControls();
+  resultBox.textContent = 'Confirming saved draft...';
+  try {
+    const resp = await fetch('/api/v1/agent/runs/' + runID + '/confirm', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + scope.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected_title: snapshot.title, expected_description: snapshot.description, expected_revision: snapshot.revision })
+    });
+    if (!resp.ok) throw new Error('confirmation HTTP ' + resp.status);
+    const result = await resp.json();
+    const data = result.data;
+    if (result.code !== 0 || !validTaskDraftData(data) || data.status !== 'succeeded' || data.run_id !== runID ||
+        data.team_id !== scope.teamID || data.group_id !== scope.groupID ||
+        data.draft.title !== snapshot.title || data.draft.description !== snapshot.description) {
+      throw new Error('invalid confirmation response');
+    }
+    if (!stillCurrent()) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'Context changed; return to the original group and load run ' + runID + ' to check its result.';
+      return;
+    }
+    showTaskDraft(data, scope);
+    return data.task_id;
+  } catch (e) {
+    if (!stillCurrent()) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'Context changed; return to the original group and load run ' + runID + ' to check its result.';
+      return;
+    }
+    draftEditNeedsReload = true;
+    draftConfirmNeedsReload = true;
+    throw new Error(e.message + '; creation result may be unrecorded. Load this same run to check before retrying.');
+  } finally {
+    confirmingDraft = false;
+    refreshTaskDraftControls();
+  }
+}
+
+async function doConfirmTaskDraft() {
+  try {
+    await confirmTaskDraft();
+  } catch (e) {
+    document.getElementById('draftResult').textContent = 'Confirmation needs review: ' + e.message;
+  }
+}
+
+async function doLoadTaskDraft() {
+  try {
+    await loadTaskDraft();
+  } catch (e) {
+    document.getElementById('draftResult').textContent = knownTaskResultText() + 'Load draft failed: ' + e.message;
+  }
+}
+
+function knownTaskResultText() {
+  return loadedTaskDraft && loadedTaskDraft.status === 'succeeded' && sameTaskDraftScope(loadedTaskDraft.scope) &&
+    document.getElementById('draftRunID').value.trim() === loadedTaskDraft.runID ? 'Task created: ' + loadedTaskDraft.taskID + '\n' : '';
+}
+
+async function retryTaskReply() {
+  if (retryingTaskReply) return;
+  const scope = taskDraftScope();
+  const runID = document.getElementById('draftRunID').value.trim();
+  const snapshot = loadedTaskDraft;
+  if (loadingDraft || preparingDraft || savingDraft || confirmingDraft || !snapshot || replyRetryNeedsReload || draftEditNeedsReload ||
+      !snapshot.replyReviewed || snapshot.status !== 'succeeded' || !['not_started', 'pending'].includes(snapshot.replyStatus) ||
+      snapshot.runID !== runID || snapshot.scope.token !== scope.token || snapshot.scope.teamID !== scope.teamID || snapshot.scope.groupID !== scope.groupID) {
+    throw new Error('load this same successful run and review its reply before retrying');
+  }
+  const epoch = draftEditorEpoch;
+  const stillCurrent = () => loadedTaskDraft === snapshot && draftEditorEpoch === epoch && sameTaskDraftScope(scope) &&
+    document.getElementById('draftRunID').value.trim() === runID;
+  const resultBox = document.getElementById('draftResult');
+  retryingTaskReply = true;
+  refreshTaskDraftControls();
+  resultBox.textContent = knownTaskResultText() + 'Retrying original group reply...';
+  try {
+    const resp = await fetch('/api/v1/agent/runs/' + runID + '/reply/retry', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + scope.token }
+    });
+    if (!resp.ok) throw new Error('reply retry HTTP ' + resp.status);
+    const result = await resp.json(), data = result.data;
+    if (result.code !== 0 || !validTaskDraftData(data) || data.status !== 'succeeded' || data.reply_status !== 'accepted' ||
+        data.run_id !== runID || data.team_id !== scope.teamID || data.group_id !== scope.groupID || data.task_id !== snapshot.taskID ||
+        data.draft.title !== snapshot.title || data.draft.description !== snapshot.description ||
+        (snapshot.replyMsgID && data.reply_msg_id !== snapshot.replyMsgID)) {
+      throw new Error('invalid reply retry response');
+    }
+    if (!stillCurrent()) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'Context changed; return to the original group and load run ' + runID + ' to check its reply.';
+      return;
+    }
+    showTaskDraft(data, scope);
+    return data.reply_msg_id;
+  } catch (e) {
+    if (!stillCurrent()) {
+      clearTaskDraftResult();
+      resultBox.textContent = 'Context changed; return to the original group and load run ' + runID + ' to check its reply.';
+      return;
+    }
+    replyRetryNeedsReload = true;
+    throw new Error(e.message + '; task stays created. Load this same run before retrying the group reply.');
+  } finally {
+    retryingTaskReply = false;
+    refreshTaskDraftControls();
+  }
+}
+
+async function doRetryTaskReply() {
+  try { await retryTaskReply(); }
+  catch (e) { document.getElementById('draftResult').textContent = knownTaskResultText() + 'Reply needs review: ' + e.message; }
+}
+
+async function prepareTaskDraft() {
+  if (preparingDraft) return;
+  if (savingDraft || loadingDraft || confirmingDraft || retryingTaskReply) throw new Error('draft read, save or confirmation already in progress');
+  const scope = taskDraftScope();
+  const instruction = document.getElementById('draftInstruction').value.trim();
+  if (!instruction || Array.from(instruction).length > 2000) {
+    throw new Error('enter an instruction (1-2000 characters)');
+  }
+  const signature = JSON.stringify([scope.teamID, scope.groupID, instruction]);
+  const keyField = document.getElementById('draftRequestKey');
+  if (preparedDraftKey && keyField.value.trim() === preparedDraftKey && signature !== preparedDraftSignature) {
+    newDraftRequestKey();
+  }
+  const key = keyField.value.trim() || newDraftRequestKey();
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(key)) throw new Error('invalid draft request key');
+  preparedDraftKey = key;
+  preparedDraftSignature = signature;
+  const resultBox = document.getElementById('draftResult');
+  clearTaskDraftResult();
+  preparingDraft = true;
+  refreshTaskDraftControls();
+  resultBox.textContent = 'Preparing draft...';
+  try {
+    const resp = await fetch('/api/v1/teams/' + scope.teamID + '/groups/' + scope.groupID + '/task-drafts', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + scope.token, 'Idempotency-Key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instruction })
+    });
+    if (!resp.ok) throw new Error('draft prepare HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.code !== 0 || !result.data || !validID(result.data.run_id)) {
+      throw new Error('draft prepare failed: ' + (result.msg || 'invalid response'));
+    }
+    if (!sameTaskDraftScope(scope) || document.getElementById('draftInstruction').value.trim() !== instruction ||
+        keyField.value.trim() !== key) {
+      resultBox.textContent = 'Context changed; return to the original group and retry with the same key.';
+      return;
+    }
+    document.getElementById('draftRunID').value = result.data.run_id;
+    try {
+      await loadTaskDraft(scope, instruction);
+    } catch (e) {
+      resultBox.textContent = 'Run ID: ' + result.data.run_id + '\nDraft prepared; read failed: ' + e.message;
+    }
+    return result.data.run_id;
+  } finally {
+    preparingDraft = false;
+    refreshTaskDraftControls();
+  }
+}
+
+async function doPrepareTaskDraft() {
+  try {
+    await prepareTaskDraft();
+  } catch (e) {
+    document.getElementById('draftResult').textContent = 'Prepare draft failed: ' + e.message;
+  }
+}
+
+function prefillTaskSource(teamID, groupID, messageID) {
+  if (!validID(teamID) || !validID(groupID) || !validID(messageID) ||
+      document.getElementById('teamId').value.trim() !== teamID) {
+    throw new Error('team changed; reload this group history');
+  }
+  document.getElementById('taskSourceGroupID').value = groupID;
+  document.getElementById('taskSourceMessageID').value = messageID;
+  log('Source message ' + messageID + ' added to task form; enter a title before creating', 'info');
+}
+
+function attachTaskSourceButton(entry, teamID, groupID, messageID) {
+  const button = document.createElement('button');
+  button.textContent = 'Use for task';
+  button.onclick = () => {
+    try {
+      prefillTaskSource(teamID, groupID, messageID);
+    } catch (e) {
+      log('Cannot select source: ' + e.message, 'error');
+    }
+  };
+  entry.appendChild(button);
+}
+
+const taskStatusNames = ['To do', 'In progress', 'Done'];
+
+function taskMetaText(task) {
+  let due = 'none';
+  if (task.due_at_unix_ms > 0) {
+    const date = new Date(task.due_at_unix_ms);
+    const pad = value => String(value).padStart(2, '0');
+    due = String(date.getFullYear()).padStart(4, '0') + '-' + pad(date.getMonth() + 1) + '-' +
+      pad(date.getDate()) + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ' (local)';
+  }
+  return taskStatusNames[task.status] + ' · Assignee: ' +
+    (task.assignee_id === '0' ? 'unassigned' : task.assignee_id) + ' · Due: ' + due;
+}
+
+async function loadTaskSource(task, teamID, preview) {
+  const token = document.getElementById('token').value;
+  if (!token || !validID(teamID) || !validID(task.source_group_id) ||
+      !validID(task.source_message_id)) throw new Error('source reference is invalid');
+  const maxID = 9223372036854775807n;
+  const messageID = BigInt(task.source_message_id);
+  const beforeID = messageID === maxID ? '0' : String(messageID + 1n);
+  const path = '/api/v1/teams/' + teamID + '/groups/' + task.source_group_id + '/messages';
+  const resp = await fetch(path + '?limit=1&before_message_id=' + beforeID, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!resp.ok) throw new Error('source history HTTP ' + resp.status);
+  const result = await resp.json();
+  const messages = result.data && result.data.messages;
+  if (result.code !== 0 || !Array.isArray(messages)) {
+    throw new Error('source history failed: ' + (result.msg || 'invalid response'));
+  }
+  const message = messages[0];
+  if (!message || message.id !== task.source_message_id || typeof message.content !== 'string' ||
+      !validID(message.from_id)) throw new Error('source message not found');
+  const card = taskCreatedCard(message);
+  preview.textContent = chatSenderLabel(message) + ': ' + (card ?
+    'Task created: ' + card.title + ' (Task #' + card.task_id + ')' : message.content);
+}
+
+async function doLoadTaskSource(task, teamID, preview) {
+  try {
+    await loadTaskSource(task, teamID, preview);
+  } catch (e) {
+    preview.textContent = 'Source unavailable: ' + e.message;
+  }
+}
+
+async function setTaskStatus(task, select, meta, teamID) {
+  const token = document.getElementById('token').value;
+  if (!token || !validID(teamID) || document.getElementById('teamId').value.trim() !== teamID ||
+      !validID(task.task_id)) throw new Error('enter a token and refresh tasks for this team');
+  const nextStatus = Number(select.value);
+  if (!Number.isInteger(nextStatus) || nextStatus < 0 || nextStatus > 2) throw new Error('invalid task status');
+  if (nextStatus === task.status || updatingTasks.has(task.task_id)) return;
+  updatingTasks.add(task.task_id);
+  try {
+    const resp = await fetch('/api/v1/teams/' + teamID + '/tasks/' + task.task_id + '/status', {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: nextStatus })
+    });
+    if (!resp.ok) throw new Error('task status HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.code !== 0) throw new Error('task status failed: ' + (result.msg || 'unknown error'));
+    task.status = nextStatus;
+    meta.textContent = taskMetaText(task);
+    log('Updated task ' + task.task_id + ' to ' + taskStatusNames[nextStatus], 'info');
+  } catch (e) {
+    select.value = String(task.status);
+    throw e;
+  } finally {
+    updatingTasks.delete(task.task_id);
+  }
+}
+
+async function doSetTaskStatus(task, select, meta, teamID) {
+  try {
+    await setTaskStatus(task, select, meta, teamID);
+  } catch (e) {
+    select.value = String(task.status);
+    log('Task status failed: ' + e.message, 'error');
+  }
+}
+
+function newTaskRequestKey() {
+  if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
+    throw new Error('secure random generator unavailable');
+  }
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  const key = 'task-' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  document.getElementById('taskRequestKey').value = key;
+  return key;
+}
+
+async function createTask() {
+  if (creatingTask) return;
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  const title = document.getElementById('taskTitle').value.trim();
+  const description = document.getElementById('taskDescription').value.trim();
+  const assigneeID = document.getElementById('taskAssigneeID').value.trim();
+  const dueAtInput = document.getElementById('taskDueAt').value;
+  const sourceGroupID = document.getElementById('taskSourceGroupID').value.trim();
+  const sourceMessageID = document.getElementById('taskSourceMessageID').value.trim();
+  if (!token || !validID(teamID) || !title || Array.from(title).length > 200 ||
+      Array.from(description).length > 2000 || (assigneeID && !validID(assigneeID)) ||
+      Boolean(sourceGroupID) !== Boolean(sourceMessageID) ||
+      (sourceGroupID && (!validID(sourceGroupID) || !validID(sourceMessageID)))) {
+    throw new Error('enter a token, team ID, valid title and paired source IDs');
+  }
+  const body = { title, description };
+  if (assigneeID) body.assignee_id = assigneeID;
+  if (dueAtInput) {
+    const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(dueAtInput);
+    if (!parts) throw new Error('invalid local due time');
+    // datetime-local has no timezone; Date interprets it in the browser's local timezone.
+    const dueDate = new Date(dueAtInput);
+    const dueAtUnixMs = dueDate.getTime();
+    if (!Number.isSafeInteger(dueAtUnixMs) || dueAtUnixMs < 1 || dueAtUnixMs > 253402300799999 ||
+        dueDate.getFullYear() !== Number(parts[1]) || dueDate.getMonth() + 1 !== Number(parts[2]) ||
+        dueDate.getDate() !== Number(parts[3]) || dueDate.getHours() !== Number(parts[4]) ||
+        dueDate.getMinutes() !== Number(parts[5])) throw new Error('invalid local due time');
+    body.due_at_unix_ms = dueAtUnixMs;
+  }
+  if (sourceGroupID) {
+    body.source_group_id = sourceGroupID;
+    body.source_message_id = sourceMessageID;
+  }
+  const keyField = document.getElementById('taskRequestKey');
+  const key = keyField.value.trim() || newTaskRequestKey();
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(key)) throw new Error('invalid task request key');
+  creatingTask = true;
+  try {
+    const resp = await fetch('/api/v1/teams/' + teamID + '/tasks', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) throw new Error('task create HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.code !== 0 || !result.data || !validID(result.data.task_id)) {
+      throw new Error('task create failed: ' + (result.msg || 'invalid response'));
+    }
+    for (const id of ['taskTitle', 'taskDescription', 'taskAssigneeID', 'taskDueAt', 'taskSourceGroupID', 'taskSourceMessageID', 'taskRequestKey']) {
+      document.getElementById(id).value = '';
+    }
+    log('Created task ' + result.data.task_id, 'info');
+    try {
+      await loadTasks(true);
+    } catch (e) {
+      log('Task list refresh failed: ' + e.message, 'error');
+    }
+    return result.data.task_id;
+  } finally {
+    creatingTask = false;
+  }
+}
+
+async function doCreateTask() {
+  try {
+    await createTask();
+  } catch (e) {
+    log('Task create failed: ' + e.message, 'error');
+  }
+}
+
+function renderTask(task) {
+  const card = document.createElement('div');
+  card.className = 'task-card';
+  card.dataset.taskId = task.task_id;
+  const title = document.createElement('strong');
+  title.textContent = task.title + ' (#' + task.task_id + ')';
+  card.appendChild(title);
+  const detail = document.createElement('p');
+  detail.textContent = task.description || '(no description)';
+  card.appendChild(detail);
+  const meta = document.createElement('p');
+  meta.textContent = taskMetaText(task);
+  card.appendChild(meta);
+  const select = document.createElement('select');
+  for (let status = 0; status < taskStatusNames.length; status++) {
+    const option = document.createElement('option');
+    option.value = String(status);
+    option.textContent = taskStatusNames[status];
+    select.appendChild(option);
+  }
+  select.value = String(task.status);
+  card.appendChild(select);
+  const button = document.createElement('button');
+  button.textContent = 'Update status';
+  const teamID = taskTeamID;
+  button.onclick = () => doSetTaskStatus(task, select, meta, teamID);
+  card.appendChild(button);
+  if (validID(task.source_group_id) && validID(task.source_message_id)) {
+    const source = document.createElement('p');
+    source.textContent = 'Source: group #' + task.source_group_id + ', message #' + task.source_message_id;
+    card.appendChild(source);
+    const preview = document.createElement('p');
+    preview.textContent = 'Message not loaded';
+    card.appendChild(preview);
+    const sourceButton = document.createElement('button');
+    sourceButton.textContent = 'View source message';
+    sourceButton.onclick = () => doLoadTaskSource(task, teamID, preview);
+    card.appendChild(sourceButton);
+  }
+  document.getElementById('taskList').appendChild(card);
+}
+
+async function loadTasks(reset = false) {
+  if (taskLoading) return;
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  if (!token || !validID(teamID)) throw new Error('enter a token and team ID');
+  if (reset || teamID !== taskTeamID) {
+    taskTeamID = teamID;
+    taskCursor = '';
+    taskFinished = false;
+    document.getElementById('taskList').replaceChildren();
+  }
+  if (taskFinished) return;
+  taskLoading = true;
+  try {
+    const query = '?limit=20' + (taskCursor ? '&after_task_id=' + taskCursor : '');
+    const resp = await fetch('/api/v1/teams/' + teamID + '/tasks' + query, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!resp.ok) throw new Error('task list HTTP ' + resp.status);
+    const result = await resp.json();
+    const data = result.data;
+    if (result.code !== 0 || !data || !Array.isArray(data.tasks) ||
+        typeof data.next_after_task_id !== 'string' ||
+        (data.next_after_task_id !== '0' && !validID(data.next_after_task_id))) {
+      throw new Error('task list failed: ' + (result.msg || 'invalid response'));
+    }
+    for (const task of data.tasks) {
+      if (!task || !validID(task.task_id) || typeof task.title !== 'string' ||
+          typeof task.description !== 'string' || !Number.isInteger(task.status) ||
+          task.status < 0 || task.status > 2 ||
+          typeof task.assignee_id !== 'string' ||
+          (task.assignee_id !== '0' && !validID(task.assignee_id)) ||
+          !Number.isSafeInteger(task.due_at_unix_ms) || task.due_at_unix_ms < 0 ||
+          task.due_at_unix_ms > 253402300799999 ||
+          typeof task.source_group_id !== 'string' || typeof task.source_message_id !== 'string' ||
+          ((task.source_group_id === '0') !== (task.source_message_id === '0')) ||
+          (task.source_group_id !== '0' && (!validID(task.source_group_id) || !validID(task.source_message_id)))) {
+        log('Skipped invalid task', 'error');
+        continue;
+      }
+      renderTask(task);
+    }
+    taskCursor = data.next_after_task_id;
+    taskFinished = taskCursor === '0';
+  } finally {
+    taskLoading = false;
+  }
+}
+
+async function doLoadTasks(reset) {
+  try {
+    await loadTasks(reset);
+  } catch (e) {
+    log('Task list failed: ' + e.message, 'error');
+  }
+}
+
+function newGroupRequestKey() {
+  if (!globalThis.crypto || !globalThis.crypto.getRandomValues) {
+    throw new Error('secure random generator unavailable');
+  }
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  const key = 'group-' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  document.getElementById('groupRequestKey').value = key;
+  return key;
+}
+
+async function createTeamGroup() {
+  if (creatingTeamGroup) return;
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  const name = document.getElementById('newGroupName').value.trim();
+  if (!token || !validID(teamID) || !name || Array.from(name).length > 64) {
+    throw new Error('enter a token, team ID and group name (1-64 characters)');
+  }
+  const keyField = document.getElementById('groupRequestKey');
+  const key = keyField.value.trim() || newGroupRequestKey();
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(key)) throw new Error('invalid request key');
+
+  creatingTeamGroup = true;
+  try {
+    const resp = await fetch('/api/v1/teams/' + teamID + '/groups', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Idempotency-Key': key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name })
+    });
+    if (!resp.ok) throw new Error('group create HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.code !== 0 || !result.data || !validID(result.data.group_id)) {
+      throw new Error('group create failed: ' + (result.msg || 'invalid response'));
+    }
+    const groupID = result.data.group_id;
+    const select = document.getElementById('teamGroupSelect');
+    if (directoryTeamID !== teamID) {
+      directoryTeamID = teamID;
+      directoryCursor = '';
+      directoryFinished = false;
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Choose a group';
+      select.replaceChildren(placeholder);
+    }
+    if (!Array.from(select.options).some(option => option.value === groupID)) {
+      const option = document.createElement('option');
+      option.value = groupID;
+      option.textContent = name + ' (#' + groupID + ')';
+      select.appendChild(option);
+    }
+    select.value = groupID;
+    document.getElementById('toUserId').value = groupID;
+    document.getElementById('chatType').value = '2';
+    clearAIAnswer();
+    clearTaskDraftResult();
+    log('Created team group ' + groupID + '; keep this request key for retries', 'info');
+  } finally {
+    creatingTeamGroup = false;
+  }
+}
+
+async function doCreateTeamGroup() {
+  try {
+    await createTeamGroup();
+  } catch (e) {
+    log('Group create failed: ' + e.message, 'error');
+  }
+}
+
+async function loadTeamGroups() {
+  if (directoryLoading) return;
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  if (!token || !validID(teamID)) throw new Error('enter a token and team ID');
+  if (teamID !== directoryTeamID) {
+    directoryTeamID = teamID;
+    directoryCursor = '';
+    directoryFinished = false;
+    const select = document.getElementById('teamGroupSelect');
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choose a group';
+    select.replaceChildren(placeholder);
+  }
+  if (directoryFinished) {
+    log('No more team groups', 'info');
+    return;
+  }
+
+  const query = '?limit=20' + (directoryCursor ? '&after_group_id=' + directoryCursor : '');
+  directoryLoading = true;
+  try {
+    const resp = await fetch('/api/v1/teams/' + teamID + '/groups' + query, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!resp.ok) throw new Error('group list HTTP ' + resp.status);
+    const result = await resp.json();
+    const data = result.data;
+    if (result.code !== 0 || !data || !Array.isArray(data.groups) ||
+        typeof data.next_after_group_id !== 'string' ||
+        (data.next_after_group_id !== '0' && !validID(data.next_after_group_id))) {
+      throw new Error('group list failed: ' + (result.msg || 'invalid response'));
+    }
+    const select = document.getElementById('teamGroupSelect');
+    for (const group of data.groups) {
+      if (!group || !validID(group.group_id) || typeof group.name !== 'string') {
+        log('Skipped invalid team group', 'error');
+        continue;
+      }
+      if (Array.from(select.options).some(option => option.value === group.group_id)) continue;
+      const option = document.createElement('option');
+      option.value = group.group_id;
+      option.textContent = group.name + ' (#' + group.group_id + ')';
+      select.appendChild(option);
+    }
+    directoryCursor = data.next_after_group_id;
+    directoryFinished = directoryCursor === '0';
+  } finally {
+    directoryLoading = false;
+  }
+}
+
+async function doLoadTeamGroups() {
+  try {
+    await loadTeamGroups();
+  } catch (e) {
+    log('Group list failed: ' + e.message, 'error');
+  }
+}
+
+function selectTeamGroup() {
+  const groupID = document.getElementById('teamGroupSelect').value;
+  clearAIAnswer();
+  clearTaskDraftResult();
+  if (!validID(groupID)) return;
+  document.getElementById('toUserId').value = groupID;
+  document.getElementById('chatType').value = '2';
+}
+
+async function joinTeamGroup() {
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  const groupID = document.getElementById('toUserId').value.trim();
+  if (!token || !validID(teamID) || !validID(groupID)) {
+    throw new Error('enter a token, team ID and group ID');
+  }
+  const resp = await fetch('/api/v1/teams/' + teamID + '/groups/' + groupID + '/join', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!resp.ok) throw new Error('group join HTTP ' + resp.status);
+  const result = await resp.json();
+  if (result.code !== 0) throw new Error('group join failed: ' + (result.msg || 'unknown error'));
+  document.getElementById('chatType').value = '2';
+  log('Joined team group ' + groupID, 'info');
+}
+
+async function doJoinTeamGroup() {
+  try {
+    await joinTeamGroup();
+  } catch (e) {
+    log('Group join failed: ' + e.message, 'error');
+  }
+}
+
+function chatSenderLabel(message) {
+  const senderType = message && message.sender_type;
+  if (senderType === undefined || senderType === 0 || senderType === 1) {
+    return 'User #' + (message && message.from_id || '?');
+  }
+  if (senderType === 2 && validID(message.from_id) && validID(message.initiator_id)) {
+    return 'AI assistant #' + message.from_id + ' (confirmed by user #' + message.initiator_id + ')';
+  }
+  return 'Unknown sender';
+}
+
+function taskCreatedCard(message) {
+  if (!message || message.content_type !== 4 || message.sender_type !== 2 || message.chat_type !== 2 ||
+      !validID(message.from_id) || !validID(message.initiator_id) || !validID(message.to_id) ||
+      typeof message.content !== 'string' || message.content.length > 4096) return null;
+  try {
+    const card = JSON.parse(message.content);
+    if (!card || Array.isArray(card) || Object.keys(card).length !== 3 || card.version !== 1 ||
+        !validID(card.task_id) || typeof card.title !== 'string' || card.title.trim() !== card.title ||
+        Array.from(card.title).length < 1 || Array.from(card.title).length > 200 ||
+        Array.from(card.title).some(char => char.codePointAt(0) >= 0xD800 && char.codePointAt(0) <= 0xDFFF)) return null;
+    return card;
+  } catch (_) {
+    return null;
+  }
+}
+
+// All three receive paths share the same card display and plain-text fallback.
+function renderChatMessage(prefix, message) {
+  const card = taskCreatedCard(message);
+  const body = message && message.content_type === 4 ?
+    (card ? 'Task created: ' + card.title + ' (Task #' + card.task_id + ')' :
+      'Unsupported or invalid task card: ' + String(message.content || '')) : JSON.stringify(message);
+  const entry = log(prefix + chatSenderLabel(message) + ' ' + body, 'info');
+  if (card) {
+    const panel = document.createElement('div');
+    panel.className = 'task-card';
+    const heading = document.createElement('strong');
+    heading.textContent = 'Task created';
+    const title = document.createElement('p');
+    title.textContent = card.title;
+    const taskID = document.createElement('p');
+    taskID.textContent = 'Task #' + card.task_id;
+    panel.appendChild(heading);
+    panel.appendChild(title);
+    panel.appendChild(taskID);
+    entry.appendChild(panel);
+  }
+  return entry;
+}
+
+function isNewChatMessage(data) {
+  const msgId = data && data.msg_id;
+  if (typeof msgId !== 'string' || !msgId) return true;
+  if (seenChatIDs.has(msgId)) return false;
+  seenChatIDs.add(msgId);
+  if (seenChatIDs.size > maxSeenChatIDs) {
+    seenChatIDs.delete(seenChatIDs.values().next().value);
+  }
+  return true;
+}
+
+async function pullOfflineMessages(token) {
+  const auth = { Authorization: 'Bearer ' + token };
+  const resp = await fetch('/api/v1/message/offline', { headers: auth });
+  if (!resp.ok) throw new Error('offline pull HTTP ' + resp.status);
+  const result = await resp.json();
+  if (result.code !== 0 || !Array.isArray(result.data)) {
+    throw new Error('offline pull failed: ' + (result.msg || 'invalid response'));
+  }
+
+  const confirmedIDs = [];
+  for (const message of result.data) {
+    if (!message || typeof message.id !== 'string' || !/^[1-9]\d*$/.test(message.id) ||
+        typeof message.msg_id !== 'string' || !message.msg_id) {
+      log('Skipped invalid offline message', 'error');
+      continue;
+    }
+    if (isNewChatMessage(message)) {
+      renderChatMessage('  💬 Offline message: ', message);
+    }
+    confirmedIDs.push(message.id);
+  }
+
+  for (let i = 0; i < confirmedIDs.length; i += 1000) {
+    const batch = confirmedIDs.slice(i, i + 1000);
+    const ackResp = await fetch('/api/v1/message/offline/ack', {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message_ids: batch })
+    });
+    if (!ackResp.ok) throw new Error('offline ack HTTP ' + ackResp.status);
+    const ackResult = await ackResp.json();
+    if (ackResult.code !== 0) {
+      throw new Error('offline ack failed: ' + (ackResult.msg || 'unknown error'));
+    }
+  }
+}
+
+async function loadTeamGroupHistory() {
+  if (historyLoading) return;
+  const token = document.getElementById('token').value;
+  const teamId = document.getElementById('teamId').value.trim();
+  const groupId = document.getElementById('toUserId').value.trim();
+  if (!token || !validID(teamId) || !validID(groupId) || document.getElementById('chatType').value !== '2') {
+    throw new Error('enter a token, team ID, group ID and chat type 2');
+  }
+
+  const key = teamId + ':' + groupId;
+  if (key !== historyKey) {
+    historyKey = key;
+    historyCursor = '';
+    historyFinished = false;
+  }
+  if (historyFinished) {
+    log('No older team group messages', 'info');
+    return;
+  }
+
+  const path = '/api/v1/teams/' + teamId + '/groups/' + groupId + '/messages';
+  const query = '?limit=20' + (historyCursor ? '&before_message_id=' + historyCursor : '');
+  historyLoading = true;
+  try {
+    const resp = await fetch(path + query, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!resp.ok) throw new Error('history HTTP ' + resp.status);
+    const result = await resp.json();
+    const data = result.data;
+    if (result.code !== 0 || !data || !Array.isArray(data.messages) ||
+        typeof data.next_before_message_id !== 'string' ||
+        (data.next_before_message_id !== '0' && !validID(data.next_before_message_id))) {
+      throw new Error('history failed: ' + (result.msg || 'invalid response'));
+    }
+    for (const message of data.messages) {
+      if (!message || !validID(message.id) || typeof message.msg_id !== 'string' || !message.msg_id) {
+        log('Skipped invalid history message', 'error');
+        continue;
+      }
+      if (isNewChatMessage(message)) {
+        const entry = renderChatMessage('  📜 History message: ', message);
+        attachTaskSourceButton(entry, teamId, groupId, message.id);
+      }
+    }
+    historyCursor = data.next_before_message_id;
+    historyFinished = historyCursor === '0';
+  } finally {
+    historyLoading = false;
+  }
+}
+
+async function doLoadTeamGroupHistory() {
+  try {
+    await loadTeamGroupHistory();
+  } catch (e) {
+    log('History load failed: ' + e.message, 'error');
+  }
+}
+
+function ts() {
+  return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function log(text, cls) {
+  const panel = document.getElementById('logPanel');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + (cls || '');
+  entry.innerHTML = '<span class="ts">[' + ts() + ']</span>' + escapeHtml(text);
+  panel.appendChild(entry);
+  panel.scrollTop = panel.scrollHeight;
+  return entry;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function clearLog() {
+  document.getElementById('logPanel').innerHTML = '';
+}
+
+function setWsStatus(status) {
+  const el = document.getElementById('wsStatus');
+  el.textContent = status;
+  el.className = 'status status-' + status.toLowerCase();
+  document.getElementById('btnConnect').style.display = (status === 'Connected') ? 'none' : '';
+  document.getElementById('btnDisconnect').style.display = (status === 'Connected') ? '' : 'none';
+}
+
+// Step 1: Login via API
+async function doLogin() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const statusEl = document.getElementById('loginStatus');
+
+  if (!username || !password) {
+    statusEl.textContent = '⚠ Please enter username and password';
+    statusEl.style.color = '#f44336';
+    return;
+  }
+
+  statusEl.textContent = 'Logging in...';
+  statusEl.style.color = '#666';
+
+  try {
+    const resp = await fetch('/api/v1/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    });
+    const data = await resp.json();
+
+    if (data.code === 0 && data.data && data.data.token) {
+      document.getElementById('token').value = data.data.token;
+      clearAIAnswer();
+      clearTaskDraftResult();
+      statusEl.textContent = '✓ Login success (user_id: ' + data.data.user_id + ')';
+      statusEl.style.color = '#4CAF50';
+      log('Login success — user_id: ' + data.data.user_id, 'info');
+    } else {
+      statusEl.textContent = '✗ ' + (data.msg || 'Login failed');
+      statusEl.style.color = '#f44336';
+      log('Login failed: ' + JSON.stringify(data), 'error');
+    }
+  } catch (e) {
+    statusEl.textContent = '✗ Network error: ' + e.message;
+    statusEl.style.color = '#f44336';
+    log('Login error: ' + e.message, 'error');
+  }
+}
+
+// Step 2: Connect WebSocket
+function websocketBase() {
+  const configured = document.getElementById('wsUrl').value.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  const scheme = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return scheme + location.hostname + ':8081';
+}
+
+function doConnect() {
+  const wsUrl = websocketBase();
+  const token = document.getElementById('token').value;
+
+  if (!token) {
+    log('Please login first or paste a JWT token', 'error');
+    return;
+  }
+
+  const url = wsUrl + '/ws?token=' + encodeURIComponent(token);
+  log('Connecting to ' + wsUrl + '/ws ...', 'info');
+  setWsStatus('Connecting');
+
+  ws = new WebSocket(url);
+
+  ws.onopen = async function() {
+    log('WebSocket connected!', 'info');
+    setWsStatus('Connected');
+    try {
+      await pullOfflineMessages(token);
+    } catch (e) {
+      log('Offline pull/ack failed: ' + e.message, 'error');
+    }
+  };
+
+  ws.onmessage = function(event) {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'chat' && !isNewChatMessage(msg.data)) return;
+      log('← RECV: ' + event.data, 'recv');
+      if (msg.type === 'ack') {
+        log('  ✓ Server ACK for msg_id: ' + (msg.data && msg.data.msg_id), 'info');
+      } else if (msg.type === 'chat') {
+        const entry = renderChatMessage('  💬 New message from ', msg.data);
+        const teamID = document.getElementById('teamId').value.trim();
+        const groupID = document.getElementById('toUserId').value.trim();
+        if (msg.data && msg.data.chat_type === 2 && validID(msg.data.id) &&
+            validID(msg.data.to_id) && validID(teamID) && groupID === msg.data.to_id &&
+            document.getElementById('chatType').value === '2') {
+          attachTaskSourceButton(entry, teamID, groupID, msg.data.id);
+        }
+      } else if (msg.type === 'error') {
+        log('  ⚠ Server error: ' + JSON.stringify(msg.data), 'error');
+      }
+    } catch (e) {
+      log('← RECV: ' + event.data, 'recv');
+    }
+  };
+
+  ws.onclose = function(event) {
+    log('WebSocket closed (code=' + event.code + ', reason=' + (event.reason || 'none') + ')', 'info');
+    setWsStatus('Disconnected');
+    ws = null;
+  };
+
+  ws.onerror = function(event) {
+    log('WebSocket error', 'error');
+  };
+}
+
+function doDisconnect() {
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+  setWsStatus('Disconnected');
+  log('Disconnected by user', 'info');
+}
+
+// Step 3: Send chat message
+function doSend() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    log('Not connected. Please connect first.', 'error');
+    return;
+  }
+
+  const toId = document.getElementById('toUserId').value.trim();
+  const chatType = parseInt(document.getElementById('chatType').value) || 1;
+  const content = document.getElementById('msgContent').value.trim();
+
+  if (!validID(toId)) {
+    log('Please enter a valid user or group ID', 'error');
+    return;
+  }
+  if (!content) {
+    log('Please type a message', 'error');
+    return;
+  }
+
+  msgSeq++;
+  const msgId = 'web-' + Date.now() + '-' + msgSeq;
+
+  const msg = {
+    type: 'chat',
+    data: {
+      msg_id: msgId,
+      to_id: toId,
+      chat_type: chatType,
+      content_type: 1,
+      content: content
+    }
+  };
+
+  const payload = JSON.stringify(msg);
+  ws.send(payload);
+  log('→ SENT: ' + payload, 'sent');
+
+  document.getElementById('msgContent').value = '';
+}
+</script>
+
+</body>
+</html>

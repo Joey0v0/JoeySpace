@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "github.com/yjydist/go-im/rpc/user/pb";
+
+service User {
+  // 固定数据的通信演示。
+  rpc GetUserInfo(GetUserInfoRequest) returns (GetUserInfoResponse);
+  // 从 authorization metadata 验证登录身份，只查询本人。
+  rpc GetMyInfo(GetMyInfoRequest) returns (GetUserInfoResponse);
+  // 验证现有 users 表中的账号密码，签发兼容旧服务的 Token。
+  rpc Login(LoginRequest) returns (LoginResponse);
+  // 创建用户；实际写入和用户名唯一性由用户服务控制。
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  // 用登录身份创建团队，并将创建者加入为拥有者。
+  rpc CreateTeam(CreateTeamRequest) returns (CreateTeamResponse);
+  // 仅团队拥有者可将已有的可用用户直接加入团队。
+  rpc AddTeamMember(AddTeamMemberRequest) returns (AddTeamMemberResponse);
+  // 仅团队成员可读取成员资料，按用户 ID 分页。
+  rpc ListTeamMembers(ListTeamMembersRequest) returns (ListTeamMembersResponse);
+  // 仅团队拥有者可在普通成员与管理员之间调整角色。
+  rpc SetTeamMemberRole(SetTeamMemberRoleRequest) returns (SetTeamMemberRoleResponse);
+  // 验证当前登录用户是否可以在指定团队创建群。
+  rpc AuthorizeTeamGroupCreation(AuthorizeTeamGroupCreationRequest) returns (AuthorizeTeamGroupCreationResponse);
+  // 从登录身份检查当前用户是否仍属于指定团队，并返回已核实的身份与角色。
+  rpc CheckTeamMember(CheckTeamMemberRequest) returns (CheckTeamMemberResponse);
+  // 当前团队成员查询指定用户是否仍为该团队的可用成员，供任务指派使用。
+  rpc CheckTeamMemberByID(CheckTeamMemberByIDRequest) returns (CheckTeamMemberByIDResponse);
+  // 当前团队成员按完整用户名/昵称严格匹配启用成员；不自动决定负责人。
+  rpc ResolveTeamMember(ResolveTeamMemberRequest) returns (ResolveTeamMemberResponse);
+}
+
+message ResolveTeamMemberRequest {
+  int64 team_id = 1;
+  // 去除输入首尾空白后匹配，1—64 个 Unicode 字符；区分大小写与重音。
+  string name = 2;
+}
+
+message ResolveTeamMemberResponse {
+  // 按用户 ID 升序，最多 20 个。同一成员匹配两个字段也只出现一次。
+  repeated TeamMember candidates = 1;
+  // 还有未返回的匹配成员；仅候选数为 1 且本字段为 false 才能判断唯一。
+  bool truncated = 2;
+}
+
+message CheckTeamMemberRequest {
+  int64 team_id = 1;
+}
+
+message CheckTeamMemberResponse {
+  int64 user_id = 1;
+  int32 role = 2; // 0 普通成员、1 管理员、2 拥有者。
+}
+
+message CheckTeamMemberByIDRequest {
+  int64 team_id = 1;
+  int64 user_id = 2;
+}
+
+message CheckTeamMemberByIDResponse {}
+
+message AuthorizeTeamGroupCreationRequest {
+  int64 team_id = 1;
+}
+
+message AuthorizeTeamGroupCreationResponse {}
+
+message SetTeamMemberRoleRequest {
+  int64 team_id = 1;
+  int64 user_id = 2;
+  int32 role = 3; // 只允许 0 普通成员或 1 管理员。
+}
+
+message SetTeamMemberRoleResponse {}
+
+message ListTeamMembersRequest {
+  int64 team_id = 1;
+  int64 after_user_id = 2;
+  int32 limit = 3;
+}
+
+message TeamMember {
+  int64 user_id = 1;
+  string username = 2;
+  string nickname = 3;
+  int32 role = 4;
+}
+
+message ListTeamMembersResponse {
+  repeated TeamMember members = 1;
+  int64 next_after_user_id = 2;
+}
+
+message AddTeamMemberRequest {
+  int64 team_id = 1;
+  int64 user_id = 2;
+}
+
+message AddTeamMemberResponse {}
+
+message CreateTeamRequest {
+  string name = 1;
+}
+
+message CreateTeamResponse {
+  int64 team_id = 1;
+}
+
+message GetMyInfoRequest {}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string nickname = 3;
+}
+
+message RegisterResponse {}
+
+message GetUserInfoRequest {
+  // 演示用户 ID 固定为 1；此字段不构成用户身份证明。
+  int64 user_id = 1;
+}
+
+message GetUserInfoResponse {
+  int64 id = 1;
+  string username = 2;
+  string nickname = 3;
+}

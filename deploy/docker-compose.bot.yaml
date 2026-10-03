@@ -1,0 +1,38 @@
+# Optional IM bot listener. Merge with docker-compose.yaml only after migration
+# 013/014/015, bot provisioning and deployment certificates are ready. No host port.
+services:
+  im-rpc:
+    environment:
+      IM_BOT_LISTEN_ON: "0.0.0.0:9005"
+      IM_BOT_CODE: "${IM_BOT_CODE:-task-assistant}"
+      IM_BOT_AGENT_DNS_NAME: "${IM_BOT_AGENT_DNS_NAME:-agent.go-im.internal}"
+      IM_BOT_TLS_CERT_FILE: "/app/certs/im/cert.pem"
+      IM_BOT_TLS_KEY_FILE: "/app/certs/im/key.pem"
+      IM_BOT_TLS_CA_FILE: "/app/certs/im/ca.pem"
+      IM_BOT_KAFKA_BROKERS: "kafka:19092"
+      IM_BOT_KAFKA_TOPIC: "${IM_BOT_KAFKA_TOPIC:-chat_messages}"
+    volumes:
+      - type: bind
+        source: "${IM_BOT_CERT_DIR:?Set private IM_BOT_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/im
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      kafka:
+        condition: service_healthy
+  agent-rpc:
+    # The base file retains the explicit agent profile and ordinary read clients.
+    environment:
+      AGENT_IM_BOT_ADDR: "im-rpc:9005"
+      AGENT_IM_BOT_SERVER_NAME: "${AGENT_IM_BOT_SERVER_NAME:-im.go-im.internal}"
+      AGENT_IM_BOT_TLS_CERT_FILE: "/app/certs/agent/cert.pem"
+      AGENT_IM_BOT_TLS_KEY_FILE: "/app/certs/agent/key.pem"
+      AGENT_IM_BOT_TLS_CA_FILE: "/app/certs/agent/ca.pem"
+    volumes:
+      - type: bind
+        source: "${AGENT_BOT_CERT_DIR:?Set private AGENT_BOT_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/agent
+        read_only: true
+        bind:
+          create_host_path: false

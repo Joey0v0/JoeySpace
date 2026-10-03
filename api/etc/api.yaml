@@ -1,0 +1,33 @@
+Name: demo.api
+# 本人查询由用户 RPC 校验 Token；演示接口只返回固定资料。仅监听本机。
+Host: 127.0.0.1
+Port: 8082
+Mode: dev
+# HTTP 等待上限略大于 RPC，留出转换错误响应的时间（单位：毫秒）。
+Timeout: 3000
+# 框架默认请求日志在错误时可能记录请求头；关闭它以避免记录 Bearer Token。
+# Handler 保留不含凭证的 RPC 错误日志。
+Middlewares:
+  Log: false
+UserRPC:
+  Endpoints:
+    - 127.0.0.1:9001
+  NonBlock: true
+  Timeout: 2000
+IMRPC:
+  Endpoints:
+    - 127.0.0.1:9002
+  NonBlock: true
+  Timeout: 2000
+TaskRPC:
+  Endpoints:
+    - 127.0.0.1:9003
+  NonBlock: true
+  Timeout: 2000
+AgentRPC:
+  Endpoints:
+    - 127.0.0.1:9004
+  NonBlock: true
+  Timeout: 21000
+Log:
+  Mode: console

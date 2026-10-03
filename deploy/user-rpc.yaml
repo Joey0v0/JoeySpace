@@ -1,0 +1,7 @@
+Name: user.rpc
+# 仅在 Compose 网络中被 API Gateway 访问，不映射宿主机端口。
+ListenOn: 0.0.0.0:9001
+Mode: pro
+Timeout: 2000
+Log:
+  Mode: console

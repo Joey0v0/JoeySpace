@@ -1,0 +1,406 @@
+basePath: /api/v1
+definitions:
+  handler.AcceptFriendRequest:
+    properties:
+      friend_id:
+        type: integer
+    required:
+    - friend_id
+    type: object
+  handler.AddFriendRequest:
+    properties:
+      friend_id:
+        type: integer
+    required:
+    - friend_id
+    type: object
+  handler.CreateGroupRequest:
+    properties:
+      name:
+        maxLength: 64
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  handler.JoinGroupRequest:
+    properties:
+      group_id:
+        type: integer
+    required:
+    - group_id
+    type: object
+  handler.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  handler.LoginResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  handler.RegisterRequest:
+    properties:
+      nickname:
+        maxLength: 64
+        type: string
+      password:
+        maxLength: 64
+        minLength: 6
+        type: string
+      username:
+        maxLength: 32
+        minLength: 3
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  model.User:
+    properties:
+      avatar:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      nickname:
+        type: string
+      status:
+        description: 1:正常 2:封禁
+        type: integer
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 高性能即时通讯系统 REST API
+  title: Go-IM API
+  version: "1.0"
+paths:
+  /api/v1/friend/accept:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 好友ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AcceptFriendRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 同意好友申请
+      tags:
+      - 好友
+  /api/v1/friend/add:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 好友ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AddFriendRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 发送好友申请
+      tags:
+      - 好友
+  /api/v1/friend/list:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取好友列表
+      tags:
+      - 好友
+  /api/v1/group/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 群组信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 创建群组
+      tags:
+      - 群组
+  /api/v1/group/join:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 群组ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.JoinGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 加入群组
+      tags:
+      - 群组
+  /api/v1/group/list:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取我加入的群组列表
+      tags:
+      - 群组
+  /api/v1/group/members:
+    get:
+      parameters:
+      - description: 群组ID
+        format: int64
+        in: query
+        name: group_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取群成员列表
+      tags:
+      - 群组
+  /api/v1/message/history:
+    get:
+      parameters:
+      - description: 目标ID（用户ID或群组ID）
+        format: int64
+        in: query
+        name: target_id
+        required: true
+        type: integer
+      - description: 聊天类型 1:单聊 2:群聊
+        in: query
+        name: chat_type
+        required: true
+        type: integer
+      - description: 游标消息ID
+        format: int64
+        in: query
+        name: cursor_msg_id
+        type: integer
+      - description: 每页数量（默认20，最大100）
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 游标分页拉取历史消息
+      tags:
+      - 消息
+  /api/v1/message/offline:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 拉取离线消息
+      tags:
+      - 消息
+  /api/v1/user/info:
+    get:
+      parameters:
+      - description: 用户ID（不传则获取自己的信息）
+        format: int64
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取用户信息
+      tags:
+      - 用户
+  /api/v1/user/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 登录信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.LoginResponse'
+              type: object
+      summary: 用户登录
+      tags:
+      - 用户
+  /api/v1/user/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 注册信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 用户注册
+      tags:
+      - 用户
+securityDefinitions:
+  Bearer:
+    description: 输入 "Bearer {token}"（注意空格）
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

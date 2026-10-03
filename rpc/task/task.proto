@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package task;
+
+option go_package = "github.com/yjydist/go-im/rpc/task/pb";
+
+service Task {
+  // authorization 和 idempotency-key 经 gRPC metadata 传入。
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  // authorization 经 gRPC metadata 传入；先核对当前团队成员资格。
+  rpc ListTeamTasks(ListTeamTasksRequest) returns (ListTeamTasksResponse);
+  // authorization 经 gRPC metadata 传入；仅创建者、负责人或团队拥有者可改状态。
+  rpc SetTaskStatus(SetTaskStatusRequest) returns (SetTaskStatusResponse);
+}
+
+message CreateTaskRequest {
+  int64 team_id = 1;
+  string title = 2;
+  string description = 3;
+  int64 assignee_id = 4; // 0 表示暂不指派。
+  int64 source_group_id = 5; // 与 source_message_id 同时为 0，或同时为正数。
+  int64 source_message_id = 6;
+  int64 due_at_unix_ms = 7; // UTC Unix 毫秒；0 表示未设置。
+}
+
+message CreateTaskResponse {
+  int64 task_id = 1;
+}
+
+message ListTeamTasksRequest {
+  int64 team_id = 1;
+  int64 after_task_id = 2; // 0 表示从头开始。
+  int32 limit = 3; // 0 使用默认 20，最大 100。
+}
+
+message TaskItem {
+  int64 task_id = 1;
+  string title = 2;
+  string description = 3;
+  int64 creator_id = 4;
+  int64 assignee_id = 5; // 0 表示尚未指派。
+  int32 status = 6; // 0 待办、1 进行中、2 完成。
+  int64 source_group_id = 7; // 0 表示没有来源。
+  int64 source_message_id = 8;
+  int64 due_at_unix_ms = 9; // UTC Unix 毫秒；0 表示未设置。
+}
+
+message ListTeamTasksResponse {
+  repeated TaskItem tasks = 1;
+  int64 next_after_task_id = 2; // 0 表示没有下一页。
+}
+
+message SetTaskStatusRequest {
+  int64 team_id = 1;
+  int64 task_id = 2;
+  int32 status = 3; // 0 待办、1 进行中、2 完成。
+}
+
+message SetTaskStatusResponse {}

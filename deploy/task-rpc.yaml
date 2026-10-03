@@ -1,0 +1,7 @@
+Name: task.rpc
+# 仅供 Compose 内部 Gateway 调用，不映射宿主机端口。
+ListenOn: 0.0.0.0:9003
+Mode: pro
+Timeout: 2000
+Log:
+  Mode: console

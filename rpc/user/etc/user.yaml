@@ -1,0 +1,7 @@
+Name: user.rpc
+# 演示方法返回固定数据；GetMyInfo 验证 Token 后读取数据库。仅监听本机。
+ListenOn: 127.0.0.1:9001
+Mode: dev
+Timeout: 2000
+Log:
+  Mode: console

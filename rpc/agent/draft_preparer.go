@@ -1,0 +1,131 @@
+package agent
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/bwmarrin/snowflake"
+	impb "github.com/yjydist/go-im/rpc/im/pb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+type draftMessageReader interface {
+	GroupMessages(context.Context, string, int64, int64) ([]*impb.TeamGroupMessage, error)
+}
+
+type taskDraftGenerator interface {
+	GenerateDraft(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error)
+}
+
+type draftPreparationStore interface {
+	findExistingDraft(context.Context, draftRunScope, string, string) (int64, error)
+	saveWaitingDraft(context.Context, int64, draftRunScope, taskDraft, string, string) (int64, error)
+}
+
+type draftPreparer struct {
+	identity  *draftIdentityResolver
+	messages  draftMessageReader
+	generator taskDraftGenerator
+	store     draftPreparationStore
+	idNode    *snowflake.Node
+	assignees *draftAssigneeResolver
+}
+
+// prepare creates one draft after resolving the current user and reading the
+// currently authorized group context. A model can suggest content, not scope.
+func (p *draftPreparer) prepare(ctx context.Context, token string, teamID, groupID int64, instruction, requestKey string) (int64, error) {
+	if p == nil || p.identity == nil || p.messages == nil || p.generator == nil || p.store == nil || p.idNode == nil {
+		return 0, status.Error(codes.Unavailable, "draft preparation is not configured")
+	}
+	instruction = strings.TrimSpace(instruction)
+	if teamID <= 0 || groupID <= 0 || !utf8.ValidString(instruction) || utf8.RuneCountInString(instruction) < 1 || utf8.RuneCountInString(instruction) > 2000 || !validDraftRequestKey(requestKey) {
+		return 0, status.Error(codes.InvalidArgument, "invalid draft request")
+	}
+	actorID, err := p.identity.currentUserID(ctx, token)
+	if err != nil {
+		return 0, err
+	}
+	messages, err := p.messages.GroupMessages(ctx, token, teamID, groupID)
+	if err != nil {
+		return 0, err
+	}
+	if ctx.Err() != nil {
+		return 0, status.FromContextError(ctx.Err()).Err()
+	}
+	scope := draftRunScope{TeamID: teamID, GroupID: groupID, InitiatorID: actorID}
+	fingerprint := draftPreparationFingerprint(teamID, groupID, instruction)
+	if existingID, err := p.store.findExistingDraft(ctx, scope, requestKey, fingerprint); err != nil || existingID > 0 {
+		return existingID, err
+	}
+	draft, err := p.generator.GenerateDraft(ctx, instruction, messages)
+	if ctx.Err() != nil {
+		return 0, status.FromContextError(ctx.Err()).Err()
+	}
+	if err != nil {
+		if status.Code(err) == codes.FailedPrecondition {
+			return 0, status.Error(codes.FailedPrecondition, "model returned invalid draft")
+		}
+		return 0, status.Error(codes.Unavailable, "draft generator unavailable")
+	}
+	// The model supplies a literal mention, never a trusted member ID or state.
+	if draft.AssigneeID != 0 || draft.AssigneeResolution != "" || draft.DueAtUnixMs != 0 || !sourceInAuthorizedText(messages, draft.SourceMessageID) {
+		return 0, status.Error(codes.FailedPrecondition, "draft source or fields could not be verified")
+	}
+	content := draft
+	content.AssigneeName = ""
+	if _, err := newWaitingTaskDraftRun(scope, content); err != nil {
+		return 0, status.Error(codes.FailedPrecondition, "generated draft is invalid")
+	}
+	name := strings.TrimSpace(draft.AssigneeName)
+	if name != "" && !assigneeMentionInAuthorizedText(instruction, messages, name) {
+		return 0, status.Error(codes.FailedPrecondition, "assignee mention could not be verified")
+	}
+	draft, err = p.assignees.resolve(ctx, token, teamID, draft)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := newWaitingTaskDraftRun(scope, draft); err != nil {
+		return 0, status.Error(codes.FailedPrecondition, "generated draft is invalid")
+	}
+	runID := p.idNode.Generate().Int64()
+	return p.store.saveWaitingDraft(ctx, runID, scope, draft, requestKey, fingerprint)
+}
+
+func assigneeMentionInAuthorizedText(instruction string, messages []*impb.TeamGroupMessage, name string) bool {
+	if strings.Contains(instruction, name) {
+		return true
+	}
+	for _, message := range messages {
+		if message != nil && message.GetContentType() == 1 && strings.Contains(message.GetContent(), name) {
+			return true
+		}
+	}
+	return false
+}
+
+func draftPreparationFingerprint(teamID, groupID int64, instruction string) string {
+	value, _ := json.Marshal(struct {
+		TeamID      int64  `json:"team_id"`
+		GroupID     int64  `json:"group_id"`
+		Instruction string `json:"instruction"`
+	}{teamID, groupID, instruction})
+	sum := sha256.Sum256(value)
+	return hex.EncodeToString(sum[:])
+}
+
+func sourceInAuthorizedText(messages []*impb.TeamGroupMessage, sourceID int64) bool {
+	if sourceID == 0 {
+		return true
+	}
+	for _, message := range messages {
+		if message != nil && message.GetId() == sourceID && message.GetContentType() == 1 {
+			return true
+		}
+	}
+	return false
+}

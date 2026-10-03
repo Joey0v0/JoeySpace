@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package im;
+
+option go_package = "github.com/yjydist/go-im/rpc/im/pb";
+
+service IM {
+  // 从 authorization metadata 确定用户，检查其是否属于群及所属团队。
+  rpc CheckGroupMember(CheckGroupMemberRequest) returns (CheckGroupMemberResponse);
+  // 核对当前用户属于指定团队中的指定群，不读取消息正文。
+  rpc CheckTeamGroupAccess(CheckTeamGroupAccessRequest) returns (CheckTeamGroupAccessResponse);
+  // 团队拥有者创建团队群，并加入为群主。
+  rpc CreateTeamGroup(CreateTeamGroupRequest) returns (CreateTeamGroupResponse);
+  // 团队成员分页查看所属团队的群。
+  rpc ListTeamGroups(ListTeamGroupsRequest) returns (ListTeamGroupsResponse);
+  // 当前团队成员自行加入所属团队的群；用户身份从 authorization 获取。
+  rpc JoinTeamGroup(JoinTeamGroupRequest) returns (JoinTeamGroupResponse);
+  // 团队群成员按消息 ID 倒序读取历史消息。
+  rpc ListTeamGroupMessages(ListTeamGroupMessagesRequest) returns (ListTeamGroupMessagesResponse);
+  // 核对当前用户可访问指定团队群中的来源消息，供任务服务建立引用。
+  rpc CheckTeamGroupMessage(CheckTeamGroupMessageRequest) returns (CheckTeamGroupMessageResponse);
+  // 从 authorization metadata 确定本人，只读拉取尚未确认的离线消息。
+  rpc ListOfflineMessages(ListOfflineMessagesRequest) returns (ListOfflineMessagesResponse);
+  // 当前用户处理完消息后，按消息 ID 确认离线投递。
+  rpc AckOfflineMessages(AckOfflineMessagesRequest) returns (AckOfflineMessagesResponse);
+}
+
+message AckOfflineMessagesRequest {
+  repeated int64 message_ids = 1;
+}
+
+message AckOfflineMessagesResponse {}
+
+message ListOfflineMessagesRequest {}
+
+message OfflineMessage {
+  int64 id = 1;
+  string msg_id = 2;
+  int64 from_id = 3;
+  int64 to_id = 4;
+  int32 chat_type = 5;
+  int32 content_type = 6;
+  string content = 7;
+  google.protobuf.Timestamp created_at = 8;
+  // 1: user, 2: IM bot; 0 means a legacy user message.
+  int32 sender_type = 9;
+  int64 initiator_id = 10;
+}
+
+message ListOfflineMessagesResponse {
+  repeated OfflineMessage messages = 1;
+}
+
+message ListTeamGroupMessagesRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+  int64 before_message_id = 3;
+  int32 limit = 4;
+}
+
+message TeamGroupMessage {
+  int64 id = 1;
+  string msg_id = 2;
+  int64 from_id = 3;
+  int32 content_type = 4;
+  string content = 5;
+  int64 created_at_unix_ms = 6;
+  // from_id refers to a user or bot according to sender_type.
+  int32 sender_type = 7;
+  int64 initiator_id = 8;
+}
+
+message ListTeamGroupMessagesResponse {
+  repeated TeamGroupMessage messages = 1;
+  int64 next_before_message_id = 2;
+}
+
+message CheckTeamGroupMessageRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+  int64 message_id = 3;
+}
+
+message CheckTeamGroupMessageResponse {}
+
+message JoinTeamGroupRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+}
+
+message JoinTeamGroupResponse {}
+
+message ListTeamGroupsRequest {
+  int64 team_id = 1;
+  int64 after_group_id = 2;
+  int32 limit = 3;
+}
+
+message TeamGroup {
+  int64 group_id = 1;
+  string name = 2;
+  int64 owner_id = 3;
+}
+
+message ListTeamGroupsResponse {
+  repeated TeamGroup groups = 1;
+  int64 next_after_group_id = 2;
+}
+
+message CreateTeamGroupRequest {
+  int64 team_id = 1;
+  string name = 2;
+}
+
+message CreateTeamGroupResponse {
+  int64 group_id = 1;
+}
+
+message CheckGroupMemberRequest {
+  int64 group_id = 1;
+}
+
+message CheckGroupMemberResponse {}
+
+message CheckTeamGroupAccessRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+}
+
+message CheckTeamGroupAccessResponse {}
