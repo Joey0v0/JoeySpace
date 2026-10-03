@@ -56,11 +56,12 @@ func lockedDraft(tx *gorm.DB, runID, actorID int64) (taskDraftRun, error) {
 
 // freezeDraft atomically compares the saved text and reserves a stable Task
 // request. Creating/succeeded replays never change its key or any task field.
-func (s *draftStore) freezeDraft(ctx context.Context, runID, actorID int64, expectedTitle, expectedDescription string, expectedRevision int64, expectedAssigneeID *int64) (taskDraftRun, error) {
+func (s *draftStore) freezeDraft(ctx context.Context, runID, actorID int64, expectedTitle, expectedDescription string, expectedRevision int64, expectedAssigneeID, expectedDueAtUnixMs *int64) (taskDraftRun, error) {
 	if s == nil || s.db == nil {
 		return taskDraftRun{}, status.Error(codes.Unavailable, "draft storage is not configured")
 	}
-	if runID <= 0 || actorID <= 0 || expectedRevision <= 0 || (expectedAssigneeID != nil && *expectedAssigneeID < 0) {
+	if runID <= 0 || actorID <= 0 || expectedRevision <= 0 || (expectedAssigneeID != nil && *expectedAssigneeID < 0) ||
+		(expectedDueAtUnixMs != nil && (*expectedDueAtUnixMs < 0 || *expectedDueAtUnixMs > maxDraftDueAtUnixMs)) {
 		return taskDraftRun{}, status.Error(codes.InvalidArgument, "invalid run or actor ID")
 	}
 	var run taskDraftRun
@@ -81,6 +82,9 @@ func (s *draftStore) freezeDraft(ctx context.Context, runID, actorID int64, expe
 			return status.Error(codes.Unavailable, "stored task draft is invalid")
 		}
 		if err := run.Draft.requireAssigneeReview(expectedAssigneeID); err != nil {
+			return err
+		}
+		if err := run.Draft.requireDeadlineReview(expectedDueAtUnixMs); err != nil {
 			return err
 		}
 		key := draftTaskRequestKey(runID)

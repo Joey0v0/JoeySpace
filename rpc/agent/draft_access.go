@@ -25,6 +25,7 @@ type draftAccessReader struct {
 	identity *draftIdentityResolver
 	store    draftRunLoader
 	editor   draftTextUpdater
+	deadline draftDeadlineUpdater
 	selector draftAssigneeUpdater
 	members  draftMemberClient
 	im       draftGroupAccessClient

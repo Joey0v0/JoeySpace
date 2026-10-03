@@ -23,6 +23,7 @@ func (s *Server) ConfigureDraftAccess(db *gorm.DB, users userpb.UserClient, im i
 		store:    store,
 		editor:   store,
 		selector: store,
+		deadline: store,
 		members:  users,
 		im:       im,
 	}

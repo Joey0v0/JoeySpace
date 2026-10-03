@@ -77,7 +77,8 @@ func TestAgentStartupConnectsConfirmationAndRestartRetryToTask(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", "Bearer user-token"))
-	req := &agentpb.ConfirmTaskDraftRequest{ExpectedRevision: 1, RunId: 9001, ExpectedTitle: "修复缓存", ExpectedDescription: "复核"}
+	expectedDue := int64(1000)
+	req := &agentpb.ConfirmTaskDraftRequest{ExpectedDueAtUnixMs: &expectedDue, ExpectedRevision: 1, RunId: 9001, ExpectedTitle: "修复缓存", ExpectedDescription: "复核"}
 	// Reconstruct the production server for the retry, while retaining the DB
 	// record. All service calls use real local TCP; business DB/Task are fakes.
 	for attempt := 0; attempt < 2; attempt++ {

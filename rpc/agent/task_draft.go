@@ -100,6 +100,19 @@ type taskDraftRun struct {
 	TaskID         int64
 }
 
+func (d taskDraft) requireDeadlineReview(reviewed *int64) error {
+	if d.DueAtUnixMs < 0 || d.DueAtUnixMs > maxDraftDueAtUnixMs {
+		return status.Error(codes.Unavailable, "stored deadline is invalid")
+	}
+	if reviewed == nil && d.DueAtUnixMs != 0 {
+		return status.Error(codes.FailedPrecondition, "deadline review is required before confirming this draft")
+	}
+	if reviewed != nil && *reviewed != d.DueAtUnixMs {
+		return status.Error(codes.Aborted, "draft deadline changed; reload before confirming")
+	}
+	return nil
+}
+
 // newWaitingTaskDraftRun validates the shape of one draft before persistence.
 // It does not authorize a user or call Task.CreateTask.
 func newWaitingTaskDraftRun(scope draftRunScope, draft taskDraft) (taskDraftRun, error) {

@@ -21,7 +21,7 @@ const (
 )
 
 type draftConfirmationStore interface {
-	freezeDraft(context.Context, int64, int64, string, string, int64, *int64) (taskDraftRun, error)
+	freezeDraft(context.Context, int64, int64, string, string, int64, *int64, *int64) (taskDraftRun, error)
 	completeDraft(context.Context, int64, int64, string, int64) (taskDraftRun, error)
 }
 
@@ -48,7 +48,8 @@ func (s *Server) ConfirmTaskDraft(ctx context.Context, req *pb.ConfirmTaskDraftR
 	if req.GetRunId() <= 0 || req.GetExpectedRevision() <= 0 || !utf8.ValidString(req.GetExpectedTitle()) ||
 		utf8.RuneCountInString(req.GetExpectedTitle()) < 1 || utf8.RuneCountInString(req.GetExpectedTitle()) > 200 ||
 		!utf8.ValidString(req.GetExpectedDescription()) || utf8.RuneCountInString(req.GetExpectedDescription()) > 2000 ||
-		(req.ExpectedAssigneeId != nil && req.GetExpectedAssigneeId() < 0) {
+		(req.ExpectedAssigneeId != nil && req.GetExpectedAssigneeId() < 0) ||
+		(req.ExpectedDueAtUnixMs != nil && (req.GetExpectedDueAtUnixMs() < 0 || req.GetExpectedDueAtUnixMs() > maxDraftDueAtUnixMs)) {
 		return nil, status.Error(codes.InvalidArgument, "invalid draft confirmation")
 	}
 	if s == nil || s.draftReader == nil || s.confirmer == nil || s.confirmer.store == nil || s.confirmer.tasks == nil {
@@ -66,11 +67,14 @@ func (s *Server) ConfirmTaskDraft(ctx context.Context, req *pb.ConfirmTaskDraftR
 	if err == nil && (run.Revision != req.GetExpectedRevision() || run.Draft.Title != req.GetExpectedTitle() || run.Draft.Description != req.GetExpectedDescription()) {
 		err = status.Error(codes.Aborted, "draft changed; reload before confirming")
 	}
+	if err == nil {
+		err = run.Draft.requireDeadlineReview(req.ExpectedDueAtUnixMs)
+	}
 	if err == nil && run.Status == draftWaitingConfirmation {
 		err = s.draftReader.checkAssignee(createCtx, token, run.Scope.TeamID, run.Draft.AssigneeID)
 	}
 	if err == nil {
-		run, err = s.confirmer.confirm(createCtx, token, run, req.GetExpectedTitle(), req.GetExpectedDescription(), req.GetExpectedRevision(), req.ExpectedAssigneeId)
+		run, err = s.confirmer.confirm(createCtx, token, run, req.GetExpectedTitle(), req.GetExpectedDescription(), req.GetExpectedRevision(), req.ExpectedAssigneeId, req.ExpectedDueAtUnixMs)
 	}
 	if confirmCtx.Err() != nil {
 		return nil, status.FromContextError(confirmCtx.Err()).Err()
@@ -94,14 +98,17 @@ func (s *Server) ConfirmTaskDraft(ctx context.Context, req *pb.ConfirmTaskDraftR
 	return response, nil
 }
 
-func (c *draftConfirmer) confirm(ctx context.Context, token string, authorized taskDraftRun, expectedTitle, expectedDescription string, expectedRevision int64, expectedAssigneeID *int64) (taskDraftRun, error) {
+func (c *draftConfirmer) confirm(ctx context.Context, token string, authorized taskDraftRun, expectedTitle, expectedDescription string, expectedRevision int64, expectedAssigneeID, expectedDueAtUnixMs *int64) (taskDraftRun, error) {
 	if authorized.Revision != expectedRevision {
 		return taskDraftRun{}, status.Error(codes.Aborted, "draft changed; reload before confirming")
 	}
 	if err := authorized.Draft.requireAssigneeReview(expectedAssigneeID); err != nil {
 		return taskDraftRun{}, err
 	}
-	run, err := c.store.freezeDraft(ctx, authorized.ID, authorized.Scope.InitiatorID, expectedTitle, expectedDescription, expectedRevision, expectedAssigneeID)
+	if err := authorized.Draft.requireDeadlineReview(expectedDueAtUnixMs); err != nil {
+		return taskDraftRun{}, err
+	}
+	run, err := c.store.freezeDraft(ctx, authorized.ID, authorized.Scope.InitiatorID, expectedTitle, expectedDescription, expectedRevision, expectedAssigneeID, expectedDueAtUnixMs)
 	if err != nil {
 		return taskDraftRun{}, err
 	}
@@ -109,6 +116,9 @@ func (c *draftConfirmer) confirm(ctx context.Context, token string, authorized t
 		return taskDraftRun{}, status.Error(codes.Aborted, "draft scope changed; reload before confirming")
 	}
 	if err := run.Draft.requireAssigneeReview(expectedAssigneeID); err != nil {
+		return taskDraftRun{}, err
+	}
+	if err := run.Draft.requireDeadlineReview(expectedDueAtUnixMs); err != nil {
 		return taskDraftRun{}, err
 	}
 	if run.Status == draftSucceeded {
