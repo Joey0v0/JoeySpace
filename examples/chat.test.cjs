@@ -49,6 +49,7 @@ function page(fetch) {
     draftReferenceSummary: { textContent: '' },
     draftAssigneeSummary: { textContent: '' },
     draftDeadlineSummary: { textContent: '' },
+    draftDeadlineEvidence: { textContent: '' },
     draftDueAt: { value: '', disabled: true },
     btnSaveDraftDeadline: { disabled: true },
     btnClearDraftDeadline: { disabled: true },
@@ -1270,6 +1271,290 @@ function deadlineDraft(due = 0, revision = '1', overrides = {}) {
   result.data.draft.revision = revision;
   return result;
 }
+
+function autoDeadlineDraft(resolution = 'parsed', metaOverrides = {}) {
+  const reference = Date.UTC(2026, 9, 3, 10), parsed = Date.UTC(2026, 9, 4, 7, 30);
+  const none = resolution === 'none', unresolved = resolution === 'needs_input';
+  const meta = { text: none ? '' : unresolved ? '明天下午' : '明天15:30', source: none ? 'none' : 'instruction',
+    source_message_id: '0', reference_unix_ms: none ? 0 : reference, timezone: 'Asia/Shanghai', resolution,
+    reason: unresolved ? 'unsupported_expression' : '', parsed_unix_ms: none || unresolved ? 0 : parsed,
+    instruction_reference_unix_ms: reference, ...metaOverrides };
+  const due = ['none', 'needs_input', 'unset'].includes(resolution) ? 0 : meta.parsed_unix_ms;
+  const result = deadlineDraft(due);
+  result.data.draft.deadline = meta;
+  return result;
+}
+
+function handledDeadline(result, resolution, due, revision) {
+  const updated = JSON.parse(JSON.stringify(result));
+  updated.data.draft.deadline.resolution = resolution;
+  updated.data.draft.due_at_unix_ms = due;
+  updated.data.draft.revision = revision;
+  return updated;
+}
+
+test('parsed deadline displays saved evidence and first reference separately, then confirms the reviewed resolution', async () => {
+  const initial = autoDeadlineDraft(), calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    const result = JSON.parse(JSON.stringify(initial));
+    if (url.endsWith('/confirm')) Object.assign(result.data, { status: 'succeeded', task_id: '123' });
+    return reply(result);
+  });
+  await context.loadTaskDraft();
+  assert.equal(calls.length, 1);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Time expression: 明天15:30/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Source: Instruction/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Interpretation reference: 2026-10-03 18:00 Asia\/Shanghai/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Original parsed candidate: 2026-10-04 15:30/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /First instruction submission reference \(saved\): 2026-10-03 18:00/);
+  assert.match(fields.draftReferenceSummary.textContent, /does not retrieve/);
+  assert.equal(fields.btnConfirmDraft.disabled, false);
+  await context.confirmTaskDraft();
+  assert.equal(JSON.parse(calls[1].options.body).expected_deadline_resolution, 'parsed');
+  assert.equal(JSON.parse(calls[1].options.body).expected_due_at_unix_ms, initial.data.draft.due_at_unix_ms);
+});
+
+test('none evidence still displays the original first submission reference and is explicitly reviewed as none', async () => {
+  const initial = autoDeadlineDraft('none'), calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    const result = JSON.parse(JSON.stringify(initial));
+    if (calls.length > 1) Object.assign(result.data, { status: 'succeeded', task_id: '123' });
+    return reply(result);
+  });
+  await context.loadTaskDraft();
+  assert.match(fields.draftDeadlineEvidence.textContent, /Time expression: \(none\)/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Interpretation reference: Not provided/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /First instruction submission reference \(saved\): 2026-10-03 18:00/);
+  await context.confirmTaskDraft();
+  assert.equal(JSON.parse(calls[1].options.body).expected_deadline_resolution, 'none');
+  assert.equal(JSON.parse(calls[1].options.body).expected_due_at_unix_ms, 0);
+});
+
+test('message evidence keeps exact source ID, independent effective reference and original candidate after manual override', async () => {
+  const initial = autoDeadlineDraft('parsed', { source: 'message', source_message_id: '9007199254740997',
+    text: '<script>明天15:30</script>', reference_unix_ms: Date.UTC(2026, 9, 2, 10), parsed_unix_ms: Date.UTC(2026, 9, 3, 7, 30) });
+  const selectedDue = Date.UTC(2026, 9, 5, 7, 30), selected = handledDeadline(initial, 'selected', selectedDue, '2'), calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    const result = JSON.parse(JSON.stringify(calls.length === 1 ? initial : selected));
+    if (url.endsWith('/confirm')) Object.assign(result.data, { status: 'succeeded', task_id: '123' });
+    return reply(result);
+  });
+  await context.loadTaskDraft();
+  assert.match(fields.draftDeadlineEvidence.textContent, /Source: Message #9007199254740997/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Interpretation reference: 2026-10-02 18:00/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /First instruction submission reference \(saved\): 2026-10-03 18:00/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /<script>明天15:30<\/script>/);
+  fields.draftDueAt.value = '2026-10-05T15:30';
+  await context.saveDraftDeadline();
+  assert.match(fields.draftDeadlineSummary.textContent, /2026-10-05 15:30/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Original parsed candidate: 2026-10-03 15:30/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Your saved deadline overrides/);
+  await context.confirmTaskDraft();
+  assert.equal(JSON.parse(calls[2].options.body).expected_deadline_resolution, 'selected');
+});
+
+test('needs-input empty time is blocked until explicit zero save changes state and revision; subsequent zero save is noop', async () => {
+  const initial = autoDeadlineDraft('needs_input'), unset = handledDeadline(initial, 'unset', 0, '2'), calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    const result = JSON.parse(JSON.stringify(calls.length === 1 ? initial : unset));
+    if (url.endsWith('/confirm')) Object.assign(result.data, { status: 'succeeded', task_id: '123' });
+    return reply(result);
+  });
+  await context.loadTaskDraft();
+  assert.equal(fields.draftDueAt.value, '');
+  assert.equal(fields.btnConfirmDraft.disabled, true);
+  await assert.rejects(context.confirmTaskDraft(), /explicitly save no deadline/);
+  assert.equal(calls.length, 1);
+  await context.saveDraftDeadline();
+  assert.deepEqual(JSON.parse(calls[1].options.body), { due_at_unix_ms: 0, expected_revision: '1' });
+  assert.match(fields.draftDeadlineEvidence.textContent, /Original issue: Expression needs a complete date and time/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /You explicitly saved no deadline/);
+  assert.equal(fields.btnConfirmDraft.disabled, false);
+  await context.saveDraftDeadline();
+  assert.equal(JSON.parse(calls[2].options.body).expected_revision, '2');
+  await context.confirmTaskDraft();
+  assert.equal(JSON.parse(calls[3].options.body).expected_deadline_resolution, 'unset');
+});
+
+test('needs-input explicit time must be saved before confirmation and retains original unsupported expression', async () => {
+  const initial = autoDeadlineDraft('needs_input'), due = Date.UTC(2026, 9, 4, 7, 30), selected = handledDeadline(initial, 'selected', due, '2');
+  let calls = 0;
+  const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? initial : selected));
+  await context.loadTaskDraft();
+  fields.draftDueAt.value = '2026-10-04T15:30';
+  await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+  await context.saveDraftDeadline();
+  assert.match(fields.draftDeadlineEvidence.textContent, /Time expression: 明天下午/);
+  assert.match(fields.draftDeadlineEvidence.textContent, /Original issue: Expression needs a complete date and time/);
+  assert.equal(fields.btnConfirmDraft.disabled, false);
+});
+
+test('saving an unchanged parsed candidate explicitly selects it and increments revision once', async () => {
+  const initial = autoDeadlineDraft(), selected = handledDeadline(initial, 'selected', initial.data.draft.due_at_unix_ms, '2'), calls = [];
+  const { context } = draftEditPage(async (url, options) => { calls.push({ url, options }); return reply(calls.length === 1 ? initial : selected); });
+  await context.loadTaskDraft();
+  await context.saveDraftDeadline();
+  await context.saveDraftDeadline();
+  assert.equal(JSON.parse(calls[1].options.body).expected_revision, '1');
+  assert.equal(JSON.parse(calls[2].options.body).expected_revision, '2');
+});
+
+test('deadline metadata must contain all nine fields and valid UTF, IDs, references, states and candidate relationships', async () => {
+  const invalid = [data => { data.draft.deadline = {}; }, data => { data.draft.deadline = null; },
+    data => { delete data.draft.deadline.instruction_reference_unix_ms; }, data => { data.draft.deadline.extra = true; },
+    data => { data.draft.deadline.text = '\ud800'; }, data => { data.draft.deadline.text = ' padded '; },
+    data => { data.draft.deadline.text = 'a'.repeat(201); }, data => { data.draft.deadline.timezone = 'UTC'; },
+    data => { data.draft.deadline.source = 'unknown'; }, data => { data.draft.deadline.source_message_id = 9; },
+    data => { data.draft.deadline.source_message_id = '01'; }, data => { data.draft.deadline.reference_unix_ms += 1; },
+    data => { data.draft.deadline.instruction_reference_unix_ms = -1; }, data => { data.draft.deadline.parsed_unix_ms = '1'; },
+    data => { data.draft.deadline.parsed_unix_ms = 253402300800000; }, data => { data.draft.deadline.reason = 'unknown'; },
+    data => { data.draft.deadline.resolution = ''; }, data => { data.draft.deadline.resolution = 'none'; },
+    data => { data.draft.deadline.resolution = 'needs_input'; }, data => { data.draft.deadline.reason = 'invalid_date'; },
+    data => { data.draft.due_at_unix_ms += 1; }, data => { delete data.draft.due_at_unix_ms; },
+    data => { data.draft.deadline.source = 'message'; }, data => { data.draft.deadline.source = 'none'; }];
+  for (const change of invalid) {
+    const result = autoDeadlineDraft(); change(result.data);
+    const { context, fields } = draftEditPage(async () => reply(result));
+    await assert.rejects(context.loadTaskDraft(), /invalid response/);
+    await assert.rejects(context.confirmTaskDraft(), /load/);
+    assert.equal(fields.draftDeadlineEvidence.textContent, '');
+  }
+});
+
+test('absolute evidence without instruction reference and none manual selection remain shape-valid without fabricated reference', async () => {
+  const absolute = autoDeadlineDraft('parsed', { text: '2026-10-04 15:30', reference_unix_ms: 0, instruction_reference_unix_ms: 0 });
+  const { context, fields } = draftEditPage(async () => reply(absolute));
+  await context.loadTaskDraft();
+  assert.match(fields.draftDeadlineEvidence.textContent, /Interpretation reference: Not provided/);
+  assert.equal(fields.btnConfirmDraft.disabled, false);
+  const none = autoDeadlineDraft('none');
+  const selected = handledDeadline(none, 'selected', Date.UTC(2026, 9, 4, 7, 30), '2');
+  let calls = 0;
+  const pageResult = draftEditPage(async () => reply(++calls === 1 ? none : selected));
+  await pageResult.context.loadTaskDraft();
+  pageResult.fields.draftDueAt.value = '2026-10-04T15:30';
+  await pageResult.context.saveDraftDeadline();
+  assert.match(pageResult.fields.draftDeadlineEvidence.textContent, /Time expression: \(none\)/);
+});
+
+test('missing-reference evidence requires an instruction with no saved reference and remains reviewable after explicit clearing', async () => {
+  const initial = autoDeadlineDraft('needs_input', { reason: 'missing_reference', reference_unix_ms: 0, instruction_reference_unix_ms: 0 });
+  const unset = handledDeadline(initial, 'unset', 0, '2');
+  let calls = 0;
+  const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? initial : unset));
+  await context.loadTaskDraft();
+  assert.match(fields.draftDeadlineEvidence.textContent, /Original instruction reference is missing/);
+  await context.saveDraftDeadline();
+  assert.equal(fields.btnConfirmDraft.disabled, false);
+  for (const invalid of [autoDeadlineDraft('needs_input', { reason: 'missing_reference' }),
+    autoDeadlineDraft('needs_input', { reason: 'missing_reference', source: 'message', source_message_id: '8' })]) {
+    const next = draftEditPage(async () => reply(invalid));
+    await assert.rejects(next.context.loadTaskDraft(), /invalid response/);
+  }
+});
+
+test('every original evidence field is immutable during deadline saves and resolution must represent the requested choice', async () => {
+  for (const field of deadlineMetadataFieldNames()) {
+    const initial = autoDeadlineDraft(), next = handledDeadline(initial, 'selected', initial.data.draft.due_at_unix_ms, '2');
+    if (field === 'resolution') next.data.draft.deadline.resolution = 'parsed';
+    else if (field === 'source_message_id') { next.data.draft.deadline.source = 'message'; next.data.draft.deadline.source_message_id = '8'; }
+    else if (field === 'reference_unix_ms' || field === 'instruction_reference_unix_ms') {
+      next.data.draft.deadline.reference_unix_ms += 1; next.data.draft.deadline.instruction_reference_unix_ms += 1;
+    } else if (typeof next.data.draft.deadline[field] === 'number') next.data.draft.deadline[field] += 1;
+    else next.data.draft.deadline[field] += 'changed';
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? initial : next));
+    await context.loadTaskDraft();
+    await assert.rejects(context.saveDraftDeadline(), /invalid deadline save response/);
+    assert.match(fields.draftDeadlineEvidence.textContent, /Original parsed candidate: 2026-10-04 15:30/);
+    await assert.rejects(context.confirmTaskDraft(), /load/);
+  }
+});
+
+function deadlineMetadataFieldNames() {
+  return ['text', 'source', 'source_message_id', 'reference_unix_ms', 'timezone', 'resolution', 'reason', 'parsed_unix_ms', 'instruction_reference_unix_ms'];
+}
+
+test('text and assignee saves cannot alter or omit interpretation evidence, even if the new object is independently valid', async () => {
+  for (const action of ['saveTaskDraft', 'saveDraftAssignee']) {
+    for (const omit of [false, true]) {
+      const initial = autoDeadlineDraft();
+      Object.assign(initial.data.draft, { assignee_id: '8', assignee_name: '李四', assignee_resolution: 'matched' });
+      const changed = JSON.parse(JSON.stringify(initial)); changed.data.draft.revision = '2';
+      if (action === 'saveTaskDraft') changed.data.draft.title = 'Edited';
+      else Object.assign(changed.data.draft, { assignee_id: '0', assignee_resolution: 'unassigned' });
+      if (omit) delete changed.data.draft.deadline;
+      else changed.data.draft.deadline.text = '2026-10-04 15:30';
+      let calls = 0;
+      const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? initial : changed));
+      await context.loadTaskDraft();
+      if (action === 'saveTaskDraft') fields.draftEditTitle.value = 'Edited'; else fields.draftAssigneeSelect.value = '0';
+      await assert.rejects(context[action](), /invalid/);
+      assert.match(fields.draftDeadlineEvidence.textContent, /Time expression: 明天15:30/);
+      await assert.rejects(context.confirmTaskDraft(), /load/);
+    }
+  }
+});
+
+test('confirmation and reply cannot change saved interpretation resolution, candidate or first instruction reference', async () => {
+  for (const mode of ['confirm', 'reply']) {
+    for (const field of ['resolution', 'parsed_unix_ms', 'instruction_reference_unix_ms']) {
+      const initial = handledDeadline(autoDeadlineDraft(), 'selected', Date.UTC(2026, 9, 5, 7, 30), '2');
+      if (mode === 'reply') Object.assign(initial.data, { status: 'succeeded', task_id: '123', reply_status: 'pending', reply_msg_id: 'bot-task:9' });
+      const changed = JSON.parse(JSON.stringify(initial));
+      Object.assign(changed.data, { status: 'succeeded', task_id: '123', ...(mode === 'reply' ? { reply_status: 'accepted' } : {}) });
+      if (field === 'resolution') { changed.data.draft.deadline.resolution = 'parsed'; changed.data.draft.deadline.parsed_unix_ms = changed.data.draft.due_at_unix_ms; }
+      else if (field === 'instruction_reference_unix_ms') { changed.data.draft.deadline.reference_unix_ms += 1; changed.data.draft.deadline.instruction_reference_unix_ms += 1; }
+      else changed.data.draft.deadline.parsed_unix_ms += 1;
+      let calls = 0;
+      const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? initial : changed));
+      await context.loadTaskDraft();
+      await assert.rejects(context[mode === 'reply' ? 'retryTaskReply' : 'confirmTaskDraft'](), /invalid/);
+      assert.match(fields.draftDeadlineEvidence.textContent, /Your saved deadline overrides/);
+    }
+  }
+});
+
+test('needs-input conflict retains pending time but requires the latest evidence/version before manual retry', async () => {
+  const initial = autoDeadlineDraft('needs_input'), latest = JSON.parse(JSON.stringify(initial));
+  latest.data.draft.revision = '3'; latest.data.draft.deadline.text = '后天下午';
+  const selected = handledDeadline(latest, 'selected', Date.UTC(2026, 9, 5, 7, 30), '4'), calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    return calls.length === 2 ? { ok: false, status: 409 } : reply(calls.length === 1 ? initial : calls.length === 3 ? latest : selected);
+  });
+  await context.loadTaskDraft(); fields.draftDueAt.value = '2026-10-05T15:30';
+  await assert.rejects(context.saveDraftDeadline(), /HTTP 409/);
+  await assert.rejects(context.confirmTaskDraft(), /load/);
+  await context.loadTaskDraft();
+  assert.equal(fields.draftDueAt.value, '2026-10-05T15:30');
+  assert.match(fields.draftDeadlineEvidence.textContent, /Time expression: 后天下午/);
+  await context.saveDraftDeadline();
+  assert.equal(JSON.parse(calls[3].options.body).expected_revision, '3');
+});
+
+test('stale evidence reads are ignored after a context epoch change and legacy deadline objects are never synthesized', async () => {
+  let finish;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const { context, fields } = draftEditPage(async () => pending);
+  const work = context.loadTaskDraft();
+  fields.token.value = 'changed'; context.clearTaskDraftResult(); fields.token.value = 'test-token';
+  finish(reply(autoDeadlineDraft()));
+  await work;
+  assert.equal(fields.draftDeadlineEvidence.textContent, '');
+  const calls = [], legacy = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    return reply(deadlineDraft(0, '1', calls.length > 1 ? { status: 'succeeded', task_id: '123' } : {}));
+  });
+  await legacy.context.loadTaskDraft();
+  assert.match(legacy.fields.draftDeadlineEvidence.textContent, /legacy draft/);
+  await legacy.context.confirmTaskDraft();
+  assert.equal(Object.hasOwn(JSON.parse(calls[1].options.body), 'expected_deadline_resolution'), false);
+});
 
 test('deadline controls are present, explicitly use Shanghai and preserve millisecond input precision', () => {
   for (const id of ['draftDeadlineSummary', 'draftDueAt', 'btnSaveDraftDeadline', 'btnClearDraftDeadline']) {
