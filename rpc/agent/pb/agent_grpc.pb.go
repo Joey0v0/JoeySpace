@@ -19,17 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Agent_Ask_FullMethodName                        = "/agent.Agent/Ask"
-	Agent_GetTaskDraft_FullMethodName               = "/agent.Agent/GetTaskDraft"
-	Agent_PrepareTaskDraft_FullMethodName           = "/agent.Agent/PrepareTaskDraft"
-	Agent_EditTaskDraft_FullMethodName              = "/agent.Agent/EditTaskDraft"
-	Agent_SelectTaskDraftAssignee_FullMethodName    = "/agent.Agent/SelectTaskDraftAssignee"
-	Agent_EditTaskDraftDeadline_FullMethodName      = "/agent.Agent/EditTaskDraftDeadline"
-	Agent_ConfirmTaskDraft_FullMethodName           = "/agent.Agent/ConfirmTaskDraft"
-	Agent_RetryTaskReply_FullMethodName             = "/agent.Agent/RetryTaskReply"
-	Agent_PrepareTaskDraftCollection_FullMethodName = "/agent.Agent/PrepareTaskDraftCollection"
-	Agent_GetTaskDraftCollection_FullMethodName     = "/agent.Agent/GetTaskDraftCollection"
-	Agent_GetTaskDraftItem_FullMethodName           = "/agent.Agent/GetTaskDraftItem"
+	Agent_Ask_FullMethodName                         = "/agent.Agent/Ask"
+	Agent_GetTaskDraft_FullMethodName                = "/agent.Agent/GetTaskDraft"
+	Agent_PrepareTaskDraft_FullMethodName            = "/agent.Agent/PrepareTaskDraft"
+	Agent_EditTaskDraft_FullMethodName               = "/agent.Agent/EditTaskDraft"
+	Agent_SelectTaskDraftAssignee_FullMethodName     = "/agent.Agent/SelectTaskDraftAssignee"
+	Agent_EditTaskDraftDeadline_FullMethodName       = "/agent.Agent/EditTaskDraftDeadline"
+	Agent_ConfirmTaskDraft_FullMethodName            = "/agent.Agent/ConfirmTaskDraft"
+	Agent_RetryTaskReply_FullMethodName              = "/agent.Agent/RetryTaskReply"
+	Agent_PrepareTaskDraftCollection_FullMethodName  = "/agent.Agent/PrepareTaskDraftCollection"
+	Agent_GetTaskDraftCollection_FullMethodName      = "/agent.Agent/GetTaskDraftCollection"
+	Agent_GetTaskDraftItem_FullMethodName            = "/agent.Agent/GetTaskDraftItem"
+	Agent_EditTaskDraftItemText_FullMethodName       = "/agent.Agent/EditTaskDraftItemText"
+	Agent_SelectTaskDraftItemAssignee_FullMethodName = "/agent.Agent/SelectTaskDraftItemAssignee"
+	Agent_EditTaskDraftItemDeadline_FullMethodName   = "/agent.Agent/EditTaskDraftItemDeadline"
 )
 
 // AgentClient is the client API for Agent service.
@@ -58,6 +61,12 @@ type AgentClient interface {
 	GetTaskDraftCollection(ctx context.Context, in *GetTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftCollectionResponse, error)
 	// 显式指定稳定项序号；缺序号不默认第0项。
 	GetTaskDraftItem(ctx context.Context, in *GetTaskDraftItemRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
+	// 本人编辑指定项文字；版本只保护该项，缺项身份/版本拒绝。
+	EditTaskDraftItemText(ctx context.Context, in *EditTaskDraftItemTextRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
+	// 本人明确选择该项负责人；正ID仍由User核对当前成员资格。
+	SelectTaskDraftItemAssignee(ctx context.Context, in *SelectTaskDraftItemAssigneeRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
+	// 本人设置/清除该项截止时间；保留原始解释依据。
+	EditTaskDraftItemDeadline(ctx context.Context, in *EditTaskDraftItemDeadlineRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
 }
 
 type agentClient struct {
@@ -178,6 +187,36 @@ func (c *agentClient) GetTaskDraftItem(ctx context.Context, in *GetTaskDraftItem
 	return out, nil
 }
 
+func (c *agentClient) EditTaskDraftItemText(ctx context.Context, in *EditTaskDraftItemTextRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskDraftItemResponse)
+	err := c.cc.Invoke(ctx, Agent_EditTaskDraftItemText_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) SelectTaskDraftItemAssignee(ctx context.Context, in *SelectTaskDraftItemAssigneeRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskDraftItemResponse)
+	err := c.cc.Invoke(ctx, Agent_SelectTaskDraftItemAssignee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) EditTaskDraftItemDeadline(ctx context.Context, in *EditTaskDraftItemDeadlineRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskDraftItemResponse)
+	err := c.cc.Invoke(ctx, Agent_EditTaskDraftItemDeadline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility.
@@ -204,6 +243,12 @@ type AgentServer interface {
 	GetTaskDraftCollection(context.Context, *GetTaskDraftRequest) (*GetTaskDraftCollectionResponse, error)
 	// 显式指定稳定项序号；缺序号不默认第0项。
 	GetTaskDraftItem(context.Context, *GetTaskDraftItemRequest) (*GetTaskDraftItemResponse, error)
+	// 本人编辑指定项文字；版本只保护该项，缺项身份/版本拒绝。
+	EditTaskDraftItemText(context.Context, *EditTaskDraftItemTextRequest) (*GetTaskDraftItemResponse, error)
+	// 本人明确选择该项负责人；正ID仍由User核对当前成员资格。
+	SelectTaskDraftItemAssignee(context.Context, *SelectTaskDraftItemAssigneeRequest) (*GetTaskDraftItemResponse, error)
+	// 本人设置/清除该项截止时间；保留原始解释依据。
+	EditTaskDraftItemDeadline(context.Context, *EditTaskDraftItemDeadlineRequest) (*GetTaskDraftItemResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -246,6 +291,15 @@ func (UnimplementedAgentServer) GetTaskDraftCollection(context.Context, *GetTask
 }
 func (UnimplementedAgentServer) GetTaskDraftItem(context.Context, *GetTaskDraftItemRequest) (*GetTaskDraftItemResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTaskDraftItem not implemented")
+}
+func (UnimplementedAgentServer) EditTaskDraftItemText(context.Context, *EditTaskDraftItemTextRequest) (*GetTaskDraftItemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EditTaskDraftItemText not implemented")
+}
+func (UnimplementedAgentServer) SelectTaskDraftItemAssignee(context.Context, *SelectTaskDraftItemAssigneeRequest) (*GetTaskDraftItemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SelectTaskDraftItemAssignee not implemented")
+}
+func (UnimplementedAgentServer) EditTaskDraftItemDeadline(context.Context, *EditTaskDraftItemDeadlineRequest) (*GetTaskDraftItemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EditTaskDraftItemDeadline not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 func (UnimplementedAgentServer) testEmbeddedByValue()               {}
@@ -466,6 +520,60 @@ func _Agent_GetTaskDraftItem_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_EditTaskDraftItemText_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EditTaskDraftItemTextRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).EditTaskDraftItemText(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_EditTaskDraftItemText_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).EditTaskDraftItemText(ctx, req.(*EditTaskDraftItemTextRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_SelectTaskDraftItemAssignee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SelectTaskDraftItemAssigneeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).SelectTaskDraftItemAssignee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_SelectTaskDraftItemAssignee_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).SelectTaskDraftItemAssignee(ctx, req.(*SelectTaskDraftItemAssigneeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_EditTaskDraftItemDeadline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EditTaskDraftItemDeadlineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).EditTaskDraftItemDeadline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_EditTaskDraftItemDeadline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).EditTaskDraftItemDeadline(ctx, req.(*EditTaskDraftItemDeadlineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -516,6 +624,18 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTaskDraftItem",
 			Handler:    _Agent_GetTaskDraftItem_Handler,
+		},
+		{
+			MethodName: "EditTaskDraftItemText",
+			Handler:    _Agent_EditTaskDraftItemText_Handler,
+		},
+		{
+			MethodName: "SelectTaskDraftItemAssignee",
+			Handler:    _Agent_SelectTaskDraftItemAssignee_Handler,
+		},
+		{
+			MethodName: "EditTaskDraftItemDeadline",
+			Handler:    _Agent_EditTaskDraftItemDeadline_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

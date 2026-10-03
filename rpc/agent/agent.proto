@@ -27,6 +27,34 @@ service Agent {
   rpc GetTaskDraftCollection(GetTaskDraftRequest) returns (GetTaskDraftCollectionResponse);
   // 显式指定稳定项序号；缺序号不默认第0项。
   rpc GetTaskDraftItem(GetTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
+  // 本人编辑指定项文字；版本只保护该项，缺项身份/版本拒绝。
+  rpc EditTaskDraftItemText(EditTaskDraftItemTextRequest) returns (GetTaskDraftItemResponse);
+  // 本人明确选择该项负责人；正ID仍由User核对当前成员资格。
+  rpc SelectTaskDraftItemAssignee(SelectTaskDraftItemAssigneeRequest) returns (GetTaskDraftItemResponse);
+  // 本人设置/清除该项截止时间；保留原始解释依据。
+  rpc EditTaskDraftItemDeadline(EditTaskDraftItemDeadlineRequest) returns (GetTaskDraftItemResponse);
+}
+
+message EditTaskDraftItemTextRequest {
+  int64 run_id = 1;
+  optional int32 item_index = 2;
+  string title = 3;
+  string description = 4;
+  int64 expected_revision = 5;
+}
+
+message SelectTaskDraftItemAssigneeRequest {
+  int64 run_id = 1;
+  optional int32 item_index = 2;
+  optional int64 assignee_id = 3;
+  int64 expected_revision = 4;
+}
+
+message EditTaskDraftItemDeadlineRequest {
+  int64 run_id = 1;
+  optional int32 item_index = 2;
+  optional int64 due_at_unix_ms = 3;
+  int64 expected_revision = 4;
 }
 
 message GetTaskDraftItemRequest {
