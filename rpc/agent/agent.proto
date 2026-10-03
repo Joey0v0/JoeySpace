@@ -15,6 +15,8 @@ service Agent {
   rpc EditTaskDraft(EditTaskDraftRequest) returns (GetTaskDraftResponse);
   // 本人明确选择当前团队成员或未指派；必须携带读取的内容版本。
   rpc SelectTaskDraftAssignee(SelectTaskDraftAssigneeRequest) returns (GetTaskDraftResponse);
+  // 本人编辑已保存草稿截止时间；0 明确清除，缺字段拒绝，冻结后不可改。
+  rpc EditTaskDraftDeadline(EditTaskDraftDeadlineRequest) returns (GetTaskDraftResponse);
   // 仅发起人可确认；冻结内容及服务端请求键，重复请求复用原任务。
   rpc ConfirmTaskDraft(ConfirmTaskDraftRequest) returns (GetTaskDraftResponse);
   // 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
@@ -92,11 +94,19 @@ message ConfirmTaskDraftRequest {
   // named/selected/unassigned 草稿必须明确提交；0 表示审查了未指派。
   // 旧客户端缺字段仅可确认旧草稿或 none，不能绕过负责人审查。
   optional int64 expected_assignee_id = 5;
+  // 新页面始终审查截止时间；非零截止时间须明确提供，缺失不默认零。
+  optional int64 expected_due_at_unix_ms = 6;
 }
 
 message SelectTaskDraftAssigneeRequest {
   int64 run_id = 1;
   // 必须存在；0 表示本人明确选择未指派，正数由 User 检查当前资格。
   optional int64 assignee_id = 2;
+  int64 expected_revision = 3;
+}
+
+message EditTaskDraftDeadlineRequest {
+  int64 run_id = 1;
+  optional int64 due_at_unix_ms = 2;
   int64 expected_revision = 3;
 }

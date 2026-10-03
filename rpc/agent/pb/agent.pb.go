@@ -574,8 +574,10 @@ type ConfirmTaskDraftRequest struct {
 	// named/selected/unassigned 草稿必须明确提交；0 表示审查了未指派。
 	// 旧客户端缺字段仅可确认旧草稿或 none，不能绕过负责人审查。
 	ExpectedAssigneeId *int64 `protobuf:"varint,5,opt,name=expected_assignee_id,json=expectedAssigneeId,proto3,oneof" json:"expected_assignee_id,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// 新页面始终审查截止时间；非零截止时间须明确提供，缺失不默认零。
+	ExpectedDueAtUnixMs *int64 `protobuf:"varint,6,opt,name=expected_due_at_unix_ms,json=expectedDueAtUnixMs,proto3,oneof" json:"expected_due_at_unix_ms,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ConfirmTaskDraftRequest) Reset() {
@@ -643,6 +645,13 @@ func (x *ConfirmTaskDraftRequest) GetExpectedAssigneeId() int64 {
 	return 0
 }
 
+func (x *ConfirmTaskDraftRequest) GetExpectedDueAtUnixMs() int64 {
+	if x != nil && x.ExpectedDueAtUnixMs != nil {
+		return *x.ExpectedDueAtUnixMs
+	}
+	return 0
+}
+
 type SelectTaskDraftAssigneeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	RunId int64                  `protobuf:"varint,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
@@ -704,6 +713,66 @@ func (x *SelectTaskDraftAssigneeRequest) GetExpectedRevision() int64 {
 	return 0
 }
 
+type EditTaskDraftDeadlineRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RunId            int64                  `protobuf:"varint,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	DueAtUnixMs      *int64                 `protobuf:"varint,2,opt,name=due_at_unix_ms,json=dueAtUnixMs,proto3,oneof" json:"due_at_unix_ms,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *EditTaskDraftDeadlineRequest) Reset() {
+	*x = EditTaskDraftDeadlineRequest{}
+	mi := &file_agent_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EditTaskDraftDeadlineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EditTaskDraftDeadlineRequest) ProtoMessage() {}
+
+func (x *EditTaskDraftDeadlineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EditTaskDraftDeadlineRequest.ProtoReflect.Descriptor instead.
+func (*EditTaskDraftDeadlineRequest) Descriptor() ([]byte, []int) {
+	return file_agent_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *EditTaskDraftDeadlineRequest) GetRunId() int64 {
+	if x != nil {
+		return x.RunId
+	}
+	return 0
+}
+
+func (x *EditTaskDraftDeadlineRequest) GetDueAtUnixMs() int64 {
+	if x != nil && x.DueAtUnixMs != nil {
+		return *x.DueAtUnixMs
+	}
+	return 0
+}
+
+func (x *EditTaskDraftDeadlineRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
 var File_agent_proto protoreflect.FileDescriptor
 
 const file_agent_proto_rawDesc = "" +
@@ -750,26 +819,34 @@ const file_agent_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12%\n" +
 	"\x0eexpected_title\x18\x04 \x01(\tR\rexpectedTitle\x121\n" +
 	"\x14expected_description\x18\x05 \x01(\tR\x13expectedDescription\x12+\n" +
-	"\x11expected_revision\x18\x06 \x01(\x03R\x10expectedRevision\"\x87\x02\n" +
+	"\x11expected_revision\x18\x06 \x01(\x03R\x10expectedRevision\"\xde\x02\n" +
 	"\x17ConfirmTaskDraftRequest\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\x03R\x05runId\x12%\n" +
 	"\x0eexpected_title\x18\x02 \x01(\tR\rexpectedTitle\x121\n" +
 	"\x14expected_description\x18\x03 \x01(\tR\x13expectedDescription\x12+\n" +
 	"\x11expected_revision\x18\x04 \x01(\x03R\x10expectedRevision\x125\n" +
-	"\x14expected_assignee_id\x18\x05 \x01(\x03H\x00R\x12expectedAssigneeId\x88\x01\x01B\x17\n" +
-	"\x15_expected_assignee_id\"\x9a\x01\n" +
+	"\x14expected_assignee_id\x18\x05 \x01(\x03H\x00R\x12expectedAssigneeId\x88\x01\x01\x129\n" +
+	"\x17expected_due_at_unix_ms\x18\x06 \x01(\x03H\x01R\x13expectedDueAtUnixMs\x88\x01\x01B\x17\n" +
+	"\x15_expected_assignee_idB\x1a\n" +
+	"\x18_expected_due_at_unix_ms\"\x9a\x01\n" +
 	"\x1eSelectTaskDraftAssigneeRequest\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\x03R\x05runId\x12$\n" +
 	"\vassignee_id\x18\x02 \x01(\x03H\x00R\n" +
 	"assigneeId\x88\x01\x01\x12+\n" +
 	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevisionB\x0e\n" +
-	"\f_assignee_id2\x99\x04\n" +
+	"\f_assignee_id\"\x9f\x01\n" +
+	"\x1cEditTaskDraftDeadlineRequest\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\x03R\x05runId\x12(\n" +
+	"\x0edue_at_unix_ms\x18\x02 \x01(\x03H\x00R\vdueAtUnixMs\x88\x01\x01\x12+\n" +
+	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevisionB\x11\n" +
+	"\x0f_due_at_unix_ms2\xf4\x04\n" +
 	"\x05Agent\x12,\n" +
 	"\x03Ask\x12\x11.agent.AskRequest\x1a\x12.agent.AskResponse\x12G\n" +
 	"\fGetTaskDraft\x12\x1a.agent.GetTaskDraftRequest\x1a\x1b.agent.GetTaskDraftResponse\x12S\n" +
 	"\x10PrepareTaskDraft\x12\x1e.agent.PrepareTaskDraftRequest\x1a\x1f.agent.PrepareTaskDraftResponse\x12I\n" +
 	"\rEditTaskDraft\x12\x1b.agent.EditTaskDraftRequest\x1a\x1b.agent.GetTaskDraftResponse\x12]\n" +
-	"\x17SelectTaskDraftAssignee\x12%.agent.SelectTaskDraftAssigneeRequest\x1a\x1b.agent.GetTaskDraftResponse\x12O\n" +
+	"\x17SelectTaskDraftAssignee\x12%.agent.SelectTaskDraftAssigneeRequest\x1a\x1b.agent.GetTaskDraftResponse\x12Y\n" +
+	"\x15EditTaskDraftDeadline\x12#.agent.EditTaskDraftDeadlineRequest\x1a\x1b.agent.GetTaskDraftResponse\x12O\n" +
 	"\x10ConfirmTaskDraft\x12\x1e.agent.ConfirmTaskDraftRequest\x1a\x1b.agent.GetTaskDraftResponse\x12I\n" +
 	"\x0eRetryTaskReply\x12\x1a.agent.GetTaskDraftRequest\x1a\x1b.agent.GetTaskDraftResponseB'Z%github.com/yjydist/go-im/rpc/agent/pbb\x06proto3"
 
@@ -785,7 +862,7 @@ func file_agent_proto_rawDescGZIP() []byte {
 	return file_agent_proto_rawDescData
 }
 
-var file_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_agent_proto_goTypes = []any{
 	(*AskRequest)(nil),                     // 0: agent.AskRequest
 	(*AskResponse)(nil),                    // 1: agent.AskResponse
@@ -797,28 +874,31 @@ var file_agent_proto_goTypes = []any{
 	(*EditTaskDraftRequest)(nil),           // 7: agent.EditTaskDraftRequest
 	(*ConfirmTaskDraftRequest)(nil),        // 8: agent.ConfirmTaskDraftRequest
 	(*SelectTaskDraftAssigneeRequest)(nil), // 9: agent.SelectTaskDraftAssigneeRequest
+	(*EditTaskDraftDeadlineRequest)(nil),   // 10: agent.EditTaskDraftDeadlineRequest
 }
 var file_agent_proto_depIdxs = []int32{
-	4, // 0: agent.GetTaskDraftResponse.draft:type_name -> agent.TaskDraftItem
-	0, // 1: agent.Agent.Ask:input_type -> agent.AskRequest
-	2, // 2: agent.Agent.GetTaskDraft:input_type -> agent.GetTaskDraftRequest
-	5, // 3: agent.Agent.PrepareTaskDraft:input_type -> agent.PrepareTaskDraftRequest
-	7, // 4: agent.Agent.EditTaskDraft:input_type -> agent.EditTaskDraftRequest
-	9, // 5: agent.Agent.SelectTaskDraftAssignee:input_type -> agent.SelectTaskDraftAssigneeRequest
-	8, // 6: agent.Agent.ConfirmTaskDraft:input_type -> agent.ConfirmTaskDraftRequest
-	2, // 7: agent.Agent.RetryTaskReply:input_type -> agent.GetTaskDraftRequest
-	1, // 8: agent.Agent.Ask:output_type -> agent.AskResponse
-	3, // 9: agent.Agent.GetTaskDraft:output_type -> agent.GetTaskDraftResponse
-	6, // 10: agent.Agent.PrepareTaskDraft:output_type -> agent.PrepareTaskDraftResponse
-	3, // 11: agent.Agent.EditTaskDraft:output_type -> agent.GetTaskDraftResponse
-	3, // 12: agent.Agent.SelectTaskDraftAssignee:output_type -> agent.GetTaskDraftResponse
-	3, // 13: agent.Agent.ConfirmTaskDraft:output_type -> agent.GetTaskDraftResponse
-	3, // 14: agent.Agent.RetryTaskReply:output_type -> agent.GetTaskDraftResponse
-	8, // [8:15] is the sub-list for method output_type
-	1, // [1:8] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	4,  // 0: agent.GetTaskDraftResponse.draft:type_name -> agent.TaskDraftItem
+	0,  // 1: agent.Agent.Ask:input_type -> agent.AskRequest
+	2,  // 2: agent.Agent.GetTaskDraft:input_type -> agent.GetTaskDraftRequest
+	5,  // 3: agent.Agent.PrepareTaskDraft:input_type -> agent.PrepareTaskDraftRequest
+	7,  // 4: agent.Agent.EditTaskDraft:input_type -> agent.EditTaskDraftRequest
+	9,  // 5: agent.Agent.SelectTaskDraftAssignee:input_type -> agent.SelectTaskDraftAssigneeRequest
+	10, // 6: agent.Agent.EditTaskDraftDeadline:input_type -> agent.EditTaskDraftDeadlineRequest
+	8,  // 7: agent.Agent.ConfirmTaskDraft:input_type -> agent.ConfirmTaskDraftRequest
+	2,  // 8: agent.Agent.RetryTaskReply:input_type -> agent.GetTaskDraftRequest
+	1,  // 9: agent.Agent.Ask:output_type -> agent.AskResponse
+	3,  // 10: agent.Agent.GetTaskDraft:output_type -> agent.GetTaskDraftResponse
+	6,  // 11: agent.Agent.PrepareTaskDraft:output_type -> agent.PrepareTaskDraftResponse
+	3,  // 12: agent.Agent.EditTaskDraft:output_type -> agent.GetTaskDraftResponse
+	3,  // 13: agent.Agent.SelectTaskDraftAssignee:output_type -> agent.GetTaskDraftResponse
+	3,  // 14: agent.Agent.EditTaskDraftDeadline:output_type -> agent.GetTaskDraftResponse
+	3,  // 15: agent.Agent.ConfirmTaskDraft:output_type -> agent.GetTaskDraftResponse
+	3,  // 16: agent.Agent.RetryTaskReply:output_type -> agent.GetTaskDraftResponse
+	9,  // [9:17] is the sub-list for method output_type
+	1,  // [1:9] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_agent_proto_init() }
@@ -828,13 +908,14 @@ func file_agent_proto_init() {
 	}
 	file_agent_proto_msgTypes[8].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[9].OneofWrappers = []any{}
+	file_agent_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_proto_rawDesc), len(file_agent_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
