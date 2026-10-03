@@ -40,6 +40,14 @@ type testDraftIMServer struct {
 	t *testing.T
 }
 
+func (s *testDraftUserServer) CheckTeamMemberByID(ctx context.Context, req *userpb.CheckTeamMemberByIDRequest) (*userpb.CheckTeamMemberByIDResponse, error) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	if md.Get("authorization")[0] != "Bearer user-token" || req.GetTeamId() != 200 || req.GetUserId() != 500 {
+		s.t.Errorf("assignee membership: %v, %v", req, md)
+	}
+	return &userpb.CheckTeamMemberByIDResponse{}, nil
+}
+
 func (s *testDraftIMServer) CheckTeamGroupAccess(ctx context.Context, req *impb.CheckTeamGroupAccessRequest) (*impb.CheckTeamGroupAccessResponse, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	if values := md.Get("authorization"); len(values) != 1 || values[0] != "Bearer user-token" || req.GetTeamId() != 200 || req.GetGroupId() != 300 {

@@ -41,11 +41,13 @@ type taskDraft struct {
 type draftAssigneeResolution string
 
 const (
-	assigneeNone      draftAssigneeResolution = "none"
-	assigneeMatched   draftAssigneeResolution = "matched"
-	assigneeNotFound  draftAssigneeResolution = "not_found"
-	assigneeAmbiguous draftAssigneeResolution = "ambiguous"
-	assigneeTruncated draftAssigneeResolution = "truncated"
+	assigneeNone       draftAssigneeResolution = "none"
+	assigneeMatched    draftAssigneeResolution = "matched"
+	assigneeNotFound   draftAssigneeResolution = "not_found"
+	assigneeAmbiguous  draftAssigneeResolution = "ambiguous"
+	assigneeTruncated  draftAssigneeResolution = "truncated"
+	assigneeSelected   draftAssigneeResolution = "selected"
+	assigneeUnassigned draftAssigneeResolution = "unassigned"
 )
 
 func (d taskDraft) validAssigneeResolution() bool {
@@ -59,6 +61,10 @@ func (d taskDraft) validAssigneeResolution() bool {
 		return d.AssigneeName == "" && d.AssigneeID == 0
 	case assigneeMatched:
 		return d.AssigneeName != "" && d.AssigneeID > 0
+	case assigneeSelected:
+		return d.AssigneeID > 0
+	case assigneeUnassigned:
+		return d.AssigneeID == 0
 	case assigneeNotFound, assigneeAmbiguous, assigneeTruncated:
 		return d.AssigneeName != "" && d.AssigneeID == 0
 	default:
@@ -66,10 +72,19 @@ func (d taskDraft) validAssigneeResolution() bool {
 	}
 }
 
-// The current confirmation contract only reviews text. Named drafts must wait
-// for an explicit assignee review contract, even when the match is unique.
-func (d taskDraft) requireTextOnlyConfirmation() error {
-	if d.AssigneeName != "" || (d.AssigneeResolution != "" && d.AssigneeResolution != assigneeNone) {
+// Named and manually selected drafts require an explicit reviewed ID, including
+// zero. Legacy and none drafts retain compatibility with old confirmation calls.
+func (d taskDraft) requireAssigneeReview(reviewedID *int64) error {
+	if !d.validAssigneeResolution() || d.AssigneeID < 0 {
+		return status.Error(codes.Unavailable, "stored assignee is invalid")
+	}
+	if reviewedID != nil && *reviewedID != d.AssigneeID {
+		return status.Error(codes.Aborted, "draft assignee changed; reload before confirming")
+	}
+	if d.AssigneeResolution == assigneeNotFound || d.AssigneeResolution == assigneeAmbiguous || d.AssigneeResolution == assigneeTruncated {
+		return status.Error(codes.FailedPrecondition, "choose an assignee or explicitly leave unassigned")
+	}
+	if reviewedID == nil && (d.AssigneeName != "" || d.AssigneeResolution == assigneeSelected || d.AssigneeResolution == assigneeUnassigned) {
 		return status.Error(codes.FailedPrecondition, "assignee review is required before confirming this draft")
 	}
 	return nil

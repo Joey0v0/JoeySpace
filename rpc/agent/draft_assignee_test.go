@@ -117,7 +117,7 @@ func TestDraftAssigneeStateShapeAndOldConfirmation(t *testing.T) {
 		if !draft.validAssigneeResolution() {
 			t.Fatalf("valid shape: %+v", draft)
 		}
-		err := draft.requireTextOnlyConfirmation()
+		err := draft.requireAssigneeReview(nil)
 		if draft.AssigneeName == "" && err != nil || draft.AssigneeName != "" && status.Code(err) != codes.FailedPrecondition {
 			t.Fatalf("review gate: %+v, %v", draft, err)
 		}

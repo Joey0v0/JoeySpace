@@ -50,7 +50,7 @@ func TestDraftRevisionRejectsRestoredTextAndChangedAssignee(t *testing.T) {
 		}
 		expectConfirmationLock(mock, run)
 		mock.ExpectRollback()
-		if _, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1); status.Code(err) != codes.Aborted {
+		if _, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil); status.Code(err) != codes.Aborted {
 			t.Fatalf("stale content accepted: %v", err)
 		}
 	}
@@ -106,7 +106,7 @@ func TestFrozenDraftRevisionIsStableAcrossReplays(t *testing.T) {
 		}
 		expectConfirmationLock(mock, run)
 		mock.ExpectCommit()
-		result, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 4)
+		result, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 4, nil)
 		if err != nil || result.Revision != 4 || result.TaskRequestKey != run.TaskRequestKey || result.TaskID != run.TaskID {
 			t.Fatalf("frozen version changed: %+v, %v", result, err)
 		}

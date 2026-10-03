@@ -38,6 +38,9 @@ func testDraftAccessReader(t *testing.T, actorID int64, load draftLoadFunc, chec
 			}
 			return &userpb.GetUserInfoResponse{Id: actorID}, nil
 		})},
+		members: draftMemberFunc(func(context.Context, *userpb.CheckTeamMemberByIDRequest) (*userpb.CheckTeamMemberByIDResponse, error) {
+			return &userpb.CheckTeamMemberByIDResponse{}, nil
+		}),
 		store: load,
 		im:    check,
 	}

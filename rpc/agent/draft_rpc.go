@@ -22,6 +22,8 @@ func (s *Server) ConfigureDraftAccess(db *gorm.DB, users userpb.UserClient, im i
 		identity: &draftIdentityResolver{users: users},
 		store:    store,
 		editor:   store,
+		selector: store,
+		members:  users,
 		im:       im,
 	}
 }
