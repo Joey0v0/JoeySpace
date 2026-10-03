@@ -127,7 +127,9 @@ func draftRPCError(w http.ResponseWriter, err error) {
 		httpStatus, code, message = http.StatusNotFound, errcode.ErrNotFound, "draft or team group not found"
 	case codes.AlreadyExists:
 		httpStatus, code, message = http.StatusConflict, errcode.ErrTaskRequestConflict, "Idempotency-Key already used for another draft request"
-	case codes.Unavailable, codes.FailedPrecondition:
+	case codes.FailedPrecondition:
+		httpStatus, code, message = http.StatusConflict, errcode.ErrAgentDraftConflict, "draft mode or state does not match this request"
+	case codes.Unavailable:
 		httpStatus, message = http.StatusServiceUnavailable, "AI draft service unavailable"
 	case codes.DeadlineExceeded:
 		httpStatus, message = http.StatusGatewayTimeout, "AI draft service timeout"
@@ -136,6 +138,10 @@ func draftRPCError(w http.ResponseWriter, err error) {
 }
 
 func prepareTaskDraftHandler(client agentDraftPreparer) http.HandlerFunc {
+	return prepareTaskDraftHandlerWithError(client, draftRPCError)
+}
+
+func prepareTaskDraftHandlerWithError(client agentDraftPreparer, writeError func(http.ResponseWriter, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, ok := draftToken(r)
 		if !ok {
@@ -188,7 +194,7 @@ func prepareTaskDraftHandler(client agentDraftPreparer) http.HandlerFunc {
 			TeamId: teamID, GroupId: groupID, Instruction: instruction, InstructionReferenceUnixMs: reference,
 		})
 		if err != nil {
-			draftRPCError(w, err)
+			writeError(w, err)
 			return
 		}
 		if result == nil || result.GetRunId() <= 0 {
@@ -244,8 +250,14 @@ func writeTaskDraftResult(w http.ResponseWriter, runID int64, result *pb.GetTask
 		RunID: result.GetRunId(), TeamID: result.GetTeamId(), GroupID: result.GetGroupId(), Status: result.GetStatus(),
 		TaskID:      result.GetTaskId(),
 		ReplyStatus: result.GetReplyStatus(), ReplyMsgID: result.GetReplyMsgId(),
-		Draft: &agentDraftItem{Revision: draft.GetRevision(), Title: draft.GetTitle(), Description: draft.GetDescription(), AssigneeID: draft.GetAssigneeId(), AssigneeName: draft.GetAssigneeName(), AssigneeResolution: draft.GetAssigneeResolution(), DueAtUnixMs: draft.GetDueAtUnixMs(), SourceMessageID: draft.GetSourceMessageId(), Deadline: draftDeadlineMetadataResponse(draft.GetDeadline())},
+		Draft: draftHTTPItem(draft),
 	}})
+}
+
+func draftHTTPItem(draft *pb.TaskDraftItem) *agentDraftItem {
+	return &agentDraftItem{Revision: draft.GetRevision(), Title: draft.GetTitle(), Description: draft.GetDescription(),
+		AssigneeID: draft.GetAssigneeId(), AssigneeName: draft.GetAssigneeName(), AssigneeResolution: draft.GetAssigneeResolution(),
+		DueAtUnixMs: draft.GetDueAtUnixMs(), SourceMessageID: draft.GetSourceMessageId(), Deadline: draftDeadlineMetadataResponse(draft.GetDeadline())}
 }
 
 func validDraftReplyResult(result *pb.GetTaskDraftResponse) bool {
