@@ -154,7 +154,8 @@ func prepareTaskDraftHandler(client agentDraftPreparer) http.HandlerFunc {
 			return
 		}
 		var body struct {
-			Instruction string `json:"instruction"`
+			Instruction                string          `json:"instruction"`
+			InstructionReferenceUnixMs json.RawMessage `json:"instruction_reference_unix_ms"`
 		}
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384))
 		decoder.DisallowUnknownFields()
@@ -172,8 +173,19 @@ func prepareTaskDraftHandler(client agentDraftPreparer) http.HandlerFunc {
 			httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "instruction must contain 1 to 2000 characters"})
 			return
 		}
+		var reference *int64
+		if len(body.InstructionReferenceUnixMs) != 0 {
+			value, validReference := parseDraftDeadline(body.InstructionReferenceUnixMs)
+			if !validReference || value == 0 {
+				httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "invalid instruction reference time"})
+				return
+			}
+			reference = &value
+		}
 		ctx := metadata.NewOutgoingContext(r.Context(), metadata.Pairs("authorization", token, "idempotency-key", keys[0]))
-		result, err := client.PrepareTaskDraft(ctx, &pb.PrepareTaskDraftRequest{TeamId: teamID, GroupId: groupID, Instruction: instruction})
+		result, err := client.PrepareTaskDraft(ctx, &pb.PrepareTaskDraftRequest{
+			TeamId: teamID, GroupId: groupID, Instruction: instruction, InstructionReferenceUnixMs: reference,
+		})
 		if err != nil {
 			draftRPCError(w, err)
 			return
