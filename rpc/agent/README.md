@@ -78,3 +78,11 @@ Edit/Select/Confirm RPC 必须携带 `expected_revision`；缺失或非正值返
 `SelectTaskDraftAssignee(run_id, optional assignee_id, expected_revision)` 只允许原发起人操作待确认草稿。负责人字段必须存在，正 ID 经原 Token 调 User `CheckTeamMemberByID`，零表示本人明确未指派；目录展示不能替代这个资格检查。数据库事务内再次比较范围、版本和完整草稿，正 ID 保存 `selected`，零保存 `unassigned`，保留最初提取的称呼。ID/选择状态实际改变才递增版本，相同选择不递增；文字编辑保留选择，冻结后不能再改。
 
 确认在编排和锁定事务内都比较本人审查的 ID，并拒绝未处理的 `not_found/ambiguous/truncated`。待确认阶段复核目标成员；`creating/succeeded` 的重试不再解析或改选冻结负责人，也不因目标后来离队否定已保存结果。仍检查发起人当前群资格，Task 用原创建键继续其幂等规则；没有自动后台重试。HTTP 与页面按[共同契约](../../docs/assignee-collaboration-contract.md)接线；本批验证范围和所有修改文件见[审查记录](../../docs/agent-assignee-design.md#11-负责人选择闭环与并行集成审查2026-10-03)。现有 016/017 列足够，本批没有新增迁移。
+
+## 本人编辑截止时间与确认审查（2026-10-03）
+
+`EditTaskDraftDeadline(run_id, optional due_at_unix_ms, expected_revision)` 接原 Token，截止字段必须存在；0 明确清除，正 UTC 毫秒最大253402300799999。复用本人/当前团队群校验，只能修改待确认草稿；事务锁定完整草稿并再次比较范围、内容及版本，只更新时间。实际变化版本加一，相同值 no-op，耗尽版本不能修改，其他文字/负责人/来源保持。
+
+Confirm 追加 optional `expected_due_at_unix_ms`。非零保存值必须显式审查；零旧草稿兼容缺失，新页面总是发送包括0。编排与冻结事务均核对，错值Aborted、非零缺失FailedPrecondition、非法请求值InvalidArgument；冻结后的任务与回帖重试不重算或改变截止时间。实际冻结UTC值仍交现有 Task 创建与幂等摘要，不新增表/迁移或依赖。
+
+用户已选 A51/A52/A53：上海解释时区、模型提取原文由 Go 有限解释、页面固定首次指令参考。本批仅接人工编辑/审查，自动提取/解释及生成参考字段后续实施，不能据此宣称 Agent 已理解“明天下午”。[方案与审查](../../docs/agent-deadline-design.md#7-人工截止时间闭环审查)、[HTTP/页面](../../api/README.md#草稿截止时间编辑与确认审查2026-10-03)。

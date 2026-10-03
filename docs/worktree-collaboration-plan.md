@@ -115,3 +115,17 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 集成顺序已执行：后端快进、Gateway 合并 `de88e94`、页面合并 `1e4c6e6`，没有冲突。主 agent 另补 HTTP→实际 TCP gRPC Agent→SQL/业务替身组合测试，验证歧义拒绝、选择、旧确认保护、固定负责人/版本/请求键、Task 响应丢失后重试及发起人群权限撤销。全量 `go test ./... -count=1` 通过，页面 100/100 通过，Linux Agent/Gateway 编译通过。main 保持 `7a717cc`；集成审查交付不会自动推送或部署。
 
 后续记录：用户在交付及删除说明后要求“继续执行下一步”，主 agent 将上述已验证结果从集成分支快进合入 main（`d43d644`），代码与原验证提交完全一致。此前 main 保持旧提交的描述是交付时历史，不是当前分支状态。三个 worktree 保留，未删除文件或推送远程。下一批先由三个 agent 只读审查时间处理，时区/解析/参考时刻必须先讨论；[方案、并行耗时与未验证部分](agent-deadline-design.md)。
+
+## 10. 人工截止时间批次（2026-10-03）
+
+用户对时区、有限解析、首次指令参考三个问题分别选择 A，主 agent 记录 A51—A53 并发布[本批契约](deadline-collaboration-contract.md)。本批先实现人工时间编辑/审查基础，自动提取和生成参考字段留下一批；全批最多九步。复用原三个干净 worktree，各自从共同协议提交 `1cdfaa8` 创建具名新分支，没有删除或重建工作目录。
+
+| 角色/工作目录 | 本批分支与交付提交 | UTC 开始 → 完成 | 执行耗时 |
+| --- | --- | --- | --- |
+| 后端 `.worktrees/assignee-backend` | `codex/deadline-backend` / `6622b05`；13 文件 | 12:36:06 → 12:42:39 | 6 分 33 秒 |
+| Gateway `.worktrees/assignee-gateway` | `codex/deadline-gateway` / `2b62092`；6 文件 | 12:36:28 → 12:42:43 | 6 分 15 秒 |
+| 页面 `.worktrees/assignee-ui` | `codex/deadline-ui` / `41b9b64`；2 文件 | 12:37:22 → 12:46:31 | 9 分 9 秒 |
+
+从最早开始到最晚交付的并行执行窗口为 10 分 25 秒，不包含前期选型、协议准备及之后集中验证/文档；没有同一任务的单 agent 对照，不据此声称三倍提速。三个角色各自实施并跑定向测试，主 agent 同时补跨层组合测试、审查范围并逐一提交。协议、生成代码与文档仅由主 agent 修改；执行 agent 未自行提交/合并/推送。
+
+主 agent 按后端快进 → Gateway 合并 `0611f07` → 页面合并 `42065c2`，无冲突；完整交付位于 `codex/deadline-integration`，main 保持 `d43d644` 待用户审查。全量 Go、Node 115 项和 Linux Agent/Gateway 编译通过；[34 文件和验证边界](agent-deadline-design.md#7-人工截止时间闭环审查)。未执行真实迁移、浏览器/数据库/模型/容器验收或云同步。
