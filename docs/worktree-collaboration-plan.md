@@ -150,4 +150,6 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 
 最早开始到最晚交付的并行窗口 **23 分 08 秒**，不含共同准备、主 agent 审查、集中测试和文档。三个角色确实并行；没有同任务单 agent 对照，不声称倍数提速。主 agent 审查允许文件并逐个提交，子 agent 未自行提交/合并/推送。
 
-`codex/deadline-auto-integration` 按后端快进 → Gateway `0711f49` → 页面 `555f9be` 合并，无冲突。全量 Go、140 项 Node、Linux 编译及实际 HTTP/TCP gRPC 自动时间组合通过；主 agent 另适配原参考组合测试，保留旧断言。main 保持 `89fdceb`，新批待用户审查。[全部文件、九步、调用链及未验证项](deadline-auto-review.md)。没有删除原协议生成文件、重建目录、执行真实迁移、调用真实模型、部署或推送。
+`codex/deadline-auto-integration` 按后端快进 → Gateway `0711f49` → 页面 `555f9be` 合并，无冲突。全量 Go、140 项 Node、Linux 编译及实际 HTTP/TCP gRPC 自动时间组合通过；主 agent 另适配原参考组合测试，保留旧断言。交付时 main 保持 `89fdceb`，集成结果供用户审查。[全部文件、九步、调用链及未验证项](deadline-auto-review.md)。没有删除原协议生成文件、重建目录、执行真实迁移、调用真实模型、部署或推送。
+
+主分支合入记录（2026-10-03）：用户明确要求“你现在给我合并进去”，主 agent 在干净工作区切换 main，将集成提交 `efd80ba` 以 `--ff-only` 合入，无冲突。三个执行分支与集成分支均已包含在 main 历史中，业务代码等同已验证集成版本；本次只补三份文档的合并状态并核对提交祖先关系，不重复业务测试。分支/worktree 保留，未推送远程、部署或执行迁移。

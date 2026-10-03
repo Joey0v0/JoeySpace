@@ -2,7 +2,7 @@
 
 2026-10-03。本批唯一目标：把已验证的固定参考请求和 Go 有限解释器接入单项任务草稿，让本人能审查时间依据、处理模糊时间后再创建任务。沿用用户已明确选择的 A51/A52/A53，不新增框架、中间件或服务，不改变数据归属、权限、同步确认及本人显式重试规则。
 
-用户要求继续后，上一批 `89fdceb` 已快进合入 main。本批共同起点 `3c7aaf6`，交付位于 `codex/deadline-auto-integration`，main 仍为 `89fdceb`，新结果待用户审查；没有推送或部署。
+用户要求继续后，上一批 `89fdceb` 已快进合入 main。本批共同起点 `3c7aaf6`，最初在 `codex/deadline-auto-integration` 交付供审查。随后用户明确要求合入主分支，`efd80ba` 已快进合入本地 main，无冲突，包含后端、Gateway、页面及主 agent 的验证/文档；业务代码与已测试版本一致。三个子分支和 worktree 保留，没有推送或部署。下方 45 文件清单仍以合并前基线 `89fdceb` 为准；本次合并状态仅更新本文、project-plan.md 和 worktree-collaboration-plan.md。
 
 ## 1. 九个小步骤与实际成果
 
