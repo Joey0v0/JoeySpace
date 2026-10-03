@@ -240,6 +240,14 @@
       <button id="btnSaveDraft" onclick="doSaveTaskDraft()" disabled>Save draft</button>
       <small>Load before editing. After a conflict, load again and review both the latest draft and your retained changes.</small>
     </div>
+    <div id="draftDeadlineSummary" role="status" aria-live="polite" style="white-space:pre-wrap;"></div>
+    <div class="config-row">
+      <label>Due (Asia/Shanghai):</label>
+      <input type="datetime-local" id="draftDueAt" step="0.001" oninput="refreshTaskDraftControls()" disabled>
+      <button id="btnSaveDraftDeadline" onclick="doSaveDraftDeadline()" disabled>Save deadline</button>
+      <button id="btnClearDraftDeadline" onclick="clearDraftDeadlineInput()" disabled>Clear deadline input</button>
+      <small>Dates use Asia/Shanghai, regardless of your device timezone. Clearing is saved only when you click Save deadline.</small>
+    </div>
     <div id="draftAssigneeSummary" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;"></div>
     <div class="config-row">
       <label></label>
@@ -299,6 +307,7 @@ let preparingDraft = false;
 let loadingDraft = false;
 let savingDraft = false;
 let savingDraftAssignee = false;
+let savingDraftDeadline = false;
 let loadingDraftMembers = false;
 let draftMembers = new Map();
 let draftMemberCursor = '0';
@@ -383,6 +392,8 @@ function clearTaskDraftResult() {
   draftMemberFinished = false;
   draftMembersLoaded = false;
   document.getElementById('draftAssigneeSummary').textContent = '';
+  document.getElementById('draftDeadlineSummary').textContent = '';
+  document.getElementById('draftDueAt').value = '';
   document.getElementById('draftMemberHint').textContent = 'Load members explicitly to select a real teammate.';
   renderDraftAssigneeOptions('');
   draftEditNeedsReload = false;
@@ -397,23 +408,23 @@ function clearTaskDraftResult() {
 }
 
 function refreshTaskDraftControls() {
-  const busy = loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || loadingDraftMembers || confirmingDraft || retryingTaskReply;
+  const busy = loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || savingDraftDeadline || loadingDraftMembers || confirmingDraft || retryingTaskReply;
   document.getElementById('btnPrepareDraft').disabled = busy;
   document.getElementById('btnLoadDraft').disabled = busy;
   const current = loadedTaskDraft && sameTaskDraftScope(loadedTaskDraft.scope) &&
     document.getElementById('draftRunID').value.trim() === loadedTaskDraft.runID;
   const dirty = current && (document.getElementById('draftEditTitle').value !== loadedTaskDraft.title ||
-    document.getElementById('draftEditDescription').value !== loadedTaskDraft.description || draftAssigneeDirty(loadedTaskDraft));
-  document.getElementById('btnSaveDraft').disabled = busy || !current || !validID(loadedTaskDraft.revision) || draftEditNeedsReload ||
+    document.getElementById('draftEditDescription').value !== loadedTaskDraft.description || draftAssigneeDirty(loadedTaskDraft) || draftDeadlineDirty(loadedTaskDraft));
+  document.getElementById('btnSaveDraft').disabled = busy || !current || !writableDraft(loadedTaskDraft) || draftEditNeedsReload ||
     loadedTaskDraft.status !== 'waiting_confirmation';
   const button = document.getElementById('btnConfirmDraft');
-  button.disabled = busy || !current || !validID(loadedTaskDraft.revision) || draftEditNeedsReload || dirty ||
+  button.disabled = busy || !current || !writableDraft(loadedTaskDraft) || draftEditNeedsReload || dirty ||
     !['waiting_confirmation', 'creating'].includes(loadedTaskDraft.status) || !draftAssigneeResolved(loadedTaskDraft);
   button.textContent = current && loadedTaskDraft.status === 'creating' ? 'Retry confirmation' : 'Confirm and create task';
   const hint = document.getElementById('draftConfirmHint');
   hint.textContent = !current ? 'Load a saved draft before confirming.' :
     draftEditNeedsReload ? 'Load the same run again to check its state before continuing.' :
-    !validID(loadedTaskDraft.revision) ? 'This saved draft supports viewing only.' :
+    !writableDraft(loadedTaskDraft) ? 'This saved draft supports viewing only.' :
     loadedTaskDraft.status === 'succeeded' ? 'Task created. Its ID is shown above.' :
     loadedTaskDraft.status === 'creating' ? 'Creation submitted; result not recorded yet. No automatic background retry. Retry this same run explicitly.' :
     !draftAssigneeResolved(loadedTaskDraft) ? 'Select and save a responsible teammate, or explicitly save Unassigned.' :
@@ -421,7 +432,7 @@ function refreshTaskDraftControls() {
     'Confirming will create one task from the saved draft.';
   const retryable = current && loadedTaskDraft.status === 'succeeded' && ['not_started', 'pending'].includes(loadedTaskDraft.replyStatus);
   const replyButton = document.getElementById('btnRetryTaskReply');
-  replyButton.disabled = busy || !retryable || !loadedTaskDraft.replyReviewed || replyRetryNeedsReload || draftEditNeedsReload;
+  replyButton.disabled = busy || !retryable || !writableDraft(loadedTaskDraft) || !loadedTaskDraft.replyReviewed || replyRetryNeedsReload || draftEditNeedsReload;
   replyButton.textContent = current && loadedTaskDraft.replyStatus === 'not_started' ? 'Send group reply' : 'Retry group reply';
   document.getElementById('taskReplyHint').textContent = !current || loadedTaskDraft.status !== 'succeeded' ?
     'Create a task and load its reply status before retrying.' :
@@ -429,14 +440,80 @@ function refreshTaskDraftControls() {
     !retryable ? taskReplyStatusText(loadedTaskDraft.replyStatus) :
     replyRetryNeedsReload || !loadedTaskDraft.replyReviewed ? 'Task stays created. Load this same run to review the reply before retrying.' :
     retryable ? 'This sends only the original group reply; it does not create another task.' : taskReplyStatusText(loadedTaskDraft.replyStatus);
-  const editable = current && validID(loadedTaskDraft.revision) && loadedTaskDraft.status === 'waiting_confirmation' && !confirmingDraft && !retryingTaskReply && !draftConfirmNeedsReload;
+  const editable = current && writableDraft(loadedTaskDraft) && loadedTaskDraft.status === 'waiting_confirmation' && !confirmingDraft && !retryingTaskReply && !draftConfirmNeedsReload;
   const selectable = editable && !busy && !draftEditNeedsReload;
   document.getElementById('draftAssigneeSelect').disabled = !selectable;
   document.getElementById('btnLoadDraftMembers').disabled = !selectable;
   document.getElementById('btnMoreDraftMembers').disabled = !selectable || !draftMembersLoaded || draftMemberFinished;
+  document.getElementById('draftDueAt').disabled = !editable;
+  document.getElementById('btnSaveDraftDeadline').disabled = !selectable;
+  document.getElementById('btnClearDraftDeadline').disabled = !selectable;
   const choice = document.getElementById('draftAssigneeSelect').value;
   document.getElementById('btnSaveDraftAssignee').disabled = !selectable || !(choice === '0' || validID(choice) && draftMembers.has(choice));
   document.getElementById('draftEditTitle').disabled = document.getElementById('draftEditDescription').disabled = !editable;
+}
+
+function validDraftDue(value) {
+  return Number.isSafeInteger(value) && value >= 0 && value <= 253402300799999;
+}
+
+function writableDraft(draft) {
+  return draft && validID(draft.revision) && validDraftDue(draft.dueAt);
+}
+
+function draftDeadlineDirty(draft) {
+  return document.getElementById('draftDueAt').value !== draft.dueInput;
+}
+
+function shanghaiDateParts(value) {
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', calendar: 'gregory', numberingSystem: 'latn',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  const parts = Object.fromEntries(formatter.formatToParts(new Date(value)).map(part => [part.type, part.value]));
+  return [Number(parts.year), Number(parts.month), Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second),
+    ((value % 1000) + 1000) % 1000];
+}
+
+function shanghaiDeadlineInput(value) {
+  const [year, month, day, hour, minute, second, ms] = shanghaiDateParts(value);
+  const pad = (n, size = 2) => String(n).padStart(size, '0');
+  return pad(year, 4) + '-' + pad(month) + '-' + pad(day) + 'T' + pad(hour) + ':' + pad(minute) +
+    (second || ms ? ':' + pad(second) : '') + (ms ? '.' + pad(ms, 3).replace(/0+$/, '') : '');
+}
+
+function utcFromParts(parts) {
+  const date = new Date(0);
+  date.setUTCFullYear(parts[0], parts[1] - 1, parts[2]);
+  date.setUTCHours(parts[3], parts[4], parts[5], parts[6]);
+  return date.getTime();
+}
+
+function parseShanghaiDeadline(input) {
+  if (input === '') return 0;
+  const match = /^(\d{4,5})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(input);
+  if (!match) throw new Error('invalid Asia/Shanghai deadline');
+  const parts = match.slice(1, 7).map(part => Number(part || 0));
+  parts.push(Number((match[7] || '').padEnd(3, '0')));
+  const wall = utcFromParts(parts), date = new Date(wall);
+  if (parts[0] < 1970 || parts[0] > 10000 || date.getUTCFullYear() !== parts[0] || date.getUTCMonth() + 1 !== parts[1] ||
+      date.getUTCDate() !== parts[2] || date.getUTCHours() !== parts[3] || date.getUTCMinutes() !== parts[4] ||
+      date.getUTCSeconds() !== parts[5]) throw new Error('invalid Asia/Shanghai deadline');
+  // Inspect IANA offsets on both sides of Shanghai's historical daylight-saving transitions.
+  // A round trip must yield exactly one instant; gaps and repeated local times are rejected.
+  const offsets = new Set();
+  for (let hours = -48; hours <= 48; hours += 6) {
+    const sample = wall + hours * 3600000;
+    offsets.add(utcFromParts(shanghaiDateParts(sample)) - sample);
+  }
+  const candidates = [...offsets].map(offset => wall - offset).filter(value => validDraftDue(value) && value > 0 &&
+    shanghaiDateParts(value).every((part, index) => part === parts[index]));
+  if (candidates.length !== 1) throw new Error('invalid or ambiguous Asia/Shanghai deadline; enter a different explicit time');
+  return candidates[0];
+}
+
+function clearDraftDeadlineInput() {
+  requireSelectableDraft();
+  document.getElementById('draftDueAt').value = '';
+  refreshTaskDraftControls();
 }
 
 function validDraftAssignee(draft) {
@@ -507,8 +584,8 @@ function currentDraftOperation(snapshot, scope, runID, epoch) {
 function requireSelectableDraft() {
   const scope = taskDraftScope(), snapshot = loadedTaskDraft;
   const runID = document.getElementById('draftRunID').value.trim();
-  if (loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || loadingDraftMembers || confirmingDraft || retryingTaskReply ||
-      !snapshot || !validID(snapshot.revision) || draftEditNeedsReload || snapshot.status !== 'waiting_confirmation' ||
+  if (loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || savingDraftDeadline || loadingDraftMembers || confirmingDraft || retryingTaskReply ||
+      !snapshot || !writableDraft(snapshot) || draftEditNeedsReload || snapshot.status !== 'waiting_confirmation' ||
       snapshot.runID !== runID || !sameTaskDraftScope(snapshot.scope)) throw new Error('load the current waiting draft before choosing a teammate');
   return { snapshot, scope, runID, epoch: draftEditorEpoch };
 }
@@ -582,11 +659,11 @@ async function saveDraftAssignee() {
         data.team_id !== scope.teamID || data.group_id !== scope.groupID || data.status !== 'waiting_confirmation' ||
         data.draft.title !== snapshot.title || data.draft.description !== snapshot.description ||
         data.draft.assignee_id !== choice || data.draft.assignee_name !== snapshot.assigneeName ||
-        data.draft.assignee_resolution !== (choice === '0' ? 'unassigned' : 'selected')) throw new Error('invalid responsible teammate save response');
+        data.draft.assignee_resolution !== (choice === '0' ? 'unassigned' : 'selected') || data.draft.due_at_unix_ms !== snapshot.dueAt) throw new Error('invalid responsible teammate save response');
     if (!stillCurrent()) return;
     const edits = { title: document.getElementById('draftEditTitle').value !== snapshot.title,
       description: document.getElementById('draftEditDescription').value !== snapshot.description,
-      assignee: document.getElementById('draftAssigneeSelect').value !== choice };
+      assignee: document.getElementById('draftAssigneeSelect').value !== choice, deadline: draftDeadlineDirty(snapshot) };
     showTaskDraft(data, scope, edits);
     document.getElementById('draftResult').textContent += '\nResponsible teammate saved. Review before confirming.';
   } catch (e) {
@@ -604,8 +681,57 @@ async function doSaveDraftAssignee() {
   catch (e) { document.getElementById('draftResult').textContent = 'Responsible teammate needs review: ' + e.message; }
 }
 
+async function saveDraftDeadline() {
+  const { snapshot, scope, runID, epoch } = requireSelectableDraft();
+  const field = document.getElementById('draftDueAt');
+  if (field.validity && field.validity.badInput) throw new Error('invalid Asia/Shanghai deadline');
+  const input = field.value;
+  // Unchanged input preserves the exact saved instant, including old seconds/milliseconds
+  // and a historical repeated wall time that was already persisted unambiguously as UTC.
+  const dueAt = input === snapshot.dueInput ? snapshot.dueAt : parseShanghaiDeadline(input);
+  const stillCurrent = () => currentDraftOperation(snapshot, scope, runID, epoch);
+  const revision = dueAt === snapshot.dueAt ? snapshot.revision : String(BigInt(snapshot.revision) + 1n);
+  if (!validID(revision)) throw new Error('draft version is exhausted; the deadline cannot be changed');
+  savingDraftDeadline = true;
+  refreshTaskDraftControls();
+  try {
+    const resp = await fetch('/api/v1/agent/runs/' + runID + '/draft/deadline', {
+      method: 'PUT', headers: { Authorization: 'Bearer ' + scope.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ due_at_unix_ms: dueAt, expected_revision: snapshot.revision })
+    });
+    if (!resp.ok) throw new Error('deadline save HTTP ' + resp.status + '; load again to check the result');
+    const result = await resp.json(), data = result.data;
+    if (result.code !== 0 || !validTaskDraftData(data) || data.run_id !== runID || data.team_id !== scope.teamID ||
+        data.group_id !== scope.groupID || data.status !== 'waiting_confirmation' || data.draft.title !== snapshot.title ||
+        data.draft.description !== snapshot.description || data.draft.source_message_id !== snapshot.sourceMessageID ||
+        !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== dueAt || data.draft.revision !== revision) {
+      throw new Error('invalid deadline save response');
+    }
+    if (!stillCurrent()) return;
+    const edits = { title: document.getElementById('draftEditTitle').value !== snapshot.title,
+      description: document.getElementById('draftEditDescription').value !== snapshot.description,
+      assignee: draftAssigneeDirty(snapshot), deadline: document.getElementById('draftDueAt').value !== input };
+    showTaskDraft(data, scope, edits);
+    document.getElementById('draftResult').textContent += edits.deadline ? '\nDeadline saved; newer input remains unsaved.' :
+      '\nDeadline saved. Review the saved time before confirming.';
+  } catch (e) {
+    if (!stillCurrent()) return;
+    draftEditNeedsReload = true;
+    throw new Error(e.message + ' Your deadline input is retained.');
+  } finally {
+    savingDraftDeadline = false;
+    refreshTaskDraftControls();
+  }
+}
+
+async function doSaveDraftDeadline() {
+  try { await saveDraftDeadline(); }
+  catch (e) { document.getElementById('draftResult').textContent = 'Deadline needs review: ' + e.message; }
+}
+
 function validTaskDraftData(data) {
   return data && validID(data.run_id) && validID(data.team_id) && validID(data.group_id) && data.draft &&
+    (data.draft.due_at_unix_ms === undefined || validDraftDue(data.draft.due_at_unix_ms)) &&
     validDraftAssignee(data.draft) && typeof data.draft.title === 'string' && typeof data.draft.description === 'string' &&
     (data.draft.revision === undefined || validID(data.draft.revision)) &&
     (data.status === 'succeeded' ? validID(data.task_id) :
@@ -641,7 +767,7 @@ function showTaskDraft(data, scope, preserveEdits, replyReviewed = false) {
     draftMembersLoaded = false;
     document.getElementById('draftMemberHint').textContent = 'Load members explicitly to select a real teammate.';
   }
-  loadedTaskDraft = { scope, runID: data.run_id, revision: data.draft.revision, title: data.draft.title, description: data.draft.description, status: data.status, taskID: data.task_id,
+  loadedTaskDraft = { scope, runID: data.run_id, revision: data.draft.revision, dueAt: data.draft.due_at_unix_ms, sourceMessageID: data.draft.source_message_id, title: data.draft.title, description: data.draft.description, status: data.status, taskID: data.task_id,
     assigneeID: data.draft.assignee_id === undefined ? '0' : data.draft.assignee_id, assigneeName: data.draft.assignee_name || '',
     assigneeResolution: data.draft.assignee_resolution || '',
     replyStatus: data.reply_status || '', replyMsgID: data.reply_msg_id || '', replyReviewed };
@@ -651,6 +777,14 @@ function showTaskDraft(data, scope, preserveEdits, replyReviewed = false) {
   if (data.status !== 'waiting_confirmation') preserveEdits = null;
   if (!preserveEdits || !preserveEdits.title) title.value = data.draft.title;
   if (!preserveEdits || !preserveEdits.description) description.value = data.draft.description;
+  const dueInput = document.getElementById('draftDueAt');
+  const savedInput = validDraftDue(loadedTaskDraft.dueAt) && loadedTaskDraft.dueAt > 0 ? shanghaiDeadlineInput(loadedTaskDraft.dueAt) : '';
+  if (!preserveEdits || !preserveEdits.deadline) dueInput.value = savedInput;
+  // Browsers normalize datetime-local values; retain the actual baseline without losing the UTC snapshot.
+  loadedTaskDraft.dueInput = preserveEdits && preserveEdits.deadline ? savedInput : dueInput.value;
+  document.getElementById('draftDeadlineSummary').textContent = loadedTaskDraft.dueAt === undefined ?
+    'Saved deadline: unavailable in this response. This draft is read-only.' : 'Saved deadline (Asia/Shanghai): ' +
+    (loadedTaskDraft.dueAt === 0 ? 'Not set' : savedInput.replace('T', ' ') + '\nUTC: ' + new Date(loadedTaskDraft.dueAt).toISOString());
   renderDraftAssigneeOptions(preserveEdits && preserveEdits.assignee ? document.getElementById('draftAssigneeSelect').value : savedAssigneeChoice(loadedTaskDraft));
   showDraftAssigneeSummary();
   title.disabled = description.disabled = data.status !== 'waiting_confirmation';
@@ -698,7 +832,7 @@ function sameTaskDraftScope(scope) {
 }
 
 async function loadTaskDraft(expectedScope, expectedInstruction) {
-  if (loadingDraft || (preparingDraft && !expectedScope) || savingDraft || savingDraftAssignee || loadingDraftMembers || confirmingDraft || retryingTaskReply) throw new Error('draft read, save or confirmation already in progress');
+  if (loadingDraft || (preparingDraft && !expectedScope) || savingDraft || savingDraftAssignee || savingDraftDeadline || loadingDraftMembers || confirmingDraft || retryingTaskReply) throw new Error('draft read, save or confirmation already in progress');
   const scope = expectedScope || taskDraftScope();
   const runID = document.getElementById('draftRunID').value.trim();
   if (!validID(runID)) throw new Error('enter a valid run ID');
@@ -733,7 +867,7 @@ async function loadTaskDraft(expectedScope, expectedInstruction) {
       loadedTaskDraft.scope.token === scope.token && loadedTaskDraft.scope.teamID === scope.teamID && loadedTaskDraft.scope.groupID === scope.groupID &&
       { title: document.getElementById('draftEditTitle').value !== loadedTaskDraft.title,
         description: document.getElementById('draftEditDescription').value !== loadedTaskDraft.description,
-        assignee: draftAssigneeDirty(loadedTaskDraft) };
+        assignee: draftAssigneeDirty(loadedTaskDraft), deadline: draftDeadlineDirty(loadedTaskDraft) };
     showTaskDraft(data, scope, preserveEdits, true);
   } catch (e) {
     if (draftEditorEpoch !== epoch || !sameTaskDraftScope(scope) || document.getElementById('draftRunID').value.trim() !== runID) return;
@@ -750,7 +884,7 @@ async function saveTaskDraft() {
   const scope = taskDraftScope();
   const runID = document.getElementById('draftRunID').value.trim();
   const snapshot = loadedTaskDraft;
-  if (loadingDraft || preparingDraft || savingDraftAssignee || loadingDraftMembers || confirmingDraft || retryingTaskReply || !snapshot || !validID(snapshot.revision) || draftEditNeedsReload || snapshot.status !== 'waiting_confirmation' ||
+  if (loadingDraft || preparingDraft || savingDraftAssignee || savingDraftDeadline || loadingDraftMembers || confirmingDraft || retryingTaskReply || !snapshot || !writableDraft(snapshot) || draftEditNeedsReload || snapshot.status !== 'waiting_confirmation' ||
       snapshot.runID !== runID || snapshot.scope.token !== scope.token || snapshot.scope.teamID !== scope.teamID || snapshot.scope.groupID !== scope.groupID) {
     throw new Error('load the current waiting draft before saving');
   }
@@ -776,7 +910,7 @@ async function saveTaskDraft() {
     const data = result.data;
     if (result.code !== 0 || !validTaskDraftData(data) || data.run_id !== runID || data.team_id !== scope.teamID || data.group_id !== scope.groupID ||
         data.status !== 'waiting_confirmation' || !validID(data.draft.revision) ||
-        !sameSavedDraftAssignee(data.draft, snapshot)) {
+        !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt) {
       throw new Error('invalid draft save response; load again to check the result');
     }
     if (!currentDraftOperation(snapshot, scope, runID, epoch)) {
@@ -785,7 +919,7 @@ async function saveTaskDraft() {
       return;
     }
     const newerEdits = { title: document.getElementById('draftEditTitle').value !== rawTitle,
-      description: document.getElementById('draftEditDescription').value !== rawDescription, assignee: draftAssigneeDirty(snapshot) };
+      description: document.getElementById('draftEditDescription').value !== rawDescription, assignee: draftAssigneeDirty(snapshot), deadline: draftDeadlineDirty(snapshot) };
     showTaskDraft(data, scope, newerEdits);
     resultBox.textContent += newerEdits.title || newerEdits.description ? '\nSaved submitted changes; newer edits remain unsaved.' : '\nDraft saved.';
   } catch (e) {
@@ -815,12 +949,12 @@ async function confirmTaskDraft() {
   const scope = taskDraftScope();
   const runID = document.getElementById('draftRunID').value.trim();
   const snapshot = loadedTaskDraft;
-  if (loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || loadingDraftMembers || retryingTaskReply || !snapshot || !validID(snapshot.revision) || draftEditNeedsReload ||
+  if (loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || savingDraftDeadline || loadingDraftMembers || retryingTaskReply || !snapshot || !writableDraft(snapshot) || draftEditNeedsReload ||
       !['waiting_confirmation', 'creating'].includes(snapshot.status) || snapshot.runID !== runID ||
       snapshot.scope.token !== scope.token || snapshot.scope.teamID !== scope.teamID || snapshot.scope.groupID !== scope.groupID) {
     throw new Error('load the current saved draft before confirming');
   }
-  if (document.getElementById('draftEditTitle').value !== snapshot.title || document.getElementById('draftEditDescription').value !== snapshot.description || draftAssigneeDirty(snapshot)) {
+  if (document.getElementById('draftEditTitle').value !== snapshot.title || document.getElementById('draftEditDescription').value !== snapshot.description || draftAssigneeDirty(snapshot) || draftDeadlineDirty(snapshot)) {
     throw new Error('save your changes and review the saved draft before confirming');
   }
   if (!draftAssigneeResolved(snapshot)) throw new Error('select and save a responsible teammate, or explicitly save Unassigned, before confirming');
@@ -835,7 +969,7 @@ async function confirmTaskDraft() {
     const resp = await fetch('/api/v1/agent/runs/' + runID + '/confirm', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + scope.token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expected_title: snapshot.title, expected_description: snapshot.description, expected_revision: snapshot.revision, expected_assignee_id: snapshot.assigneeID })
+      body: JSON.stringify({ expected_title: snapshot.title, expected_description: snapshot.description, expected_revision: snapshot.revision, expected_assignee_id: snapshot.assigneeID, expected_due_at_unix_ms: snapshot.dueAt })
     });
     if (!resp.ok) throw new Error('confirmation HTTP ' + resp.status);
     const result = await resp.json();
@@ -843,7 +977,7 @@ async function confirmTaskDraft() {
     if (result.code !== 0 || !validTaskDraftData(data) || data.status !== 'succeeded' || data.run_id !== runID ||
         data.team_id !== scope.teamID || data.group_id !== scope.groupID ||
         data.draft.title !== snapshot.title || data.draft.description !== snapshot.description ||
-        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot)) {
+        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt) {
       throw new Error('invalid confirmation response');
     }
     if (!stillCurrent()) {
@@ -894,7 +1028,7 @@ async function retryTaskReply() {
   const scope = taskDraftScope();
   const runID = document.getElementById('draftRunID').value.trim();
   const snapshot = loadedTaskDraft;
-  if (loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || loadingDraftMembers || confirmingDraft || !snapshot || replyRetryNeedsReload || draftEditNeedsReload ||
+  if (loadingDraft || preparingDraft || savingDraft || savingDraftAssignee || savingDraftDeadline || loadingDraftMembers || confirmingDraft || !snapshot || !writableDraft(snapshot) || replyRetryNeedsReload || draftEditNeedsReload ||
       !snapshot.replyReviewed || snapshot.status !== 'succeeded' || !['not_started', 'pending'].includes(snapshot.replyStatus) ||
       snapshot.runID !== runID || snapshot.scope.token !== scope.token || snapshot.scope.teamID !== scope.teamID || snapshot.scope.groupID !== scope.groupID) {
     throw new Error('load this same successful run and review its reply before retrying');
@@ -915,7 +1049,7 @@ async function retryTaskReply() {
     if (result.code !== 0 || !validTaskDraftData(data) || data.status !== 'succeeded' || data.reply_status !== 'accepted' ||
         data.run_id !== runID || data.team_id !== scope.teamID || data.group_id !== scope.groupID || data.task_id !== snapshot.taskID ||
         data.draft.title !== snapshot.title || data.draft.description !== snapshot.description ||
-        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot) ||
+        data.draft.revision !== snapshot.revision || !sameSavedDraftAssignee(data.draft, snapshot) || data.draft.due_at_unix_ms !== snapshot.dueAt ||
         (snapshot.replyMsgID && data.reply_msg_id !== snapshot.replyMsgID)) {
       throw new Error('invalid reply retry response');
     }
@@ -947,7 +1081,7 @@ async function doRetryTaskReply() {
 
 async function prepareTaskDraft() {
   if (preparingDraft) return;
-  if (savingDraft || savingDraftAssignee || loadingDraftMembers || loadingDraft || confirmingDraft || retryingTaskReply) throw new Error('draft read, save or confirmation already in progress');
+  if (savingDraft || savingDraftAssignee || savingDraftDeadline || loadingDraftMembers || loadingDraft || confirmingDraft || retryingTaskReply) throw new Error('draft read, save or confirmation already in progress');
   const scope = taskDraftScope();
   const instruction = document.getElementById('draftInstruction').value.trim();
   if (!instruction || Array.from(instruction).length > 2000) {
