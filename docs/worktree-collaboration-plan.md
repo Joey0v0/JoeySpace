@@ -153,3 +153,11 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 `codex/deadline-auto-integration` 按后端快进 → Gateway `0711f49` → 页面 `555f9be` 合并，无冲突。全量 Go、140 项 Node、Linux 编译及实际 HTTP/TCP gRPC 自动时间组合通过；主 agent 另适配原参考组合测试，保留旧断言。交付时 main 保持 `89fdceb`，集成结果供用户审查。[全部文件、九步、调用链及未验证项](deadline-auto-review.md)。没有删除原协议生成文件、重建目录、执行真实迁移、调用真实模型、部署或推送。
 
 主分支合入记录（2026-10-03）：用户明确要求“你现在给我合并进去”，主 agent 在干净工作区切换 main，将集成提交 `efd80ba` 以 `--ff-only` 合入，无冲突。三个执行分支与集成分支均已包含在 main 历史中，业务代码等同已验证集成版本；本次只补三份文档的合并状态并核对提交祖先关系，不重复业务测试。分支/worktree 保留，未推送远程、部署或执行迁移。
+
+## 13. 多项生成/核验前置（2026-10-04）
+
+先由三个子 agent 在 main `1065ef6` 只读审查后端、Gateway 和页面，主 agent 提出方案；用户分别明确选择 A54 逐项确认、A55 逐项回帖、A56 未冻结项本人显式跳过。方案记录提交 `cc64ea9`，本轮不扩协议/迁移，只做模型输出及共用逐项核验。
+
+后端复用 `.worktrees/assignee-backend`，新分支 `codex/multi-draft-generator` 从 `1065ef6` 出发，只改四个允许文件；另外两名 agent 只读复核方案，未制造未来入口。主 agent 修正新测试明确时间样本、补紧凑原文须本人处理断言，集中执行模型定向、全量 Go 和 Linux Agent 编译，全部通过。子 agent 测试工具审批等待曾中断推进，已保存文件保留并由主 agent 接手验证，未把等待或中断当成代码丢失，也不据此声称三倍提速。
+
+代码提交 `551ab27` 由主 agent 审查后提交，无冲突合入 `codex/multi-draft-preparation`；main 保持 `1065ef6`，等本轮审查。三个 worktree 均保留，Gateway/页面仍在上一批分支。共四个小步骤（方案、模型、核验、集中验证），[完整十文件与边界](agent-multi-draft-design.md#5-本轮交付记录)。没有执行真实模型/数据库/浏览器、迁移、部署、推送或自动合 main。
