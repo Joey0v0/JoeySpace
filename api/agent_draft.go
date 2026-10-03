@@ -46,14 +46,15 @@ type agentDraftData struct {
 }
 
 type agentDraftItem struct {
-	Revision           int64  `json:"revision,string,omitempty"`
-	Title              string `json:"title"`
-	Description        string `json:"description"`
-	AssigneeID         int64  `json:"assignee_id,string"`
-	AssigneeName       string `json:"assignee_name"`
-	AssigneeResolution string `json:"assignee_resolution"`
-	DueAtUnixMs        int64  `json:"due_at_unix_ms"`
-	SourceMessageID    int64  `json:"source_message_id,string"`
+	Revision           int64               `json:"revision,string,omitempty"`
+	Title              string              `json:"title"`
+	Description        string              `json:"description"`
+	AssigneeID         int64               `json:"assignee_id,string"`
+	AssigneeName       string              `json:"assignee_name"`
+	AssigneeResolution string              `json:"assignee_resolution"`
+	DueAtUnixMs        int64               `json:"due_at_unix_ms"`
+	SourceMessageID    int64               `json:"source_message_id,string"`
+	Deadline           *agentDraftDeadline `json:"deadline,omitempty"`
 }
 
 const maxDraftDeadlineUnixMs int64 = 253402300799999
@@ -233,7 +234,8 @@ func writeTaskDraftResult(w http.ResponseWriter, runID int64, result *pb.GetTask
 		}
 	}
 	if !validResult || !validDraftReplyResult(result) || !validDraftAssignee(result.GetDraft()) ||
-		result.GetDraft().GetDueAtUnixMs() < 0 || result.GetDraft().GetDueAtUnixMs() > maxDraftDeadlineUnixMs {
+		result.GetDraft().GetDueAtUnixMs() < 0 || result.GetDraft().GetDueAtUnixMs() > maxDraftDeadlineUnixMs ||
+		!validDraftDeadlineMetadata(result.GetDraft()) {
 		httpx.WriteJson(w, http.StatusBadGateway, agentDraftResponse{Code: errcode.ErrInternal, Msg: "AI draft service returned invalid draft"})
 		return
 	}
@@ -242,7 +244,7 @@ func writeTaskDraftResult(w http.ResponseWriter, runID int64, result *pb.GetTask
 		RunID: result.GetRunId(), TeamID: result.GetTeamId(), GroupID: result.GetGroupId(), Status: result.GetStatus(),
 		TaskID:      result.GetTaskId(),
 		ReplyStatus: result.GetReplyStatus(), ReplyMsgID: result.GetReplyMsgId(),
-		Draft: &agentDraftItem{Revision: draft.GetRevision(), Title: draft.GetTitle(), Description: draft.GetDescription(), AssigneeID: draft.GetAssigneeId(), AssigneeName: draft.GetAssigneeName(), AssigneeResolution: draft.GetAssigneeResolution(), DueAtUnixMs: draft.GetDueAtUnixMs(), SourceMessageID: draft.GetSourceMessageId()},
+		Draft: &agentDraftItem{Revision: draft.GetRevision(), Title: draft.GetTitle(), Description: draft.GetDescription(), AssigneeID: draft.GetAssigneeId(), AssigneeName: draft.GetAssigneeName(), AssigneeResolution: draft.GetAssigneeResolution(), DueAtUnixMs: draft.GetDueAtUnixMs(), SourceMessageID: draft.GetSourceMessageId(), Deadline: draftDeadlineMetadataResponse(draft.GetDeadline())},
 	}})
 }
 
