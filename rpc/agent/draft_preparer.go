@@ -79,23 +79,57 @@ func (p *draftPreparer) prepareWithReference(ctx context.Context, token string, 
 		}
 		return 0, status.Error(codes.Unavailable, "draft generator unavailable")
 	}
+	draft, err = p.verifyGeneratedDraft(ctx, token, scope, instruction, messages, draft, reference)
+	if err != nil {
+		return 0, err
+	}
+	runID := p.idNode.Generate().Int64()
+	return p.store.saveWaitingDraft(ctx, runID, scope, draft, requestKey, fingerprint)
+}
+
+// verifyGeneratedDrafts checks candidates against already authorized context.
+// Callers must first resolve the actor and current group scope. This helper is
+// not an authorization entry point and never saves, creates or posts anything.
+func (p *draftPreparer) verifyGeneratedDrafts(ctx context.Context, token string, scope draftRunScope, instruction string, messages []*impb.TeamGroupMessage, drafts []taskDraft, reference *int64) ([]taskDraft, error) {
+	if len(drafts) < 1 || len(drafts) > maxGeneratedTaskDrafts {
+		return nil, status.Error(codes.FailedPrecondition, "invalid draft collection size")
+	}
+	verified := make([]taskDraft, 0, len(drafts))
+	for _, candidate := range drafts {
+		draft, err := p.verifyGeneratedDraft(ctx, token, scope, instruction, messages, candidate, reference)
+		if err != nil {
+			return nil, err
+		}
+		verified = append(verified, draft)
+	}
+	return verified, nil
+}
+
+// Shared by the single saved-draft flow and internal batch candidate checking.
+func (p *draftPreparer) verifyGeneratedDraft(ctx context.Context, token string, scope draftRunScope, instruction string, messages []*impb.TeamGroupMessage, draft taskDraft, reference *int64) (taskDraft, error) {
+	if ctx.Err() != nil {
+		return taskDraft{}, status.FromContextError(ctx.Err()).Err()
+	}
+	if p == nil {
+		return taskDraft{}, status.Error(codes.Unavailable, "draft preparation is not configured")
+	}
 	// The model supplies a literal mention, never a trusted member ID or state.
 	if draft.AssigneeID != 0 || draft.AssigneeResolution != "" || draft.DueAtUnixMs != 0 || !sourceInAuthorizedText(messages, draft.SourceMessageID) {
-		return 0, status.Error(codes.FailedPrecondition, "draft source or fields could not be verified")
+		return taskDraft{}, status.Error(codes.FailedPrecondition, "draft source or fields could not be verified")
 	}
 	content := draft
 	content.AssigneeName = ""
 	content.Deadline = draftDeadlineMetadata{}
 	if _, err := newWaitingTaskDraftRun(scope, content); err != nil {
-		return 0, status.Error(codes.FailedPrecondition, "generated draft is invalid")
+		return taskDraft{}, status.Error(codes.FailedPrecondition, "generated draft is invalid")
 	}
 	evidence := draft.Deadline
 	if evidence.ReferenceUnixMs != 0 || evidence.Timezone != "" || evidence.Resolution != "" || evidence.Reason != "" || evidence.ParsedUnixMs != 0 || evidence.InstructionReferenceUnixMs != 0 {
-		return 0, status.Error(codes.FailedPrecondition, "model supplied trusted deadline fields")
+		return taskDraft{}, status.Error(codes.FailedPrecondition, "model supplied trusted deadline fields")
 	}
 	interpreted, err := interpretDraftDeadline(instruction, messages, draftDeadlineEvidence{Text: evidence.Text, Source: evidence.Source, SourceMessageID: evidence.SourceMessageID}, reference)
 	if err != nil {
-		return 0, err
+		return taskDraft{}, err
 	}
 	draft.Deadline = draftDeadlineMetadata{Text: interpreted.Text, Source: interpreted.Source, SourceMessageID: interpreted.SourceMessageID, ReferenceUnixMs: interpreted.ReferenceUnixMs, Timezone: interpreted.Timezone, Resolution: interpreted.Resolution, Reason: interpreted.Reason, ParsedUnixMs: interpreted.DueAtUnixMs}
 	if reference != nil {
@@ -104,17 +138,16 @@ func (p *draftPreparer) prepareWithReference(ctx context.Context, token string, 
 	draft.DueAtUnixMs = interpreted.DueAtUnixMs
 	name := strings.TrimSpace(draft.AssigneeName)
 	if name != "" && !assigneeMentionInAuthorizedText(instruction, messages, name) {
-		return 0, status.Error(codes.FailedPrecondition, "assignee mention could not be verified")
+		return taskDraft{}, status.Error(codes.FailedPrecondition, "assignee mention could not be verified")
 	}
-	draft, err = p.assignees.resolve(ctx, token, teamID, draft)
+	draft, err = p.assignees.resolve(ctx, token, scope.TeamID, draft)
 	if err != nil {
-		return 0, err
+		return taskDraft{}, err
 	}
 	if _, err := newWaitingTaskDraftRun(scope, draft); err != nil {
-		return 0, status.Error(codes.FailedPrecondition, "generated draft is invalid")
+		return taskDraft{}, status.Error(codes.FailedPrecondition, "generated draft is invalid")
 	}
-	runID := p.idNode.Generate().Int64()
-	return p.store.saveWaitingDraft(ctx, runID, scope, draft, requestKey, fingerprint)
+	return draft, nil
 }
 
 func assigneeMentionInAuthorizedText(instruction string, messages []*impb.TeamGroupMessage, name string) bool {

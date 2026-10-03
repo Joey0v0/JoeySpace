@@ -39,10 +39,54 @@ func NewEinoTaskDraftGenerator(ctx context.Context, chatModel model.BaseChatMode
 	return &EinoTaskDraftGenerator{chain: chain}, nil
 }
 
+const maxGeneratedTaskDrafts = 5
+const maxTaskDraftAnswerBytes = 16384
+
+// The batch contract changes only the envelope; each item retains the original
+// seven literal fields. No model tool or write service is part of this chain.
+var taskDraftsInstructions = strings.Replace(strings.Replace(taskDraftInstructions,
+	"生成一项待确认任务草稿", "生成一至五项独立的待确认任务草稿", 1),
+	"只输出 JSON 对象，字段严格为", "只输出 JSON 对象 {\"drafts\":[...]}，drafts 是一至五项数组，无法提取待办时返回空数组，不编造待办；每项字段严格为", 1)
+
 func (g *EinoTaskDraftGenerator) GenerateDraft(ctx context.Context, instruction string, messages []*impb.TeamGroupMessage) (taskDraft, error) {
-	if g == nil || g.chain == nil {
-		return taskDraft{}, status.Error(codes.Unavailable, "draft generator is not configured")
+	answer, err := g.generateDraftAnswer(ctx, instruction, messages, taskDraftInstructions, maxTaskDraftAnswerBytes)
+	if err != nil {
+		return taskDraft{}, err
 	}
+	return parseGeneratedTaskDraft(answer, false)
+}
+
+// GenerateDrafts produces untrusted candidates, not authorized or saved tasks.
+// Every item must be structurally valid before any collection is returned.
+func (g *EinoTaskDraftGenerator) GenerateDrafts(ctx context.Context, instruction string, messages []*impb.TeamGroupMessage) ([]taskDraft, error) {
+	answer, err := g.generateDraftAnswer(ctx, instruction, messages, taskDraftsInstructions, maxGeneratedTaskDrafts*maxTaskDraftAnswerBytes)
+	if err != nil {
+		return nil, err
+	}
+	var envelope struct {
+		Drafts []json.RawMessage `json:"drafts"`
+	}
+	decoder := json.NewDecoder(strings.NewReader(answer))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&envelope) != nil || decoder.Decode(new(any)) != io.EOF || len(envelope.Drafts) < 1 || len(envelope.Drafts) > maxGeneratedTaskDrafts {
+		return nil, status.Error(codes.FailedPrecondition, "model returned invalid draft collection")
+	}
+	drafts := make([]taskDraft, 0, len(envelope.Drafts))
+	for _, raw := range envelope.Drafts {
+		draft, err := parseGeneratedTaskDraft(string(raw), true)
+		if err != nil {
+			return nil, err
+		}
+		drafts = append(drafts, draft)
+	}
+	return drafts, nil
+}
+
+func (g *EinoTaskDraftGenerator) generateDraftAnswer(ctx context.Context, instruction string, messages []*impb.TeamGroupMessage, instructions string, maxBytes int) (string, error) {
+	if g == nil || g.chain == nil {
+		return "", status.Error(codes.Unavailable, "draft generator is not configured")
+	}
+
 	texts := make([]taskDraftPromptMessage, 0, len(messages))
 	for i := len(messages) - 1; i >= 0; i-- {
 		message := messages[i]
@@ -59,20 +103,24 @@ func (g *EinoTaskDraftGenerator) GenerateDraft(ctx context.Context, instruction 
 		Messages    []taskDraftPromptMessage `json:"group_messages"`
 	}{instruction, texts})
 	if err != nil {
-		return taskDraft{}, status.Error(codes.Internal, "cannot prepare draft context")
+		return "", status.Error(codes.Internal, "cannot prepare draft context")
 	}
 	answer, err := g.chain.Invoke(ctx, []*schema.Message{
-		schema.SystemMessage(taskDraftInstructions), schema.UserMessage(string(input)),
+		schema.SystemMessage(instructions), schema.UserMessage(string(input)),
 	})
 	if ctx.Err() != nil {
-		return taskDraft{}, status.FromContextError(ctx.Err()).Err()
+		return "", status.FromContextError(ctx.Err()).Err()
 	}
 	if err != nil {
-		return taskDraft{}, status.Error(codes.Unavailable, "model unavailable")
+		return "", status.Error(codes.Unavailable, "model unavailable")
 	}
-	if answer == nil || answer.Role != schema.Assistant || len(answer.ToolCalls) != 0 || len(answer.Content) > 16384 {
-		return taskDraft{}, status.Error(codes.FailedPrecondition, "model returned invalid draft")
+	if answer == nil || answer.Role != schema.Assistant || len(answer.ToolCalls) != 0 || len(answer.Content) > maxBytes {
+		return "", status.Error(codes.FailedPrecondition, "model returned invalid draft")
 	}
+	return answer.Content, nil
+}
+
+func parseGeneratedTaskDraft(answer string, canonicalSourceID bool) (taskDraft, error) {
 	var parsed struct {
 		Title                   *string `json:"title"`
 		Description             *string `json:"description"`
@@ -82,13 +130,13 @@ func (g *EinoTaskDraftGenerator) GenerateDraft(ctx context.Context, instruction 
 		DeadlineSource          *string `json:"deadline_source"`
 		DeadlineSourceMessageID *string `json:"deadline_source_message_id"`
 	}
-	decoder := json.NewDecoder(strings.NewReader(answer.Content))
+	decoder := json.NewDecoder(strings.NewReader(answer))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&parsed) != nil || decoder.Decode(new(any)) != io.EOF || parsed.Title == nil || parsed.Description == nil || parsed.SourceMessageID == nil || parsed.AssigneeName == nil || parsed.DeadlineText == nil || parsed.DeadlineSource == nil || parsed.DeadlineSourceMessageID == nil {
 		return taskDraft{}, status.Error(codes.FailedPrecondition, "model returned invalid draft")
 	}
 	sourceID, err := strconv.ParseInt(*parsed.SourceMessageID, 10, 64)
-	if err != nil || sourceID < 0 {
+	if err != nil || sourceID < 0 || (canonicalSourceID && strconv.FormatInt(sourceID, 10) != *parsed.SourceMessageID) {
 		return taskDraft{}, status.Error(codes.FailedPrecondition, "model returned invalid draft")
 	}
 	deadlineID, err := strconv.ParseInt(*parsed.DeadlineSourceMessageID, 10, 64)
