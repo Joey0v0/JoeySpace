@@ -47,6 +47,10 @@ function page(fetch) {
     draftRunID: { value: '' },
     draftResult: { textContent: '' },
     draftAssigneeSummary: { textContent: '' },
+    draftDeadlineSummary: { textContent: '' },
+    draftDueAt: { value: '', disabled: true },
+    btnSaveDraftDeadline: { disabled: true },
+    btnClearDraftDeadline: { disabled: true },
     draftMemberHint: { textContent: '' },
     draftAssigneeSelect: { value: '', options: [], disabled: true, replaceChildren(...options) { this.options = options; this.value = ''; } },
     btnLoadDraftMembers: { disabled: true },
@@ -963,7 +967,7 @@ test('task draft preparation keeps 64-bit IDs exact and only displays the draft'
     if (calls.length === 1) return reply({ code: 0, data: { run_id: '9007199254740997' } });
     return reply({ code: 0, data: {
       run_id: '9007199254740997', team_id: '9007199254740993', group_id: '9007199254740995',
-      status: 'waiting_confirmation', task_id: '0', draft: { revision: '1', title: '<script>task</script>', description: 'Write notes', source_message_id: '9007199254740999' }
+      status: 'waiting_confirmation', task_id: '0', draft: { due_at_unix_ms: 0, revision: '1', title: '<script>task</script>', description: 'Write notes', source_message_id: '9007199254740999' }
     } });
   });
   fields.teamId.value = '9007199254740993';
@@ -989,9 +993,9 @@ test('task draft retry reuses its key and changed instruction gets a new key', a
     calls.push({ url, options });
     if (calls.length === 1) return { ok: false, status: 503 };
     if (calls.length === 2) return reply({ code: 0, data: { run_id: '9' } });
-    if (calls.length === 3) return reply({ code: 0, data: { run_id: '9', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0', draft: { revision: '1', title: 'Task', description: '', source_message_id: '0' } } });
+    if (calls.length === 3) return reply({ code: 0, data: { run_id: '9', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0', draft: { due_at_unix_ms: 0, revision: '1', title: 'Task', description: '', source_message_id: '0' } } });
     if (calls.length === 4) return reply({ code: 0, data: { run_id: '10' } });
-    return reply({ code: 0, data: { run_id: '10', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0', draft: { revision: '1', title: 'New', description: '', source_message_id: '0' } } });
+    return reply({ code: 0, data: { run_id: '10', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0', draft: { due_at_unix_ms: 0, revision: '1', title: 'New', description: '', source_message_id: '0' } } });
   });
   fields.teamId.value = '2';
   fields.toUserId.value = '3';
@@ -1033,13 +1037,13 @@ test('task draft read hides other group and stale responses', async () => {
   fields.draftRunID.value = '9';
   const read = context.loadTaskDraft();
   fields.toUserId.value = '4';
-  finish(reply({ code: 0, data: { run_id: '9', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0', draft: { revision: '1', title: 'Old', description: '', source_message_id: '0' } } }));
+  finish(reply({ code: 0, data: { run_id: '9', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0', draft: { due_at_unix_ms: 0, revision: '1', title: 'Old', description: '', source_message_id: '0' } } }));
   await read;
   assert.match(fields.draftResult.textContent, /Context changed/);
   assert.doesNotMatch(fields.draftResult.textContent, /Old/);
   const { context: otherContext, fields: otherFields } = page(async () => reply({ code: 0, data: {
     run_id: '9', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0',
-    draft: { revision: '1', title: 'Private', description: '', source_message_id: '0' }
+    draft: { due_at_unix_ms: 0, revision: '1', title: 'Private', description: '', source_message_id: '0' }
   } }));
   otherFields.teamId.value = '2';
   otherFields.toUserId.value = '4';
@@ -1077,7 +1081,7 @@ function draftEditPage(fetch) {
 
 function draftData(title = 'Old title', description = 'Old notes', overrides = {}) {
   return { code: 0, data: { run_id: '9', team_id: '2', group_id: '3', status: 'waiting_confirmation', task_id: '0',
-    draft: { revision: '1', title, description, source_message_id: '0' }, ...overrides } };
+    draft: { due_at_unix_ms: 0, revision: '1', title, description, source_message_id: '0' }, ...overrides } };
 }
 
 function assigneeDraft(state = 'ambiguous', id = '0', name = '李四', revision = '1', overrides = {}) {
@@ -1085,6 +1089,265 @@ function assigneeDraft(state = 'ambiguous', id = '0', name = '李四', revision 
   Object.assign(result.data.draft, { assignee_name: name, assignee_resolution: state, assignee_id: id, revision });
   return result;
 }
+
+function deadlineDraft(due = 0, revision = '1', overrides = {}) {
+  const result = draftData('Old title', 'Old notes', overrides);
+  result.data.draft.due_at_unix_ms = due;
+  result.data.draft.revision = revision;
+  return result;
+}
+
+test('deadline controls are present, explicitly use Shanghai and preserve millisecond input precision', () => {
+  for (const id of ['draftDeadlineSummary', 'draftDueAt', 'btnSaveDraftDeadline', 'btnClearDraftDeadline']) {
+    assert.match(html, new RegExp('id="' + id + '"'));
+  }
+  assert.match(html, /id="draftDueAt" step="0\.001"/);
+  assert.match(html, /Due \(Asia\/Shanghai\)/);
+});
+
+test('draft deadlines use Shanghai independent of browser timezone and confirm the newly saved instant', async () => {
+  const prior = process.env.TZ;
+  process.env.TZ = 'America/New_York';
+  try {
+    const due = Date.UTC(2026, 9, 4, 7, 30), calls = [];
+    const { context, fields } = draftEditPage(async (url, options) => {
+      calls.push({ url, options });
+      return reply(calls.length === 1 ? deadlineDraft(0, '9007199254740993') : deadlineDraft(due, '9007199254740994',
+        url.endsWith('/confirm') ? { status: 'succeeded', task_id: '123' } : {}));
+    });
+    await context.loadTaskDraft();
+    fields.draftDueAt.value = '2026-10-04T15:30';
+    context.refreshTaskDraftControls();
+    await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+    await context.saveDraftDeadline();
+    assert.deepEqual(JSON.parse(calls[1].options.body), { due_at_unix_ms: due, expected_revision: '9007199254740993' });
+    assert.equal(calls[1].url, '/api/v1/agent/runs/9/draft/deadline');
+    assert.match(fields.draftDeadlineSummary.textContent, /2026-10-04 15:30/);
+    assert.match(fields.draftDeadlineSummary.textContent, /2026-10-04T07:30:00\.000Z/);
+    await context.confirmTaskDraft();
+    assert.equal(JSON.parse(calls[2].options.body).expected_due_at_unix_ms, due);
+    assert.equal(JSON.parse(calls[2].options.body).expected_revision, '9007199254740994');
+  } finally { if (prior === undefined) delete process.env.TZ; else process.env.TZ = prior; }
+});
+
+test('explicit deadline clear changes only the input until save and confirms numeric zero', async () => {
+  const original = Date.UTC(2026, 9, 4, 7, 30, 12, 345), calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    return reply(calls.length === 1 ? deadlineDraft(original) : deadlineDraft(0, '2',
+      url.endsWith('/confirm') ? { status: 'succeeded', task_id: '123' } : {}));
+  });
+  await context.loadTaskDraft();
+  context.clearDraftDeadlineInput();
+  assert.equal(fields.draftDueAt.value, '');
+  assert.match(fields.draftDeadlineSummary.textContent, /15:30:12\.345/);
+  assert.equal(calls.length, 1);
+  await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+  await context.saveDraftDeadline();
+  assert.equal(JSON.parse(calls[1].options.body).due_at_unix_ms, 0);
+  assert.match(fields.draftDeadlineSummary.textContent, /Not set/);
+  await context.confirmTaskDraft();
+  assert.equal(JSON.parse(calls[2].options.body).expected_due_at_unix_ms, 0);
+});
+
+test('old exact seconds and milliseconds survive reading, noop saving and confirmation', async () => {
+  for (const due of [Date.UTC(2026, 9, 4, 7, 30, 12, 345), 1, 253402300799999,
+    Date.UTC(1991, 8, 14, 16, 30, 7, 123)]) {
+    const calls = [];
+    const { context, fields } = draftEditPage(async (url, options) => {
+      calls.push({ url, options });
+      return reply(deadlineDraft(due, '1', url.endsWith('/confirm') ? { status: 'succeeded', task_id: '123' } : {}));
+    });
+    await context.loadTaskDraft();
+    assert.equal(fields.draftDueAt.value, context.shanghaiDeadlineInput(due));
+    await context.saveDraftDeadline();
+    assert.deepEqual(JSON.parse(calls[1].options.body), { due_at_unix_ms: due, expected_revision: '1' });
+    await context.confirmTaskDraft();
+    assert.equal(JSON.parse(calls[2].options.body).expected_due_at_unix_ms, due);
+  }
+});
+
+test('Shanghai parser rejects illegal dates, historical DST gaps and duplicated local times before fetch', async () => {
+  let calls = 0;
+  const { context, fields } = draftEditPage(async () => { calls++; return reply(deadlineDraft()); });
+  await context.loadTaskDraft();
+  for (const value of ['2026-02-30T15:30', '2026-13-01T15:30', '2026-10-01T24:00', '2026-10-01T12:60',
+    '2026-10-01T12:30:60', '2026-10-01T12:30:01.1234', '1969-12-31T23:59', '10001-01-01T00:00',
+    '1991-04-14T02:30', '1991-09-15T01:30']) {
+    fields.draftDueAt.value = value;
+    await assert.rejects(context.saveDraftDeadline(), /invalid.*Shanghai/);
+  }
+  fields.draftDueAt.value = '';
+  fields.draftDueAt.validity = { badInput: true };
+  await assert.rejects(context.saveDraftDeadline(), /invalid.*Shanghai/);
+  assert.equal(calls, 1);
+  assert.equal(context.parseShanghaiDeadline('1991-07-01T15:30'), Date.UTC(1991, 6, 1, 6, 30));
+  assert.equal(context.parseShanghaiDeadline('2026-10-04T15:30:01.7'), Date.UTC(2026, 9, 4, 7, 30, 1, 700));
+});
+
+test('legacy responses without deadline remain readable and reject every draft mutation including replies', async () => {
+  for (const done of [false, true]) {
+    const data = deadlineDraft(0, '1', done ? { status: 'succeeded', task_id: '123', reply_status: 'pending', reply_msg_id: 'bot-task:9' } : {});
+    delete data.data.draft.due_at_unix_ms;
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => { calls++; return reply(data); });
+    await context.loadTaskDraft();
+    assert.match(fields.draftDeadlineSummary.textContent, /read-only/);
+    for (const action of ['saveTaskDraft', 'saveDraftAssignee', 'saveDraftDeadline', 'confirmTaskDraft', 'retryTaskReply', 'loadDraftMembers']) {
+      await assert.rejects(context[action](), /load/);
+    }
+    assert.equal(calls, 1);
+  }
+});
+
+test('malformed deadline values never open draft writes', async () => {
+  for (const due of [null, '0', -1, 1.5, 253402300800000, Infinity]) {
+    const { context, fields } = draftEditPage(async () => reply(deadlineDraft(due)));
+    await assert.rejects(context.loadTaskDraft(), /invalid response/);
+    assert.equal(fields.btnSaveDraftDeadline.disabled, true);
+  }
+});
+
+test('deadline conflict retains input and requires reading the new version before explicit retry', async () => {
+  const due = Date.UTC(2026, 9, 4, 7, 30), calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    if (calls.length === 1) return reply(deadlineDraft());
+    if (calls.length === 2) return { ok: false, status: 409 };
+    if (calls.length === 3) return reply(deadlineDraft(Date.UTC(2026, 9, 3, 7, 30), '3'));
+    return reply(deadlineDraft(due, '4'));
+  });
+  await context.loadTaskDraft();
+  fields.draftDueAt.value = '2026-10-04T15:30';
+  await assert.rejects(context.saveDraftDeadline(), /HTTP 409.*retained/);
+  await assert.rejects(context.saveDraftDeadline(), /load/);
+  await assert.rejects(context.confirmTaskDraft(), /load/);
+  await context.loadTaskDraft();
+  assert.equal(fields.draftDueAt.value, '2026-10-04T15:30');
+  await context.saveDraftDeadline();
+  assert.equal(JSON.parse(calls[3].options.body).expected_revision, '3');
+});
+
+test('deadline save retains newer typing, text and assignee edits while advancing the saved version', async () => {
+  let finish, calls = 0;
+  const due = Date.UTC(2026, 9, 4, 7, 30), pending = new Promise(resolve => { finish = resolve; });
+  const initial = assigneeDraft('matched', '8');
+  const saved = assigneeDraft('matched', '8', '李四', '2'); saved.data.draft.due_at_unix_ms = due;
+  const { context, fields } = draftEditPage(async () => ++calls === 1 ? reply(initial) : pending);
+  await context.loadTaskDraft();
+  fields.draftDueAt.value = '2026-10-04T15:30';
+  const work = context.saveDraftDeadline();
+  fields.draftDueAt.value = '2026-10-05T16:30';
+  fields.draftEditTitle.value = 'Unsaved title';
+  fields.draftAssigneeSelect.value = '0';
+  finish(reply(saved));
+  await work;
+  assert.equal(fields.draftDueAt.value, '2026-10-05T16:30');
+  assert.equal(fields.draftEditTitle.value, 'Unsaved title');
+  assert.equal(fields.draftAssigneeSelect.value, '0');
+  assert.match(fields.draftDeadlineSummary.textContent, /2026-10-04 15:30/);
+  await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+});
+
+test('other draft saves retain unsaved deadline input and preserve the saved UTC instant', async () => {
+  const due = Date.UTC(2026, 9, 4, 7, 30);
+  let calls = 0;
+  const initial = assigneeDraft('matched', '8'); initial.data.draft.due_at_unix_ms = due;
+  const textResult = assigneeDraft('matched', '8', '李四', '2'); textResult.data.draft.due_at_unix_ms = due; textResult.data.draft.title = 'Edited';
+  const assigneeResult = assigneeDraft('unassigned', '0', '李四', '3'); assigneeResult.data.draft.due_at_unix_ms = due; assigneeResult.data.draft.title = 'Edited';
+  const { context, fields } = draftEditPage(async () => reply([initial, textResult, assigneeResult][calls++]));
+  await context.loadTaskDraft();
+  fields.draftDueAt.value = '';
+  fields.draftEditTitle.value = 'Edited';
+  await context.saveTaskDraft();
+  assert.equal(fields.draftDueAt.value, '');
+  fields.draftAssigneeSelect.value = '0';
+  await context.saveDraftAssignee();
+  assert.equal(fields.draftDueAt.value, '');
+  assert.match(fields.draftDeadlineSummary.textContent, /15:30/);
+  await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+});
+
+test('deadline saving excludes every concurrent draft operation and clear action', async () => {
+  let finish, calls = 0;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const { context, fields } = draftEditPage(async () => ++calls === 1 ? reply(deadlineDraft()) : pending);
+  await context.loadTaskDraft();
+  fields.draftDueAt.value = '2026-10-04T15:30';
+  fields.draftInstruction.value = 'Extract';
+  const work = context.saveDraftDeadline();
+  for (const action of ['saveDraftDeadline', 'saveDraftAssignee', 'saveTaskDraft', 'confirmTaskDraft', 'loadTaskDraft', 'loadDraftMembers', 'prepareTaskDraft', 'retryTaskReply']) {
+    await assert.rejects(context[action](), /load|progress/);
+  }
+  assert.throws(() => context.clearDraftDeadlineInput(), /load/);
+  assert.equal(calls, 2);
+  finish(reply(deadlineDraft(Date.UTC(2026, 9, 4, 7, 30), '2')));
+  await work;
+});
+
+test('maximum draft version allows exact noop deadline saves but rejects changed time before fetch', async () => {
+  let calls = 0;
+  const due = Date.UTC(2026, 9, 4, 7, 30), revision = '9223372036854775807';
+  const { context, fields } = draftEditPage(async () => { calls++; return reply(deadlineDraft(due, revision)); });
+  await context.loadTaskDraft();
+  await context.saveDraftDeadline();
+  fields.draftDueAt.value = '';
+  await assert.rejects(context.saveDraftDeadline(), /version is exhausted/);
+  assert.equal(calls, 2);
+});
+
+test('deadline save success and failure ignore every changed context including restoration', async () => {
+  for (const field of ['token', 'teamId', 'toUserId', 'draftRunID']) {
+    for (const fails of [false, true]) {
+      let finish, calls = 0;
+      const pending = new Promise((resolve, reject) => { finish = fails ? reject : resolve; });
+      const { context, fields } = draftEditPage(async () => ++calls === 1 ? reply(deadlineDraft()) : pending);
+      await context.loadTaskDraft();
+      fields.draftDueAt.value = '2026-10-04T15:30';
+      const work = context.saveDraftDeadline(), before = fields[field].value;
+      fields[field].value = 'changed'; context.clearTaskDraftResult(); fields[field].value = before;
+      finish(fails ? new Error('network') : reply(deadlineDraft(Date.UTC(2026, 9, 4, 7, 30), '2')));
+      await work;
+      assert.equal(fields.draftDeadlineSummary.textContent, '');
+      assert.equal(fields.btnSaveDraftDeadline.disabled, true);
+      assert.equal(fields.btnConfirmDraft.disabled, true);
+    }
+  }
+});
+
+test('deadline save rejects altered fields, missing time and incorrect version without displaying success', async () => {
+  const due = Date.UTC(2026, 9, 4, 7, 30);
+  for (const change of [data => { data.draft.title = 'Other'; }, data => { data.draft.assignee_id = '8'; },
+    data => { data.draft.source_message_id = '8'; }, data => { data.draft.due_at_unix_ms = 0; },
+    data => { delete data.draft.due_at_unix_ms; }, data => { data.draft.revision = '1'; },
+    data => { data.draft.revision = '3'; }, data => { data.status = 'creating'; }, data => { data.group_id = '4'; }]) {
+    const result = deadlineDraft(due, '2'); change(result.data);
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? deadlineDraft() : result));
+    await context.loadTaskDraft(); fields.draftDueAt.value = '2026-10-04T15:30';
+    await assert.rejects(context.saveDraftDeadline(), /invalid deadline save response/);
+    assert.equal(fields.draftDueAt.value, '2026-10-04T15:30');
+    await assert.rejects(context.confirmTaskDraft(), /load/);
+  }
+});
+
+test('creating and successful deadlines are frozen; confirmation and reply cannot replace their UTC values', async () => {
+  const due = Date.UTC(2026, 9, 4, 7, 30, 12, 345);
+  for (const mode of ['confirm', 'reply']) {
+    const frozen = deadlineDraft(due, '1', mode === 'confirm' ? { status: 'creating' } :
+      { status: 'succeeded', task_id: '123', reply_status: 'pending', reply_msg_id: 'bot-task:9' });
+    const changed = deadlineDraft(due + 1, '1', { status: 'succeeded', task_id: '123',
+      ...(mode === 'reply' ? { reply_status: 'accepted', reply_msg_id: 'bot-task:9' } : {}) });
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? frozen : changed));
+    await context.loadTaskDraft();
+    assert.equal(fields.draftDueAt.disabled, true);
+    await assert.rejects(context.saveDraftDeadline(), /load/);
+    await assert.rejects(context[mode === 'confirm' ? 'confirmTaskDraft' : 'retryTaskReply'](), /invalid/);
+    assert.match(fields.draftDeadlineSummary.textContent, /12\.345/);
+    assert.equal(fields.btnSaveDraftDeadline.disabled, true);
+  }
+});
 
 function memberPage(members, next = '0') {
   return reply({ code: 0, data: { members: members.map(([id, name]) => ({ user_id: id, username: name, nickname: '', role: 1 })),
@@ -1148,7 +1411,7 @@ test('explicit unassigned selection retains original name, increments version an
   assert.equal(fields.btnConfirmDraft.disabled, false);
   await context.confirmTaskDraft();
   assert.deepEqual(JSON.parse(calls[2].options.body), { expected_title: 'Old title', expected_description: 'Old notes',
-    expected_revision: '2', expected_assignee_id: '0' });
+    expected_revision: '2', expected_assignee_id: '0', expected_due_at_unix_ms: 0 });
 });
 
 test('member directory loads successive exact string cursors and saves a real later-page member', async () => {
@@ -1697,7 +1960,7 @@ test('draft confirmation posts only saved text and displays an exact task ID', a
   assert.equal(calls[1].options.method, 'POST');
   assert.equal(calls[1].options.headers.Authorization, 'Bearer test-token');
   assert.equal(calls[1].options.headers['Idempotency-Key'], undefined);
-  assert.deepEqual(JSON.parse(calls[1].options.body), { expected_title: '<script>Saved task</script>', expected_description: '', expected_revision: '1', expected_assignee_id: '0' });
+  assert.deepEqual(JSON.parse(calls[1].options.body), { expected_title: '<script>Saved task</script>', expected_description: '', expected_revision: '1', expected_assignee_id: '0', expected_due_at_unix_ms: 0 });
   assert.match(fields.draftResult.textContent, /Task created: 9223372036854775806/);
   assert.match(fields.draftResult.textContent, /<script>Saved task<\/script>/);
   assert.equal(fields.btnSaveDraft.disabled, true);
