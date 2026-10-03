@@ -129,3 +129,11 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 从最早开始到最晚交付的并行执行窗口为 10 分 25 秒，不包含前期选型、协议准备及之后集中验证/文档；没有同一任务的单 agent 对照，不据此声称三倍提速。三个角色各自实施并跑定向测试，主 agent 同时补跨层组合测试、审查范围并逐一提交。协议、生成代码与文档仅由主 agent 修改；执行 agent 未自行提交/合并/推送。
 
 主 agent 按后端快进 → Gateway 合并 `0611f07` → 页面合并 `42065c2`，无冲突；完整交付位于 `codex/deadline-integration`，main 保持 `d43d644` 待用户审查。全量 Go、Node 115 项和 Linux Agent/Gateway 编译通过；[34 文件和验证边界](agent-deadline-design.md#7-人工截止时间闭环审查)。未执行真实迁移、浏览器/数据库/模型/容器验收或云同步。
+
+## 11. 固定参考与解析器批次（2026-10-03）
+
+用户要求继续后，上一批`db951b9`快进合main。新[契约](deadline-reference-contract.md)共同基线`67c6071`，保留三个worktree并分别创建`codex/deadline-parser`、`codex/deadline-reference-gateway`、`codex/deadline-reference-ui`；主工作区为`codex/deadline-reference-integration`。解析角色仅两个新文件，Gateway仅两文件，页面仅两文件；协议、Agent生成摘要、跨层组合测试及文档归主agent，无共同写入冲突。
+
+主agent的请求接线提交`ebe8ec6`，解析/Gateway/页面分别`81b71c4`/`04e2f1f`/`5afe426`；按该顺序合并`3c8584d`/`9a97719`/`8c42599`无冲突。三个角色执行窗口UTC13:23:05—13:35:52，12分47秒，各自耗时7分46秒/4分21秒/9分24秒；不包括主agent准备、接线和集中验证，不能据此推断倍数提速。
+
+全量Go、Node126项、Linux编译及实际HTTP/TCPgRPC组合通过；main保持`db951b9`供新批次审查，执行agent未自行提交/合并/推送。完整[21文件、步骤及未接线部分](deadline-reference-review.md)。未删除目录或生成文件、未执行迁移、部署或请求真实模型。

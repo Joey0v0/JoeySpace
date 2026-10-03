@@ -85,4 +85,12 @@ Edit/Select/Confirm RPC 必须携带 `expected_revision`；缺失或非正值返
 
 Confirm 追加 optional `expected_due_at_unix_ms`。非零保存值必须显式审查；零旧草稿兼容缺失，新页面总是发送包括0。编排与冻结事务均核对，错值Aborted、非零缺失FailedPrecondition、非法请求值InvalidArgument；冻结后的任务与回帖重试不重算或改变截止时间。实际冻结UTC值仍交现有 Task 创建与幂等摘要，不新增表/迁移或依赖。
 
-用户已选 A51/A52/A53：上海解释时区、模型提取原文由 Go 有限解释、页面固定首次指令参考。本批仅接人工编辑/审查，自动提取/解释及生成参考字段后续实施，不能据此宣称 Agent 已理解“明天下午”。[方案与审查](../../docs/agent-deadline-design.md#7-人工截止时间闭环审查)、[HTTP/页面](../../api/README.md#草稿截止时间编辑与确认审查2026-10-03)。
+用户已选 A51/A52/A53：上海解释时区、模型提取原文由 Go 有限解释、页面固定首次指令参考。人工批次只接编辑/审查，之后的请求和解析前置见下节，不能据此宣称 Agent 已理解“明天下午”。[人工方案与审查](../../docs/agent-deadline-design.md#7-人工截止时间闭环审查)、[HTTP/页面](../../api/README.md#草稿截止时间编辑与确认审查2026-10-03)。
+
+## 固定指令参考请求与有限解析前置（2026-10-03）
+
+`PrepareTaskDraftRequest`新增optional `instruction_reference_unix_ms`（字段4），存在须合法正UTC毫秒；缺失保留旧fingerprint JSON字节。新参考与团队/群/指令加入摘要，同键换参考冲突；查同键前照常核对当前用户/授权群，重放不调用模型。设备参考只作将来的时间解释输入，不能替代服务端created_at或权限。
+
+`interpretDraftDeadline`是本包内部纯Go解释器，接原文、指令/消息来源和固定参考。消息来源必须唯一且属于传入授权文本，按那条消息的发送时间；指令相对日期必须有参考，绝对日期可无参考。明确完整日期或今天/明天/后天带时分可解释，支持秒毫秒；模糊/错误日期/DST歧义输出needs_input，不擅补，非法证据拒绝。依赖现有Asia/Shanghai标准时区数据，加载失败返回Unavailable，不固定+08或读取Now。
+
+解释器尚未接Eino输出、存储或对外RPC；原模型仍只生成旧四字段，运行摘要不是可读解析依据。下一批需完整持久元数据/状态及本人歧义处理与确认保护。本批没有新增迁移；[共同契约](../../docs/deadline-reference-contract.md)、[21文件及验证范围](../../docs/deadline-reference-review.md)。
