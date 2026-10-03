@@ -110,3 +110,11 @@ Confirm的`expected_deadline_resolution`与due/版本在编排和freeze事务二
 `EinoTaskDraftGenerator.GenerateDrafts` 返回仍需后端核验、尚未保存的候选集合，JSON 结构为 `{"drafts":[...]}`，1—5 项，每项仍是七个必填字符串；超限、空或任一坏项拒绝，不截断或返回局部集合。每项来源 ID 保持规范十进制字符串，不接受模型提供成员 ID、可信 UTC、版本或任务创建结果。一次模型调用不意味着已创建任务。
 
 后续编排应在本人和当前群授权后调用共用逐项核验，核对消息来源、姓名及 User 解析、有限时间解释和完整草稿字段；准备过程不写库或执行任务。现有单项入口仍先做原身份/群授权和同键重放，再校验保存；旧请求指纹、单项模型对象及冻结键不变。真实模型预算不调整，多项输出可能因预算而不完整，应明确拒绝。[范围、选择及验证记录](../../docs/agent-multi-draft-design.md)。
+
+## 多项草稿持久化与读取（2026-10-04）
+
+`PrepareTaskDraftCollection` 复用原生成请求、生产配置、Token 和请求键，身份/群授权后优先重放。新模式加入请求指纹，旧指纹保持原字节；同键跨模式冲突。一次 `GenerateDrafts` 后逐项核对原文来源、成员和固定参考时间，所有项通过才在一个短 SQL 事务写运行与全部草稿。索引固定为 0..N-1，不重编号；任何项失败不返回或保存部分集合，不调用 Task 或机器人。
+
+`GetTaskDraftCollection` 与 `GetTaskDraftItem` 经已有 `ConfigureDraftAccess` 接线，只允许原发起人并复查 IM 当前团队群资格。指定项 `optional item_index` 必须存在，零也是显式身份。读取验证持久 mode/count、连续项索引、每项正版本、完整负责人/时间依据和明确 waiting 状态；损坏记录拒绝，不能将空依据视为旧草稿。本批尚无多项编辑、确认、跳过和回帖。
+
+019 增加 run 的 `draft_mode/item_count` 和 draft 的独立 `status`。旧 single 从原 run 状态读取，默认空项状态不当作 waiting；新 collection 明确项状态。旧单项共同读取和冻结锁定拒绝 collection（包括仅一项），不改旧 Task/消息键与结果。升级前在 018 后核对执行 [019](../../deploy/mysql/migrations/019_agent_draft_collection.sql)，脚本尚未在真实数据库执行。[共同契约](../../docs/multi-draft-storage-contract.md)、[审查与验证范围](../../docs/multi-draft-storage-review.md)。

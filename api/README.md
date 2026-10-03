@@ -244,3 +244,15 @@ Confirm 追加 optional 数字 `expected_due_at_unix_ms`；非零时间由 Agent
 状态为none/parsed/needs_input/selected/unset。needs_input即便due=0也不能确认；本人保存正时间得到selected，明确0得到unset，保留原文/来源/参考/原候选及原因；状态变化同样递增版本。旧legacy保存沿原规则。确认追加字符串`expected_deadline_resolution`，新对象必须审查当前状态及`expected_due_at_unix_ms`（含0），缺状态或未处理返回409；非法值/null拒绝，成功结果须一致。编辑、确认、读取和回帖共用完整shape检查，异常成功结果502。
 
 页面以纯文字显示完整依据，区分原候选、本人覆盖和持久指令参考；解析候选仍须本人确认，模糊结果先保存明确处理。旧对象缺依据不编造，部分/异常对象不允许操作；未保存或不确定仍要求重读。此前参考批次尚不能读回依据的描述为历史，现在新草稿可读回持久参考，旧草稿仍无依据。[本批契约](../docs/deadline-auto-contract.md)、[审查与实际验证](../docs/deadline-auto-review.md)。
+
+### 多项草稿集合与指定项读取（2026-10-04）
+
+沿已确认逐项审查方案增加三个独立入口，旧单项路由保留：
+
+- `POST /api/v1/teams/{team_id}/groups/{group_id}/task-draft-collections`：原 `instruction`、可选 `instruction_reference_unix_ms`、Bearer Token 和 `Idempotency-Key`。成功只返回字符串 `run_id`，表示 1—5 项草稿整体保存，不表示任务创建。
+- `GET /api/v1/agent/runs/{run_id}/drafts`：返回运行范围、`item_count` 和按稳定 `item_index` 排列的全部 `items`。
+- `GET /api/v1/agent/runs/{run_id}/drafts/{item_index}`：显式读取一项，索引为 0—4 的规范整数；实际项不存在返回 404，不退回第 0 项。
+
+所有 int64 ID 和 `revision` 保持十进制字符串，索引/项数是小整数。每项带 `status`、完整 `draft`（含负责人和九个时间依据字段）、`task_id`、`reply_status`、`reply_msg_id`。本批仅支持待确认新集合，任务 ID 为 `"0"`，回帖为 `disabled` 或 `not_started`；没有新页面操作、多项编辑/确认/跳过/回帖。旧单项入口遇到集合返回冲突，即使集合只有一项；新读取入口也不隐式适配旧单项运行。
+
+同键重放保持原集合，模式、范围、指令或首次参考改变返回冲突。每次重放和读取仍查当前本人及团队群资格；Gateway 不计算负责人/时间或直接读数据库。异常、不完整、错序、缺索引或损坏的服务响应返回 502。[共同契约](../docs/multi-draft-storage-contract.md)、[本批审查与验证](../docs/multi-draft-storage-review.md)。

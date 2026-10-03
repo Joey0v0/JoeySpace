@@ -155,3 +155,4 @@ A51/A52/A53 确认来源：用户对三项方案问题分别明确选择 A，并
 沿 A37 两表与固定索引，新增运行 draft_mode/item_count、草稿独立 status。备选把类型塞进 run.status 前缀或仅以项数判定，会混淆业务状态，且一项的集合会被旧入口误认；新字段明确意图并能发现缺项，代价是019及协调升级。旧single项状态仍按原run读取，默认空项状态不当waiting；新collection项显式状态。本批先保存/读取，下一批逐项写入仍只认项状态；旧single适配规则集中，不能让两个状态源混用。
 
 选择新集合/指定项RPC及HTTP，与旧单项并存，备选直接给旧接口加默认index0会造成盲操作。索引optional且显式，旧共同查询按模式拒绝collection，lockedDraft二次保护；原item0旧Task/回帖键及旧指纹不改。collection fingerprint加入模式防同键跨操作复用，备选单独键空间会让同一个请求键生成另一份意图。每项先核验，再一个事务完整写入；不引入跨服务事务、后台执行、共享Repository或额外模型配置。以上为已定A54—A56中的字段/兼容细节，[共同契约](multi-draft-storage-contract.md)明确完整形状与角色。本批不实施后续确认/回帖/跳过，不执行真实迁移。
+本批持久/读取实际交付（2026-10-04）：三种新RPC/HTTP、mode/count/项状态、原子保存、本人读取及旧入口拒绝已接线；同模式只有一项仍collection，旧键/字段布局不改。主 agent 审查后将旧 HTTP FailedPrecondition 从503明确为409模式/状态冲突，Unavailable仍503，避免把旧入口拒绝误当服务停机；错误内部细节不泄露。本机完整 Go、140项页面回归、Linux编译及实际HTTP/TCP gRPC加业务/SQL/模型替身通过。[全部33文件及审查](multi-draft-storage-review.md)。019尚未真实执行，多项编辑/确认/跳过/回帖仍待下一批。

@@ -89,3 +89,4 @@
 | [rpc/agent/draft_batch_preparer_test.go](../rpc/agent/draft_batch_preparer_test.go) | 四个逐项核验函数与 Eino 组合 |
 
 后续记录（2026-10-04）：用户回复“可以继续进行下一步”，上述准备结果 `5ef2ff8` 已快进合入 main。本轮继续按[保存与读取契约](multi-draft-storage-contract.md)推进；上方 main1065/尚未持久化是前置批次交付时历史，当前新批次实现和验证另行记录，不追改十文件清单。
+保存/读取批次交付（2026-10-04）：[八步审查与33文件](multi-draft-storage-review.md)记录新集合持久/读取及旧单项保护，已通过本地全量与跨层替身验证；逐项写入、确认/跳过/回帖及页面仍后续实施。前文“尚无持久化/RPC/HTTP”是模型前置批次的历史边界，当前能力以新批次审查为准。

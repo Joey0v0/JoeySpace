@@ -161,3 +161,16 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 后端复用 `.worktrees/assignee-backend`，新分支 `codex/multi-draft-generator` 从 `1065ef6` 出发，只改四个允许文件；另外两名 agent 只读复核方案，未制造未来入口。主 agent 修正新测试明确时间样本、补紧凑原文须本人处理断言，集中执行模型定向、全量 Go 和 Linux Agent 编译，全部通过。子 agent 测试工具审批等待曾中断推进，已保存文件保留并由主 agent 接手验证，未把等待或中断当成代码丢失，也不据此声称三倍提速。
 
 代码提交 `551ab27` 由主 agent 审查后提交，无冲突合入 `codex/multi-draft-preparation`；main 保持 `1065ef6`，等本轮审查。三个 worktree 均保留，Gateway/页面仍在上一批分支。共四个小步骤（方案、模型、核验、集中验证），[完整十文件与边界](agent-multi-draft-design.md#5-本轮交付记录)。没有执行真实模型/数据库/浏览器、迁移、部署、推送或自动合 main。
+
+## 14. 多项保存/读取批次（2026-10-04）
+
+用户继续后，前置结果 `5ef2ff8` 快进合入 main。共同协议、019 初始化/迁移和[实施契约](multi-draft-storage-contract.md)提交 `f77091e`；三个干净 worktree 保留，从同一共同提交建立本批新分支，没有删除原生成代码或重建目录。
+
+| 角色 | 绝对目录 | 分支 | 允许范围 |
+| --- | --- | --- | --- |
+| 后端 | `D:/zy/GoLang/go-im/.worktrees/assignee-backend` | `codex/multi-draft-storage-backend` | rpc/agent 非生成实现与测试：生成事务、本人集合/项读取、旧单项保护 |
+| Gateway | `D:/zy/GoLang/go-im/.worktrees/assignee-gateway` | `codex/multi-draft-storage-gateway` | api 集合 handler/test、main 必要路由、共享验证必要小改 |
+| 组合测试（复用页面角色） | `D:/zy/GoLang/go-im/.worktrees/assignee-ui` | `codex/multi-draft-storage-flow` | 仅 api/multi_draft_persistence_flow_test.go；本批不改页面 |
+| 主 agent | `D:/zy/GoLang/go-im` | `codex/multi-draft-storage-integration` | 协议/生成代码、迁移、共同文档、审查及整合 |
+
+本批共八步，接口先统一再并行，子 agent 不自行提交/合并/push。子 agent 仅编辑、gofmt、diff 检查，主 agent 集中跑测试，避免上一批测试工具审批等待拖住子任务。无需三个会话由用户分别调度；用户在主聊天审查。没有同一任务的单 agent 对照，不声称固定倍数提速。整合、提交和实际验证见[审查记录](multi-draft-storage-review.md)；新批次待用户审查，main 保留上一批，尚未推送、迁移或部署。

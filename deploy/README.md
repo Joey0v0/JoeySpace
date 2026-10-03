@@ -184,3 +184,9 @@ User 服务须同时包含 `ResolveTeamMember`，原 `USER_RPC_ADDR` 复用，�
 已有数据库在017后须核对并执行一次[018_agent_draft_deadline.sql](mysql/migrations/018_agent_draft_deadline.sql)，再更新Agent；读取/锁定旧草稿也依赖新增九列。新库init.sql已包含，旧数据卷不会因改init.sql自动升级。空/0默认保留旧草稿、原deadline、版本、Task键/结果及回帖，不重新解释历史表达。本批只准备脚本，没有执行真实迁移；最终同步时核对数据库实际结构与迁移记录。
 
 Agent、Gateway、页面需协调升级：模型输出新增三个必填时间原文字段；新deadline依据草稿确认要求当前处理状态和时间一起审查，旧页面不能盲确认，旧legacy草稿保留旧规则。模糊表达须本人补完整时间或明确保存不设置，不能因due=0视为已处理。仍用原RPC地址、数据库和模型配置，不新增端口、环境变量或服务。真实方舟输出、数据库事务及浏览器/容器联调待最终统一验收，见[共同契约](../docs/deadline-auto-contract.md)。
+
+## 多项草稿保存/读取迁移（2026-10-04）
+
+更新本批 Agent 前，已有库须在 018 后核对并执行一次 [019_agent_draft_collection.sql](mysql/migrations/019_agent_draft_collection.sql)。新库初始化包含 run 的 `draft_mode/item_count` 和 draft 的独立 `status`；已有数据卷不会因更新 init.sql 自动升级。默认 single/1 与空项状态保留旧 run 的权威状态、内容、版本、Task 键/结果和回帖；新集合明确保存 collection 模式、实际项数和每项 waiting 状态。
+
+本批没有新服务、端口、环境变量、依赖或模型账号，沿原 Agent/Gateway 配置接入新生成和读取接口。旧单项入口拒绝集合，当前页面仍走原单项入口；多项页面、逐项确认/跳过/回帖后续实现。迁移文件只准备，真实 MySQL、模型、容器和云同步均未执行，最终部署时再协调版本与数据库结构。[完整审查](../docs/multi-draft-storage-review.md)。
