@@ -70,6 +70,9 @@ message PrepareTaskDraftRequest {
   int64 team_id = 1;
   int64 group_id = 2;
   string instruction = 3;
+  // 首次提交固定的指令时间解释输入；同键重试须保持，不作为授权或审计时间。
+  // 缺失保留旧请求摘要；存在时必须为合法正 UTC Unix 毫秒。
+  optional int64 instruction_reference_unix_ms = 4;
 }
 
 message PrepareTaskDraftResponse {

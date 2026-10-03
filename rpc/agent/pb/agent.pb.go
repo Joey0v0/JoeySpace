@@ -377,12 +377,15 @@ func (x *TaskDraftItem) GetRevision() int64 {
 }
 
 type PrepareTaskDraftRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
-	GroupId       int64                  `protobuf:"varint,2,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
-	Instruction   string                 `protobuf:"bytes,3,opt,name=instruction,proto3" json:"instruction,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TeamId      int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	GroupId     int64                  `protobuf:"varint,2,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	Instruction string                 `protobuf:"bytes,3,opt,name=instruction,proto3" json:"instruction,omitempty"`
+	// 首次提交固定的指令时间解释输入；同键重试须保持，不作为授权或审计时间。
+	// 缺失保留旧请求摘要；存在时必须为合法正 UTC Unix 毫秒。
+	InstructionReferenceUnixMs *int64 `protobuf:"varint,4,opt,name=instruction_reference_unix_ms,json=instructionReferenceUnixMs,proto3,oneof" json:"instruction_reference_unix_ms,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *PrepareTaskDraftRequest) Reset() {
@@ -434,6 +437,13 @@ func (x *PrepareTaskDraftRequest) GetInstruction() string {
 		return x.Instruction
 	}
 	return ""
+}
+
+func (x *PrepareTaskDraftRequest) GetInstructionReferenceUnixMs() int64 {
+	if x != nil && x.InstructionReferenceUnixMs != nil {
+		return *x.InstructionReferenceUnixMs
+	}
+	return 0
 }
 
 type PrepareTaskDraftResponse struct {
@@ -806,11 +816,13 @@ const file_agent_proto_rawDesc = "" +
 	"\x11source_message_id\x18\x05 \x01(\x03R\x0fsourceMessageId\x12#\n" +
 	"\rassignee_name\x18\x06 \x01(\tR\fassigneeName\x12/\n" +
 	"\x13assignee_resolution\x18\a \x01(\tR\x12assigneeResolution\x12\x1a\n" +
-	"\brevision\x18\b \x01(\x03R\brevision\"o\n" +
+	"\brevision\x18\b \x01(\x03R\brevision\"\xd9\x01\n" +
 	"\x17PrepareTaskDraftRequest\x12\x17\n" +
 	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
 	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\x12 \n" +
-	"\vinstruction\x18\x03 \x01(\tR\vinstruction\"1\n" +
+	"\vinstruction\x18\x03 \x01(\tR\vinstruction\x12F\n" +
+	"\x1dinstruction_reference_unix_ms\x18\x04 \x01(\x03H\x00R\x1ainstructionReferenceUnixMs\x88\x01\x01B \n" +
+	"\x1e_instruction_reference_unix_ms\"1\n" +
 	"\x18PrepareTaskDraftResponse\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\x03R\x05runId\"\xec\x01\n" +
 	"\x14EditTaskDraftRequest\x12\x15\n" +
@@ -906,6 +918,7 @@ func file_agent_proto_init() {
 	if File_agent_proto != nil {
 		return
 	}
+	file_agent_proto_msgTypes[5].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[8].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[9].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[10].OneofWrappers = []any{}
