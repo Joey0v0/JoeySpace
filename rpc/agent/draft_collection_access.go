@@ -12,7 +12,15 @@ type draftCollectionLoader interface {
 	loadDraftCollectionForInitiator(context.Context, int64, int64) (taskDraftCollection, error)
 }
 
+type draftCollectionEditLoader interface {
+	loadDraftCollectionForItemEdit(context.Context, int64, int64, int32) (taskDraftCollection, error)
+}
+
 func (r *draftAccessReader) loadCollection(ctx context.Context, token string, runID int64) (taskDraftCollection, error) {
+	return r.loadCollectionWithEditTarget(ctx, token, runID, nil)
+}
+
+func (r *draftAccessReader) loadCollectionWithEditTarget(ctx context.Context, token string, runID int64, editTarget *int32) (taskDraftCollection, error) {
 	if r == nil || r.identity == nil || r.im == nil {
 		return taskDraftCollection{}, status.Error(codes.Unavailable, "draft access is not configured")
 	}
@@ -27,7 +35,14 @@ func (r *draftAccessReader) loadCollection(ctx context.Context, token string, ru
 	if err != nil {
 		return taskDraftCollection{}, err
 	}
-	collection, err := store.loadDraftCollectionForInitiator(ctx, runID, actorID)
+	var collection taskDraftCollection
+	if editTarget == nil {
+		collection, err = store.loadDraftCollectionForInitiator(ctx, runID, actorID)
+	} else if editor, ok := r.store.(draftCollectionEditLoader); ok {
+		collection, err = editor.loadDraftCollectionForItemEdit(ctx, runID, actorID, *editTarget)
+	} else {
+		return taskDraftCollection{}, status.Error(codes.Unavailable, "draft collection editing is not configured")
+	}
 	if err != nil {
 		return taskDraftCollection{}, err
 	}

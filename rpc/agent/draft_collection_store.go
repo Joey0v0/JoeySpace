@@ -50,8 +50,25 @@ func (s *draftStore) loadDraftCollectionForInitiator(ctx context.Context, runID,
 	if runID <= 0 || actorID <= 0 {
 		return taskDraftCollection{}, status.Error(codes.InvalidArgument, "invalid run or actor ID")
 	}
+	return queryDraftCollection(ctx, s.db.WithContext(ctx), runID, actorID, false, nil)
+}
+
+func (s *draftStore) loadDraftCollectionForItemEdit(ctx context.Context, runID, actorID int64, index int32) (taskDraftCollection, error) {
+	if s == nil || s.db == nil {
+		return taskDraftCollection{}, status.Error(codes.Unavailable, "draft storage is not configured")
+	}
+	return queryDraftCollection(ctx, s.db.WithContext(ctx), runID, actorID, false, &index)
+}
+
+// Both reads and edits use the same complete collection validation. Edits may
+// report a known frozen target as a precondition failure, without exposing it.
+func queryDraftCollection(ctx context.Context, db *gorm.DB, runID, actorID int64, lock bool, editTarget *int32) (taskDraftCollection, error) {
+	query := selectDraftCollectionForInitiator
+	if lock {
+		query += " FOR UPDATE"
+	}
 	var rows []storedDraftCollectionRow
-	result := s.db.WithContext(ctx).Raw(selectDraftCollectionForInitiator, runID, actorID).Scan(&rows)
+	result := db.Raw(query, runID, actorID).Scan(&rows)
 	if result.Error != nil {
 		return taskDraftCollection{}, draftStorageError(ctx, result.Error)
 	}
@@ -62,16 +79,22 @@ func (s *draftStore) loadDraftCollectionForInitiator(ctx context.Context, runID,
 		return taskDraftCollection{}, status.Error(codes.FailedPrecondition, "run is a single draft")
 	}
 	collection := taskDraftCollection{ID: runID, Scope: rows[0].Draft.run(runID).Scope, Items: make([]taskDraftRun, 0, len(rows))}
+	frozenTarget := false
 	for i, row := range rows {
 		run := row.Draft.run(runID)
+		frozen := editTarget != nil && *editTarget == int32(i) && (run.Status == draftCreating || run.Status == draftSucceeded || run.Status == "skipped")
+		frozenTarget = frozenTarget || frozen
 		validated, err := newWaitingTaskDraftRun(run.Scope, run.Draft)
 		if row.RunID != runID || row.DraftMode != "collection" || row.ItemCount < 1 || row.ItemCount > maxGeneratedTaskDrafts || row.ItemCount != len(rows) ||
 			row.ItemCount != rows[0].ItemCount || row.RunStatus != string(draftWaitingConfirmation) || row.ItemIndex == nil || *row.ItemIndex != int32(i) ||
-			run.Scope != collection.Scope || run.Scope.InitiatorID != actorID || run.Revision <= 0 || run.Status != draftWaitingConfirmation || run.TaskRequestKey != "" || run.TaskID != 0 ||
+			run.Scope != collection.Scope || run.Scope.InitiatorID != actorID || run.Revision <= 0 || (!frozen && (run.Status != draftWaitingConfirmation || run.TaskRequestKey != "" || run.TaskID != 0)) || run.TaskID < 0 ||
 			run.Draft.AssigneeResolution == "" || run.Draft.Deadline.Resolution == "" || err != nil || validated.Draft != run.Draft {
 			return taskDraftCollection{}, status.Error(codes.Unavailable, "stored draft collection is invalid")
 		}
 		collection.Items = append(collection.Items, run)
+	}
+	if frozenTarget {
+		return taskDraftCollection{}, status.Error(codes.FailedPrecondition, "draft item is not awaiting confirmation")
 	}
 	return collection, nil
 }
