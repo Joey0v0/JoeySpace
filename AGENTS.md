@@ -12,3 +12,4 @@
 - 保留已有工作与未提交修改；渐进迁移，不直接推倒重写。
 - 阶段完成或方案变化时更新 `docs/project-plan.md`；只将实际验证的能力标记为完成。
 - `PROMPT.md` 是旧版 IM 方案。新架构依据 `docs/project-plan.md`，用户后续明确指令优先。
+- 用户已确认使用 worktree 多 Agent 协作：主 agent 统一调度，最多三个执行子 agent，分别在独立 worktree/分支实现明确任务；用户在主聊天审查。开始前统一接口与共同提交，明确每个 agent 的绝对工作目录和允许文件。协议/生成代码、迁移、依赖和共同文档由主 agent 统一负责，禁止执行 agent 越界修改或自行合并 main。最多九步按整个批次计算，关键选型仍立即讨论。具体规则见 `docs/worktree-collaboration-plan.md`。

@@ -40,3 +40,6 @@ deploy/docker-config.local.yaml
 
 # Build output
 build/
+
+# Independent Git worktrees managed by the coordinating agent
+.worktrees/

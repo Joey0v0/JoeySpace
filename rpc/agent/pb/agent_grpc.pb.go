@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Agent_Ask_FullMethodName              = "/agent.Agent/Ask"
-	Agent_GetTaskDraft_FullMethodName     = "/agent.Agent/GetTaskDraft"
-	Agent_PrepareTaskDraft_FullMethodName = "/agent.Agent/PrepareTaskDraft"
-	Agent_EditTaskDraft_FullMethodName    = "/agent.Agent/EditTaskDraft"
-	Agent_ConfirmTaskDraft_FullMethodName = "/agent.Agent/ConfirmTaskDraft"
-	Agent_RetryTaskReply_FullMethodName   = "/agent.Agent/RetryTaskReply"
+	Agent_Ask_FullMethodName                     = "/agent.Agent/Ask"
+	Agent_GetTaskDraft_FullMethodName            = "/agent.Agent/GetTaskDraft"
+	Agent_PrepareTaskDraft_FullMethodName        = "/agent.Agent/PrepareTaskDraft"
+	Agent_EditTaskDraft_FullMethodName           = "/agent.Agent/EditTaskDraft"
+	Agent_SelectTaskDraftAssignee_FullMethodName = "/agent.Agent/SelectTaskDraftAssignee"
+	Agent_ConfirmTaskDraft_FullMethodName        = "/agent.Agent/ConfirmTaskDraft"
+	Agent_RetryTaskReply_FullMethodName          = "/agent.Agent/RetryTaskReply"
 )
 
 // AgentClient is the client API for Agent service.
@@ -39,6 +40,8 @@ type AgentClient interface {
 	PrepareTaskDraft(ctx context.Context, in *PrepareTaskDraftRequest, opts ...grpc.CallOption) (*PrepareTaskDraftResponse, error)
 	// 仅发起人可修改待确认草稿的标题和说明；每次重新校验当前团队群资格。
 	EditTaskDraft(ctx context.Context, in *EditTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftResponse, error)
+	// 本人明确选择当前团队成员或未指派；必须携带读取的内容版本。
+	SelectTaskDraftAssignee(ctx context.Context, in *SelectTaskDraftAssigneeRequest, opts ...grpc.CallOption) (*GetTaskDraftResponse, error)
 	// 仅发起人可确认；冻结内容及服务端请求键，重复请求复用原任务。
 	ConfirmTaskDraft(ctx context.Context, in *ConfirmTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftResponse, error)
 	// 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
@@ -93,6 +96,16 @@ func (c *agentClient) EditTaskDraft(ctx context.Context, in *EditTaskDraftReques
 	return out, nil
 }
 
+func (c *agentClient) SelectTaskDraftAssignee(ctx context.Context, in *SelectTaskDraftAssigneeRequest, opts ...grpc.CallOption) (*GetTaskDraftResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskDraftResponse)
+	err := c.cc.Invoke(ctx, Agent_SelectTaskDraftAssignee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *agentClient) ConfirmTaskDraft(ctx context.Context, in *ConfirmTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetTaskDraftResponse)
@@ -125,6 +138,8 @@ type AgentServer interface {
 	PrepareTaskDraft(context.Context, *PrepareTaskDraftRequest) (*PrepareTaskDraftResponse, error)
 	// 仅发起人可修改待确认草稿的标题和说明；每次重新校验当前团队群资格。
 	EditTaskDraft(context.Context, *EditTaskDraftRequest) (*GetTaskDraftResponse, error)
+	// 本人明确选择当前团队成员或未指派；必须携带读取的内容版本。
+	SelectTaskDraftAssignee(context.Context, *SelectTaskDraftAssigneeRequest) (*GetTaskDraftResponse, error)
 	// 仅发起人可确认；冻结内容及服务端请求键，重复请求复用原任务。
 	ConfirmTaskDraft(context.Context, *ConfirmTaskDraftRequest) (*GetTaskDraftResponse, error)
 	// 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
@@ -150,6 +165,9 @@ func (UnimplementedAgentServer) PrepareTaskDraft(context.Context, *PrepareTaskDr
 }
 func (UnimplementedAgentServer) EditTaskDraft(context.Context, *EditTaskDraftRequest) (*GetTaskDraftResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditTaskDraft not implemented")
+}
+func (UnimplementedAgentServer) SelectTaskDraftAssignee(context.Context, *SelectTaskDraftAssigneeRequest) (*GetTaskDraftResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SelectTaskDraftAssignee not implemented")
 }
 func (UnimplementedAgentServer) ConfirmTaskDraft(context.Context, *ConfirmTaskDraftRequest) (*GetTaskDraftResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfirmTaskDraft not implemented")
@@ -250,6 +268,24 @@ func _Agent_EditTaskDraft_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_SelectTaskDraftAssignee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SelectTaskDraftAssigneeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).SelectTaskDraftAssignee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_SelectTaskDraftAssignee_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).SelectTaskDraftAssignee(ctx, req.(*SelectTaskDraftAssigneeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Agent_ConfirmTaskDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ConfirmTaskDraftRequest)
 	if err := dec(in); err != nil {
@@ -308,6 +344,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "EditTaskDraft",
 			Handler:    _Agent_EditTaskDraft_Handler,
+		},
+		{
+			MethodName: "SelectTaskDraftAssignee",
+			Handler:    _Agent_SelectTaskDraftAssignee_Handler,
 		},
 		{
 			MethodName: "ConfirmTaskDraft",

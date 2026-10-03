@@ -13,6 +13,8 @@ service Agent {
   rpc PrepareTaskDraft(PrepareTaskDraftRequest) returns (PrepareTaskDraftResponse);
   // 仅发起人可修改待确认草稿的标题和说明；每次重新校验当前团队群资格。
   rpc EditTaskDraft(EditTaskDraftRequest) returns (GetTaskDraftResponse);
+  // 本人明确选择当前团队成员或未指派；必须携带读取的内容版本。
+  rpc SelectTaskDraftAssignee(SelectTaskDraftAssigneeRequest) returns (GetTaskDraftResponse);
   // 仅发起人可确认；冻结内容及服务端请求键，重复请求复用原任务。
   rpc ConfirmTaskDraft(ConfirmTaskDraftRequest) returns (GetTaskDraftResponse);
   // 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
@@ -55,8 +57,8 @@ message TaskDraftItem {
   int64 source_message_id = 5;
   // 原始称呼；空值的旧草稿仍兼容，不是模型生成的真实身份。
   string assignee_name = 6;
-  // 旧草稿为空；新草稿为 none/matched/not_found/ambiguous/truncated。
-  // 含称呼的草稿暂不允许走仅审查标题/说明的旧确认接口。
+  // 旧草稿为空；提取结果为 none/matched/not_found/ambiguous/truncated。
+  // 本人选择后为 selected/unassigned，保留原称呼；确认须审查该负责人。
   string assignee_resolution = 7;
   // 正整数内容版本；实际编辑才递增，任务冻结/创建/回帖不递增。
   int64 revision = 8;
@@ -87,4 +89,14 @@ message ConfirmTaskDraftRequest {
   string expected_title = 2;
   string expected_description = 3;
   int64 expected_revision = 4;
+  // named/selected/unassigned 草稿必须明确提交；0 表示审查了未指派。
+  // 旧客户端缺字段仅可确认旧草稿或 none，不能绕过负责人审查。
+  optional int64 expected_assignee_id = 5;
+}
+
+message SelectTaskDraftAssigneeRequest {
+  int64 run_id = 1;
+  // 必须存在；0 表示本人明确选择未指派，正数由 User 检查当前资格。
+  optional int64 assignee_id = 2;
+  int64 expected_revision = 3;
 }
