@@ -35,6 +35,7 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			return
 		}
 		var body struct {
+			ExpectedDueAtUnixMs json.RawMessage `json:"expected_due_at_unix_ms"`
 			ExpectedAssigneeID  json.RawMessage `json:"expected_assignee_id"`
 			ExpectedRevision    string          `json:"expected_revision"`
 			ExpectedTitle       *string         `json:"expected_title"`
@@ -77,12 +78,22 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			}
 			expectedAssigneeID = &id
 		}
+		var expectedDueAtUnixMs *int64
+		if len(body.ExpectedDueAtUnixMs) != 0 {
+			deadline, validDeadline := parseDraftDeadline(body.ExpectedDueAtUnixMs)
+			if !validDeadline {
+				httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "invalid reviewed deadline"})
+				return
+			}
+			expectedDueAtUnixMs = &deadline
+		}
 		// Task's stable operation key belongs to Agent, never HTTP headers/body.
 		ctx := metadata.NewOutgoingContext(r.Context(), metadata.Pairs("authorization", token))
 		result, err := client.ConfirmTaskDraft(ctx, &pb.ConfirmTaskDraftRequest{
-			ExpectedAssigneeId: expectedAssigneeID,
-			ExpectedRevision:   revision,
-			RunId:              runID, ExpectedTitle: *body.ExpectedTitle, ExpectedDescription: *body.ExpectedDescription,
+			ExpectedDueAtUnixMs: expectedDueAtUnixMs,
+			ExpectedAssigneeId:  expectedAssigneeID,
+			ExpectedRevision:    revision,
+			RunId:               runID, ExpectedTitle: *body.ExpectedTitle, ExpectedDescription: *body.ExpectedDescription,
 		})
 		if err != nil {
 			switch status.Code(err) {
@@ -96,7 +107,8 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			return
 		}
 		if result == nil || result.GetStatus() != "succeeded" || result.GetTaskId() <= 0 || result.GetDraft().GetRevision() != revision ||
-			(expectedAssigneeID != nil && result.GetDraft().GetAssigneeId() != *expectedAssigneeID) {
+			(expectedAssigneeID != nil && result.GetDraft().GetAssigneeId() != *expectedAssigneeID) ||
+			(expectedDueAtUnixMs != nil && result.GetDraft().GetDueAtUnixMs() != *expectedDueAtUnixMs) {
 			httpx.WriteJson(w, http.StatusBadGateway, agentDraftResponse{Code: errcode.ErrInternal, Msg: "confirmation returned no saved task result; reload the same run"})
 			return
 		}
