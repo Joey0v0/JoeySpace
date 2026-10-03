@@ -72,6 +72,11 @@ func main() {
 		Handler: selectTaskDraftAssigneeHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
 	}, rest.WithTimeout(15*time.Second))
 	server.AddRoute(rest.Route{
+		Method:  http.MethodPut,
+		Path:    "/api/v1/agent/runs/:run_id/draft/deadline",
+		Handler: editTaskDraftDeadlineHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
 		Method:  http.MethodPost,
 		Path:    "/api/v1/agent/runs/:run_id/confirm",
 		Handler: confirmTaskDraftHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),

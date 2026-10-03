@@ -56,6 +56,17 @@ type agentDraftItem struct {
 	SourceMessageID    int64  `json:"source_message_id,string"`
 }
 
+const maxDraftDeadlineUnixMs int64 = 253402300799999
+
+func parseDraftDeadline(value json.RawMessage) (int64, bool) {
+	var deadline int64
+	if len(value) == 0 || strings.TrimSpace(string(value)) == "null" {
+		return 0, false
+	}
+	err := json.Unmarshal(value, &deadline)
+	return deadline, err == nil && deadline >= 0 && deadline <= maxDraftDeadlineUnixMs
+}
+
 func draftToken(r *http.Request) (string, bool) {
 	headers := r.Header.Values("Authorization")
 	if len(headers) != 1 {
@@ -209,7 +220,8 @@ func writeTaskDraftResult(w http.ResponseWriter, runID int64, result *pb.GetTask
 			validResult = false
 		}
 	}
-	if !validResult || !validDraftReplyResult(result) || !validDraftAssignee(result.GetDraft()) {
+	if !validResult || !validDraftReplyResult(result) || !validDraftAssignee(result.GetDraft()) ||
+		result.GetDraft().GetDueAtUnixMs() < 0 || result.GetDraft().GetDueAtUnixMs() > maxDraftDeadlineUnixMs {
 		httpx.WriteJson(w, http.StatusBadGateway, agentDraftResponse{Code: errcode.ErrInternal, Msg: "AI draft service returned invalid draft"})
 		return
 	}
