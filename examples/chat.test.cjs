@@ -46,6 +46,12 @@ function page(fetch) {
     draftRequestKey: { value: '' },
     draftRunID: { value: '' },
     draftResult: { textContent: '' },
+    draftAssigneeSummary: { textContent: '' },
+    draftMemberHint: { textContent: '' },
+    draftAssigneeSelect: { value: '', options: [], disabled: true, replaceChildren(...options) { this.options = options; this.value = ''; } },
+    btnLoadDraftMembers: { disabled: true },
+    btnMoreDraftMembers: { disabled: true },
+    btnSaveDraftAssignee: { disabled: true },
     btnPrepareDraft: { disabled: false },
     btnLoadDraft: { disabled: false },
     draftEditTitle: { value: '', disabled: true },
@@ -1074,6 +1080,360 @@ function draftData(title = 'Old title', description = 'Old notes', overrides = {
     draft: { revision: '1', title, description, source_message_id: '0' }, ...overrides } };
 }
 
+function assigneeDraft(state = 'ambiguous', id = '0', name = '李四', revision = '1', overrides = {}) {
+  const result = draftData('Old title', 'Old notes', overrides);
+  Object.assign(result.data.draft, { assignee_name: name, assignee_resolution: state, assignee_id: id, revision });
+  return result;
+}
+
+function memberPage(members, next = '0') {
+  return reply({ code: 0, data: { members: members.map(([id, name]) => ({ user_id: id, username: name, nickname: '', role: 1 })),
+    next_after_user_id: next } });
+}
+
+test('assignee controls exist in the actual page markup', () => {
+  for (const id of ['draftAssigneeSummary', 'draftMemberHint', 'draftAssigneeSelect', 'btnLoadDraftMembers', 'btnMoreDraftMembers', 'btnSaveDraftAssignee']) {
+    assert.match(html, new RegExp('id="' + id + '"'));
+  }
+});
+
+test('unique match displays the real saved ID and confirms its exact reviewed value without auto-loading members', async () => {
+  const calls = [], id = '9007199254740995';
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    return reply(assigneeDraft('matched', id, '<script>李四</script>', '1', calls.length === 1 ? {} : { status: 'succeeded', task_id: '123' }));
+  });
+  await context.loadTaskDraft();
+  assert.equal(calls.length, 1);
+  assert.match(fields.draftAssigneeSummary.textContent, /Original name: <script>李四<\/script>/);
+  assert.match(fields.draftAssigneeSummary.textContent, new RegExp('#' + id));
+  assert.equal(fields.draftAssigneeSelect.value, id);
+  assert.equal(fields.btnConfirmDraft.disabled, false);
+  assert.equal(fields.btnSaveDraftAssignee.disabled, true); // Saved ID is not a loaded selectable directory entry.
+  await context.confirmTaskDraft();
+  assert.equal(JSON.parse(calls[1].options.body).expected_assignee_id, id);
+});
+
+test('unresolved assignee states reject direct confirmation and distinguish placeholder from explicit zero', async () => {
+  for (const state of ['not_found', 'ambiguous', 'truncated']) {
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => { calls++; return reply(assigneeDraft(state)); });
+    await context.loadTaskDraft();
+    assert.equal(fields.draftAssigneeSelect.value, '');
+    assert.equal(fields.btnConfirmDraft.disabled, true);
+    await assert.rejects(context.confirmTaskDraft(), /select and save/);
+    await assert.rejects(context.saveDraftAssignee(), /choose Unassigned/);
+    fields.draftAssigneeSelect.value = '0';
+    context.refreshTaskDraftControls();
+    assert.equal(fields.btnSaveDraftAssignee.disabled, false);
+    await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+    assert.equal(calls, 1);
+  }
+});
+
+test('explicit unassigned selection retains original name, increments version and becomes confirmable', async () => {
+  const calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    return reply(calls.length === 1 ? assigneeDraft() : assigneeDraft('unassigned', '0', '李四', '2',
+      calls.length === 3 ? { status: 'succeeded', task_id: '123' } : {}));
+  });
+  await context.loadTaskDraft();
+  fields.draftAssigneeSelect.value = '0';
+  await context.saveDraftAssignee();
+  assert.equal(calls[1].url, '/api/v1/agent/runs/9/draft/assignee');
+  assert.deepEqual(JSON.parse(calls[1].options.body), { assignee_id: '0', expected_revision: '1' });
+  assert.match(fields.draftAssigneeSummary.textContent, /Original name: 李四/);
+  assert.match(fields.draftAssigneeSummary.textContent, /Explicitly unassigned/);
+  assert.equal(fields.btnConfirmDraft.disabled, false);
+  await context.confirmTaskDraft();
+  assert.deepEqual(JSON.parse(calls[2].options.body), { expected_title: 'Old title', expected_description: 'Old notes',
+    expected_revision: '2', expected_assignee_id: '0' });
+});
+
+test('member directory loads successive exact string cursors and saves a real later-page member', async () => {
+  const first = '9007199254740993', second = '9007199254740995', calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    if (calls.length === 1) return reply(assigneeDraft('ambiguous', '0', '李四', '9007199254740993'));
+    if (calls.length === 2) return memberPage([[first, '<script>first</script>']], first);
+    if (calls.length === 3) return memberPage([[second, 'second']]);
+    return reply(assigneeDraft('selected', second, '李四', '9007199254740994'));
+  });
+  await context.loadTaskDraft();
+  await context.loadDraftMembers();
+  assert.equal(fields.btnMoreDraftMembers.disabled, false);
+  assert.match(fields.draftMemberHint.textContent, /not the full directory/);
+  assert.equal(fields.draftAssigneeSelect.value, '');
+  assert.match(fields.draftAssigneeSelect.options.find(option => option.value === first).textContent, /<script>first<\/script>/);
+  await context.loadDraftMembers(true);
+  assert.equal(calls[2].url, '/api/v1/teams/2/members?after_user_id=' + first + '&limit=100');
+  assert.equal(fields.btnMoreDraftMembers.disabled, true);
+  assert.deepEqual(fields.draftAssigneeSelect.options.map(option => option.value), ['', '0', first, second]);
+  fields.draftAssigneeSelect.value = second;
+  await context.saveDraftAssignee();
+  assert.deepEqual(JSON.parse(calls[3].options.body), { assignee_id: second, expected_revision: '9007199254740993' });
+  assert.match(fields.draftAssigneeSummary.textContent, /second #9007199254740995/);
+  assert.match(fields.draftAssigneeSummary.textContent, /Original name: 李四/);
+});
+
+test('failed or malformed next directory page retains selection and retries the identical cursor', async () => {
+  for (const failure of [{ ok: false, status: 503 }, reply({ code: 0, data: { members: [], next_after_user_id: '7' } }),
+    memberPage([['5', 'duplicate']], '5')]) {
+    const calls = [];
+    const { context, fields } = draftEditPage(async url => {
+      calls.push(url);
+      if (calls.length === 1) return reply(assigneeDraft());
+      if (calls.length === 2) return memberPage([['5', 'known']], '5');
+      if (calls.length === 3) return failure;
+      return memberPage([['7', 'later']]);
+    });
+    await context.loadTaskDraft();
+    await context.loadDraftMembers();
+    fields.draftAssigneeSelect.value = '5';
+    await assert.rejects(context.loadDraftMembers(true), /directory/);
+    assert.equal(fields.draftAssigneeSelect.value, '5');
+    assert.equal(fields.btnMoreDraftMembers.disabled, false);
+    await context.loadDraftMembers(true);
+    assert.equal(calls[2], calls[3]);
+  }
+});
+
+test('directory rejects malformed IDs, cursors and unordered members before displaying choices', async () => {
+  for (const bad of [memberPage([['0', 'bad']]), memberPage([[9007199254740992, 'numeric']]),
+    memberPage([['9223372036854775808', 'overflow']]), memberPage([['5', 'five'], ['4', 'four']]),
+    memberPage([['5', 'five']], '6'), memberPage([['5', 'five']], 5)]) {
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => ++calls === 1 ? reply(assigneeDraft('matched', '8')) : bad);
+    await context.loadTaskDraft();
+    await assert.rejects(context.loadDraftMembers(), /directory/);
+    assert.equal(fields.draftAssigneeSelect.value, '8');
+    assert.equal(fields.draftAssigneeSelect.options.length, 3);
+  }
+});
+
+test('assignee save never accepts arbitrary ID input or the saved-only ID as a directory selection', async () => {
+  let calls = 0;
+  const { context, fields } = draftEditPage(async () => { calls++; return reply(assigneeDraft('matched', '8')); });
+  await context.loadTaskDraft();
+  for (const value of ['8', '99', '-1', '00', 8]) {
+    fields.draftAssigneeSelect.value = value;
+    await assert.rejects(context.saveDraftAssignee(), /choose Unassigned/);
+  }
+  assert.equal(calls, 1);
+});
+
+test('assignee conflicts retain unsaved choice and require rereading the latest version before resubmission', async () => {
+  const calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    if (calls.length === 1) return reply(assigneeDraft());
+    if (calls.length === 2) return { ok: false, status: 409 };
+    if (calls.length === 3) return reply(assigneeDraft('matched', '8', '李四', '3'));
+    return reply(assigneeDraft('unassigned', '0', '李四', '4'));
+  });
+  await context.loadTaskDraft();
+  fields.draftAssigneeSelect.value = '0';
+  await assert.rejects(context.saveDraftAssignee(), /HTTP 409.*selection is retained/);
+  assert.equal(fields.draftAssigneeSelect.value, '0');
+  await assert.rejects(context.saveDraftAssignee(), /load the current/);
+  await assert.rejects(context.confirmTaskDraft(), /load the current/);
+  await context.loadTaskDraft();
+  assert.equal(fields.draftAssigneeSelect.value, '0');
+  await context.saveDraftAssignee();
+  assert.equal(JSON.parse(calls[3].options.body).expected_revision, '3');
+});
+
+test('text saves retain unsaved assignee selection and assignee saves retain unsaved text', async () => {
+  const calls = [];
+  const { context, fields } = draftEditPage(async (url, options) => {
+    calls.push({ url, options });
+    if (calls.length === 1) return reply(assigneeDraft('matched', '8'));
+    if (calls.length === 2) {
+      const result = assigneeDraft('matched', '8', '李四', '2');
+      result.data.draft.title = 'Saved title';
+      return reply(result);
+    }
+    const result = assigneeDraft('unassigned', '0', '李四', '3');
+    result.data.draft.title = 'Saved title';
+    return reply(result);
+  });
+  await context.loadTaskDraft();
+  fields.draftEditTitle.value = 'Saved title';
+  fields.draftAssigneeSelect.value = '0';
+  await context.saveTaskDraft();
+  assert.equal(fields.draftAssigneeSelect.value, '0');
+  await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+  fields.draftEditDescription.value = 'Still unsaved';
+  await context.saveDraftAssignee();
+  assert.equal(fields.draftEditDescription.value, 'Still unsaved');
+  await assert.rejects(context.confirmTaskDraft(), /save your changes/);
+});
+
+test('assignee mutation and directory reads exclude all other draft operations while in flight', async () => {
+  for (const action of ['saveDraftAssignee', 'loadDraftMembers']) {
+    let finish, calls = 0;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const { context, fields } = draftEditPage(async () => ++calls === 1 ? reply(assigneeDraft()) : pending);
+    await context.loadTaskDraft();
+    fields.draftAssigneeSelect.value = '0';
+    fields.draftInstruction.value = 'Extract';
+    const work = context[action]();
+    for (const blocked of ['loadTaskDraft', 'saveTaskDraft', 'saveDraftAssignee', 'loadDraftMembers', 'confirmTaskDraft', 'prepareTaskDraft', 'retryTaskReply']) {
+      await assert.rejects(context[blocked](), /progress|load/);
+    }
+    assert.equal(calls, 2);
+    finish(action === 'saveDraftAssignee' ? reply(assigneeDraft('unassigned', '0', '李四', '2')) : memberPage([['8', 'member']]));
+    await work;
+  }
+});
+
+test('assignee and directory responses ignore context changes even after values are restored', async () => {
+  for (const action of ['saveDraftAssignee', 'loadDraftMembers']) {
+    for (const fails of [false, true]) {
+      let finish, calls = 0;
+      const pending = new Promise((resolve, reject) => { finish = fails ? reject : resolve; });
+      const { context, fields } = draftEditPage(async () => ++calls === 1 ? reply(assigneeDraft()) : pending);
+      await context.loadTaskDraft();
+      fields.draftAssigneeSelect.value = '0';
+      const work = context[action]();
+      fields.teamId.value = '9';
+      context.clearTaskDraftResult();
+      fields.teamId.value = '2';
+      finish(fails ? new Error('network lost') : action === 'saveDraftAssignee' ? reply(assigneeDraft('unassigned', '0', '李四', '2')) : memberPage([['8', 'member']]));
+      await work;
+      assert.equal(fields.draftAssigneeSummary.textContent, '');
+      assert.equal(fields.draftAssigneeSelect.value, '');
+      assert.equal(fields.btnConfirmDraft.disabled, true);
+      assert.equal(fields.btnSaveDraftAssignee.disabled, true);
+    }
+  }
+});
+
+test('assignee response invalid combinations reject writes rather than treating them as unassigned', async () => {
+  const invalid = [assigneeDraft('matched'), assigneeDraft('ambiguous', '8'), assigneeDraft('selected'),
+    assigneeDraft('unassigned', '8'), assigneeDraft('none', '0', '李四'), assigneeDraft('unknown'),
+    assigneeDraft('matched', '8', ''), assigneeDraft('selected', '8', ' padded '), assigneeDraft('selected', '8', 'x'.repeat(65)),
+    assigneeDraft('selected', 8), assigneeDraft('selected', '9223372036854775808')];
+  const missing = assigneeDraft('none', '0', ''); delete missing.data.draft.assignee_id; invalid.push(missing);
+  const partial = assigneeDraft(); delete partial.data.draft.assignee_resolution; invalid.push(partial);
+  for (const response of invalid) {
+    const { context, fields } = draftEditPage(async () => reply(response));
+    await assert.rejects(context.loadTaskDraft(), /invalid response/);
+    await assert.rejects(context.confirmTaskDraft(), /load the current/);
+    assert.equal(fields.btnConfirmDraft.disabled, true);
+  }
+});
+
+test('missing revision, frozen drafts and wrong scopes reject member reads and selection before fetch', async () => {
+  for (const response of [assigneeDraft('selected', '8', '', undefined),
+    assigneeDraft('selected', '8', '', '1', { status: 'creating' }),
+    assigneeDraft('selected', '8', '', '1', { status: 'succeeded', task_id: '123' })]) {
+    if (response.data.status === 'waiting_confirmation') delete response.data.draft.revision;
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => { calls++; return reply(response); });
+    await context.loadTaskDraft();
+    fields.draftAssigneeSelect.value = '0';
+    await assert.rejects(context.saveDraftAssignee(), /load the current/);
+    await assert.rejects(context.loadDraftMembers(), /load the current/);
+    assert.equal(calls, 1);
+  }
+  const { context, fields } = draftEditPage(async () => reply(assigneeDraft('selected', '8', '')));
+  await context.loadTaskDraft();
+  fields.token.value = 'different-token';
+  await assert.rejects(context.loadDraftMembers(), /load the current/);
+});
+
+test('malformed assignee save results preserve pending choice and require a fresh read', async () => {
+  const invalid = [assigneeDraft('unassigned', '0', 'changed', '2'), assigneeDraft('selected', '8', '李四', '2'),
+    assigneeDraft('none', '0', '', '2'), assigneeDraft('unassigned', '0', '李四', '2', { group_id: '4' }),
+    assigneeDraft('unassigned', '0', '李四', '2', { status: 'creating' })];
+  for (const response of invalid) {
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? assigneeDraft() : response));
+    await context.loadTaskDraft();
+    fields.draftAssigneeSelect.value = '0';
+    await assert.rejects(context.saveDraftAssignee(), /invalid responsible/);
+    assert.equal(fields.draftAssigneeSelect.value, '0');
+    await assert.rejects(context.saveDraftAssignee(), /load the current/);
+  }
+});
+
+test('confirmation rejects a changed assignee or version and does not claim task success', async () => {
+  for (const response of [assigneeDraft('selected', '9', '李四', '1', { status: 'succeeded', task_id: '123' }),
+    assigneeDraft('selected', '8', '李四', '2', { status: 'succeeded', task_id: '123' })]) {
+    let calls = 0;
+    const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? assigneeDraft('selected', '8') : response));
+    await context.loadTaskDraft();
+    await assert.rejects(context.confirmTaskDraft(), /invalid confirmation/);
+    assert.doesNotMatch(fields.draftResult.textContent, /Task created:/);
+  }
+});
+
+test('empty extracted name remains valid for none, legacy metadata, selected and unassigned drafts', async () => {
+  for (const initialState of ['', 'none']) {
+    for (const id of ['0', '8']) {
+      const calls = [];
+      const { context, fields } = draftEditPage(async (url, options) => {
+        calls.push({ url, options });
+        if (calls.length === 1) return reply(assigneeDraft(initialState, '0', ''));
+        if (url.includes('/members?')) return memberPage([['8', 'Actual member']]);
+        return reply(assigneeDraft(id === '0' ? 'unassigned' : 'selected', id, '', '2',
+          url.endsWith('/confirm') ? { status: 'succeeded', task_id: '123' } : {}));
+      });
+      await context.loadTaskDraft();
+      assert.equal(fields.btnConfirmDraft.disabled, false);
+      if (id !== '0') await context.loadDraftMembers();
+      fields.draftAssigneeSelect.value = id;
+      await context.saveDraftAssignee();
+      assert.match(fields.draftAssigneeSummary.textContent, /Original name: \(none\)/);
+      assert.equal(fields.btnConfirmDraft.disabled, false);
+      await context.confirmTaskDraft();
+      assert.equal(JSON.parse(calls.at(-1).options.body).expected_assignee_id, id);
+    }
+  }
+});
+
+test('switching to another run through direct loading discards the previous directory choices', async () => {
+  const { context, fields } = draftEditPage(async url => url.includes('/members?') ? memberPage([['8', 'Old member']]) :
+    reply(assigneeDraft('none', '0', '', '1', { run_id: fields.draftRunID.value })));
+  await context.loadTaskDraft();
+  await context.loadDraftMembers();
+  fields.draftRunID.value = '10';
+  await context.loadTaskDraft();
+  assert.deepEqual(fields.draftAssigneeSelect.options.map(item => item.value), ['', '0']);
+  fields.draftAssigneeSelect.value = '8';
+  await assert.rejects(context.saveDraftAssignee(), /choose Unassigned/);
+});
+
+test('a failed stale read cannot restore write access after the context changes back', async () => {
+  let fail, calls = 0;
+  const pending = new Promise((resolve, reject) => { fail = reject; });
+  const { context, fields } = draftEditPage(async () => ++calls === 1 ? reply(assigneeDraft('none', '0', '')) : pending);
+  await context.loadTaskDraft();
+  const work = context.loadTaskDraft();
+  fields.token.value = 'new';
+  context.clearTaskDraftResult();
+  fields.token.value = 'test-token';
+  fail(new Error('stale read failed'));
+  await work;
+  assert.equal(fields.draftResult.textContent, '');
+  await assert.rejects(context.saveDraftAssignee(), /load the current/);
+});
+
+test('reply retry preserves frozen named responsibility and rejects a changed saved identity', async () => {
+  const initial = assigneeDraft('selected', '8', '李四', '2', { status: 'succeeded', task_id: '123',
+    reply_status: 'pending', reply_msg_id: 'bot-task:9' });
+  const changed = assigneeDraft('selected', '9', '李四', '2', { status: 'succeeded', task_id: '123',
+    reply_status: 'accepted', reply_msg_id: 'bot-task:9' });
+  let calls = 0;
+  const { context, fields } = draftEditPage(async () => reply(++calls === 1 ? initial : changed));
+  await context.loadTaskDraft();
+  await assert.rejects(context.retryTaskReply(), /invalid reply retry/);
+  assert.match(fields.draftAssigneeSummary.textContent, /#8/);
+  assert.equal(fields.btnRetryTaskReply.disabled, true);
+});
+
 test('draft writes preserve large revision strings and confirm the saved revision', async () => {
   const calls = [];
   const { context, fields } = draftEditPage(async (url, options) => {
@@ -1337,7 +1697,7 @@ test('draft confirmation posts only saved text and displays an exact task ID', a
   assert.equal(calls[1].options.method, 'POST');
   assert.equal(calls[1].options.headers.Authorization, 'Bearer test-token');
   assert.equal(calls[1].options.headers['Idempotency-Key'], undefined);
-  assert.deepEqual(JSON.parse(calls[1].options.body), { expected_title: '<script>Saved task</script>', expected_description: '', expected_revision: '1' });
+  assert.deepEqual(JSON.parse(calls[1].options.body), { expected_title: '<script>Saved task</script>', expected_description: '', expected_revision: '1', expected_assignee_id: '0' });
   assert.match(fields.draftResult.textContent, /Task created: 9223372036854775806/);
   assert.match(fields.draftResult.textContent, /<script>Saved task<\/script>/);
   assert.equal(fields.btnSaveDraft.disabled, true);
