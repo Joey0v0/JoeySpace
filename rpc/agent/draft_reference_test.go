@@ -37,9 +37,9 @@ func TestDraftReferenceRetryAndConflictOverRPC(t *testing.T) {
 	p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
 		generated++
 		if generated == 1 {
-			return taskDraft{}, status.Error(codes.Unavailable, "first generation failed")
+			return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}}, status.Error(codes.Unavailable, "first generation failed")
 		}
-		return taskDraft{Title: "修复缓存", SourceMessageID: 600}, nil
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}, Title: "修复缓存", SourceMessageID: 600}, nil
 	})
 	p.store = draftPreparationStoreFuncs{
 		find: func(_ context.Context, _ draftRunScope, key, fingerprint string) (int64, error) {

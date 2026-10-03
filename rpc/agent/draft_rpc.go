@@ -87,6 +87,7 @@ func taskDraftRPCResponse(run taskDraftRun) *pb.GetTaskDraftResponse {
 			SourceMessageId: run.Draft.SourceMessageID,
 			AssigneeName:    run.Draft.AssigneeName, AssigneeResolution: string(run.Draft.AssigneeResolution),
 			Revision: run.Revision,
+			Deadline: run.Draft.Deadline.rpc(),
 		},
 	}
 }

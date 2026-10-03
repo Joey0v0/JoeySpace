@@ -51,6 +51,9 @@ func (r *draftAccessReader) load(ctx context.Context, token string, runID int64)
 	if run.ID != runID || run.Scope.InitiatorID != actorID || run.Scope.TeamID <= 0 || run.Scope.GroupID <= 0 {
 		return taskDraftRun{}, status.Error(codes.NotFound, "draft run not found")
 	}
+	if !run.Draft.Deadline.valid(run.Draft.DueAtUnixMs) {
+		return taskDraftRun{}, status.Error(codes.Unavailable, "stored deadline metadata is invalid")
+	}
 	readCtx, cancel, err := authorizedReadContext(ctx, token)
 	if err != nil {
 		return taskDraftRun{}, err

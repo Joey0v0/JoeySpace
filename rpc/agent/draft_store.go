@@ -15,7 +15,8 @@ type draftStore struct{ db *gorm.DB }
 
 const selectDraftForInitiator = `SELECT r.team_id, r.group_id, r.initiator_id, r.status,
     d.title, d.description, d.assignee_id, d.due_at_unix_ms, d.source_message_id,
-    d.task_request_key, d.task_id, d.assignee_name, d.assignee_resolution, d.revision
+    d.task_request_key, d.task_id, d.assignee_name, d.assignee_resolution, d.revision,
+    d.deadline_text, d.deadline_source, d.deadline_source_message_id, d.deadline_reference_unix_ms, d.deadline_timezone, d.deadline_resolution, d.deadline_reason, d.deadline_parsed_unix_ms, d.instruction_reference_unix_ms
     FROM agent_runs AS r
     JOIN agent_task_drafts AS d ON d.run_id = r.id AND d.item_index = 0
     WHERE r.id = ? AND r.initiator_id = ?`
@@ -45,10 +46,12 @@ func (s *draftStore) saveWaitingDraft(ctx context.Context, runID int64, scope dr
 			return err
 		}
 		return tx.Exec(`INSERT INTO agent_task_drafts
-            (run_id, item_index, title, description, assignee_id, due_at_unix_ms, source_message_id, assignee_name, assignee_resolution)
-            VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?)`, runID, run.Draft.Title,
+            (run_id, item_index, title, description, assignee_id, due_at_unix_ms, source_message_id, assignee_name, assignee_resolution,
+             deadline_text, deadline_source, deadline_source_message_id, deadline_reference_unix_ms, deadline_timezone, deadline_resolution, deadline_reason, deadline_parsed_unix_ms, instruction_reference_unix_ms)
+            VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, runID, run.Draft.Title,
 			run.Draft.Description, run.Draft.AssigneeID, run.Draft.DueAtUnixMs,
-			run.Draft.SourceMessageID, run.Draft.AssigneeName, string(run.Draft.AssigneeResolution)).Error
+			run.Draft.SourceMessageID, run.Draft.AssigneeName, string(run.Draft.AssigneeResolution),
+			run.Draft.Deadline.Text, run.Draft.Deadline.Source, run.Draft.Deadline.SourceMessageID, run.Draft.Deadline.ReferenceUnixMs, run.Draft.Deadline.Timezone, run.Draft.Deadline.Resolution, run.Draft.Deadline.Reason, run.Draft.Deadline.ParsedUnixMs, run.Draft.Deadline.InstructionReferenceUnixMs).Error
 	})
 	if err != nil {
 		var mysqlErr *mysql.MySQLError
@@ -139,6 +142,9 @@ func (s *draftStore) loadDraftForInitiator(ctx context.Context, runID, actorID i
 		return taskDraftRun{}, status.Error(codes.NotFound, "draft run not found")
 	}
 	run := row.run(runID)
+	if !run.Draft.Deadline.valid(run.Draft.DueAtUnixMs) {
+		return taskDraftRun{}, status.Error(codes.Unavailable, "stored deadline metadata is invalid")
+	}
 	if run.Revision <= 0 {
 		return taskDraftRun{}, status.Error(codes.Unavailable, "stored draft revision is invalid")
 	}

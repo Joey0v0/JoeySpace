@@ -20,7 +20,7 @@ type confirmationStoreStub struct {
 	complete func(context.Context, int64, int64, string, int64) (taskDraftRun, error)
 }
 
-func (s confirmationStoreStub) freezeDraft(ctx context.Context, id, actor int64, title, description string, revision int64, reviewedID, reviewedDue *int64) (taskDraftRun, error) {
+func (s confirmationStoreStub) freezeDraft(ctx context.Context, id, actor int64, title, description string, revision int64, reviewedID, reviewedDue *int64, reviewedResolution string) (taskDraftRun, error) {
 	return s.freeze(ctx, id, actor, title, description)
 }
 

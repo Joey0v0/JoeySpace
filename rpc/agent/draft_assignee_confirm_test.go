@@ -59,7 +59,7 @@ func TestFreezeDraftChecksReviewedAssigneeInsideTransaction(t *testing.T) {
 			} else {
 				mock.ExpectRollback()
 			}
-			got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, run.Revision, tc.reviewed, draftID(1000))
+			got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, run.Revision, tc.reviewed, draftID(1000), "")
 			if status.Code(err) != tc.want || (tc.want == codes.OK && (got.Draft != run.Draft || got.Revision != 1 || got.Status != draftCreating)) {
 				t.Fatalf("freeze: %+v %v", got, err)
 			}

@@ -36,6 +36,12 @@ func (s *draftStore) updateDraftDeadline(ctx context.Context, authorized taskDra
 		}
 		candidate := run.Draft
 		candidate.DueAtUnixMs = dueAtUnixMs
+		if candidate.Deadline != (draftDeadlineMetadata{}) {
+			candidate.Deadline.Resolution = "selected"
+			if dueAtUnixMs == 0 {
+				candidate.Deadline.Resolution = "unset"
+			}
+		}
 		validated, err := newWaitingTaskDraftRun(run.Scope, candidate)
 		if err != nil || validated.Draft != candidate {
 			return status.Error(codes.Unavailable, "stored task draft is invalid")
@@ -46,8 +52,14 @@ func (s *draftStore) updateDraftDeadline(ctx context.Context, authorized taskDra
 		if run.Revision == int64(1<<63-1) {
 			return status.Error(codes.FailedPrecondition, "draft revision exhausted")
 		}
-		result := tx.Exec(`UPDATE agent_task_drafts SET due_at_unix_ms = ?, revision = revision + 1
+		var result *gorm.DB
+		if candidate.Deadline == (draftDeadlineMetadata{}) {
+			result = tx.Exec(`UPDATE agent_task_drafts SET due_at_unix_ms = ?, revision = revision + 1
             WHERE run_id = ? AND item_index = 0`, candidate.DueAtUnixMs, run.ID)
+		} else {
+			result = tx.Exec(`UPDATE agent_task_drafts SET due_at_unix_ms = ?, deadline_resolution = ?, revision = revision + 1
+            WHERE run_id = ? AND item_index = 0`, candidate.DueAtUnixMs, candidate.Deadline.Resolution, run.ID)
+		}
 		if result.Error != nil {
 			return result.Error
 		}

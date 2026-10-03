@@ -15,10 +15,10 @@ import (
 
 func confirmationRows(run taskDraftRun) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{"team_id", "group_id", "initiator_id", "status", "title", "description",
-		"assignee_id", "due_at_unix_ms", "source_message_id", "task_request_key", "task_id", "assignee_name", "assignee_resolution", "revision"}).
+		"assignee_id", "due_at_unix_ms", "source_message_id", "task_request_key", "task_id", "assignee_name", "assignee_resolution", "revision", "deadline_text", "deadline_source", "deadline_source_message_id", "deadline_reference_unix_ms", "deadline_timezone", "deadline_resolution", "deadline_reason", "deadline_parsed_unix_ms", "instruction_reference_unix_ms"}).
 		AddRow(run.Scope.TeamID, run.Scope.GroupID, run.Scope.InitiatorID, string(run.Status),
 			run.Draft.Title, run.Draft.Description, run.Draft.AssigneeID, run.Draft.DueAtUnixMs,
-			run.Draft.SourceMessageID, run.TaskRequestKey, run.TaskID, run.Draft.AssigneeName, string(run.Draft.AssigneeResolution), run.Revision)
+			run.Draft.SourceMessageID, run.TaskRequestKey, run.TaskID, run.Draft.AssigneeName, string(run.Draft.AssigneeResolution), run.Revision, run.Draft.Deadline.Text, run.Draft.Deadline.Source, run.Draft.Deadline.SourceMessageID, run.Draft.Deadline.ReferenceUnixMs, run.Draft.Deadline.Timezone, run.Draft.Deadline.Resolution, run.Draft.Deadline.Reason, run.Draft.Deadline.ParsedUnixMs, run.Draft.Deadline.InstructionReferenceUnixMs)
 }
 
 func confirmationRun() taskDraftRun {
@@ -42,7 +42,7 @@ func TestFreezeDraftReservesKeyAndStateAtomically(t *testing.T) {
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE agent_runs SET status = ? WHERE id = ? AND initiator_id = ?")).
 		WithArgs("creating", run.ID, run.Scope.InitiatorID).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
-	frozen, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000))
+	frozen, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000), "")
 	if err != nil || frozen.Status != draftCreating || frozen.TaskRequestKey != "agent-task-9001-0" ||
 		frozen.Draft != run.Draft || frozen.TaskID != 0 {
 		t.Fatalf("freeze = %+v, %v", frozen, err)
@@ -60,7 +60,7 @@ func TestFreezeDraftRejectsNamedDraftBeforeAnyStateChange(t *testing.T) {
 		}
 		expectConfirmationLock(mock, run)
 		mock.ExpectRollback()
-		if _, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000)); status.Code(err) != codes.FailedPrecondition {
+		if _, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000), ""); status.Code(err) != codes.FailedPrecondition {
 			t.Fatalf("old contract: %s, %v", state, err)
 		}
 	}
@@ -84,7 +84,7 @@ func TestFreezeDraftRejectsStaleTextAndInvalidPersistedState(t *testing.T) {
 			tc.mutate(&run)
 			expectConfirmationLock(mock, run)
 			mock.ExpectRollback()
-			got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, "修复缓存", "复核", 1, nil, draftID(1000))
+			got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, "修复缓存", "复核", 1, nil, draftID(1000), "")
 			if got.ID != 0 || status.Code(err) != tc.code {
 				t.Fatalf("freeze = %+v, %v", got, err)
 			}
@@ -103,7 +103,7 @@ func TestFreezeDraftReplaysPersistedCreatingAndSuccessWithoutChangingPayload(t *
 			}
 			expectConfirmationLock(mock, run)
 			mock.ExpectCommit()
-			got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000))
+			got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000), "")
 			if err != nil || got != run {
 				t.Fatalf("replay = %+v, %v", got, err)
 			}
@@ -120,7 +120,7 @@ func TestFreezeDraftRollsBackKeyWhenStateWriteFails(t *testing.T) {
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE agent_runs SET status = ?")).
 		WillReturnError(errors.New("private database detail"))
 	mock.ExpectRollback()
-	got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000))
+	got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, 1, nil, draftID(1000), "")
 	if got.ID != 0 || status.Code(err) != codes.Unavailable || strings.Contains(err.Error(), "private database detail") {
 		t.Fatalf("freeze failure = %+v, %v", got, err)
 	}
@@ -187,7 +187,7 @@ func TestConfirmationCannotAccessAnotherInitiatorAndEditCannotUnfreezeDraft(t *t
 	mock.ExpectQuery(regexp.QuoteMeta(selectDraftForInitiator+" FOR UPDATE")).
 		WithArgs(int64(9001), int64(401)).WillReturnRows(sqlmock.NewRows([]string{"initiator_id"}))
 	mock.ExpectRollback()
-	if _, err := store.freezeDraft(context.Background(), 9001, 401, "修复缓存", "复核", 1, nil, draftID(1000)); status.Code(err) != codes.NotFound {
+	if _, err := store.freezeDraft(context.Background(), 9001, 401, "修复缓存", "复核", 1, nil, draftID(1000), ""); status.Code(err) != codes.NotFound {
 		t.Fatalf("other initiator = %v", err)
 	}
 	run := confirmationRun()

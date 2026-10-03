@@ -55,7 +55,7 @@ func testDraftPreparer(t *testing.T) *draftPreparer {
 			return []*impb.TeamGroupMessage{{Id: 600, ContentType: 1, Content: "修复缓存"}}, nil
 		}),
 		generator: taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
-			return taskDraft{Title: "修复缓存", SourceMessageID: 600}, nil
+			return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}, Title: "修复缓存", SourceMessageID: 600}, nil
 		}),
 		store: draftPreparationStoreFuncs{
 			find: func(context.Context, draftRunScope, string, string) (int64, error) { return 0, nil },
@@ -73,7 +73,7 @@ func TestDraftPreparerUsesVerifiedScopeAndGeneratedRunID(t *testing.T) {
 		if instruction != "提取待办" || len(messages) != 1 || messages[0].GetId() != 600 {
 			t.Fatalf("generator input = %q, %v", instruction, messages)
 		}
-		return taskDraft{Title: "修复缓存", SourceMessageID: 600}, nil
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}, Title: "修复缓存", SourceMessageID: 600}, nil
 	})
 	p.store = draftPreparationStoreFuncs{
 		find: func(_ context.Context, scope draftRunScope, key, fingerprint string) (int64, error) {
@@ -103,7 +103,7 @@ func TestDraftPreparerReplaysWithoutCallingGenerator(t *testing.T) {
 	})}
 	p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
 		t.Fatal("replayed request reached model")
-		return taskDraft{}, nil
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}}, nil
 	})
 	p.store = draftPreparationStoreFuncs{
 		find: func(context.Context, draftRunScope, string, string) (int64, error) { return 8123, nil },
@@ -121,7 +121,7 @@ func TestDraftPreparerReplaysWithoutCallingGenerator(t *testing.T) {
 func TestDraftPreparerSavesOnlyVerifiedAssigneeResolution(t *testing.T) {
 	p := testDraftPreparer(t)
 	p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
-		return taskDraft{Title: "整理文档", AssigneeName: " 张三 "}, nil
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}, Title: "整理文档", AssigneeName: " 张三 "}, nil
 	})
 	p.assignees = &draftAssigneeResolver{users: assigneeClientFunc(func(context.Context, *userpb.ResolveTeamMemberRequest) (*userpb.ResolveTeamMemberResponse, error) {
 		return &userpb.ResolveTeamMemberResponse{Candidates: matchingCandidates(1)}, nil
@@ -155,7 +155,7 @@ func TestDraftPreparerSavesOnlyVerifiedAssigneeResolution(t *testing.T) {
 func TestDraftPreparerLookupFailureDoesNotSaveUnassignedDraft(t *testing.T) {
 	p := testDraftPreparer(t)
 	p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
-		return taskDraft{Title: "任务", AssigneeName: "张三"}, nil
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}, Title: "任务", AssigneeName: "张三"}, nil
 	})
 	p.assignees = &draftAssigneeResolver{users: assigneeClientFunc(func(context.Context, *userpb.ResolveTeamMemberRequest) (*userpb.ResolveTeamMemberResponse, error) {
 		return nil, status.Error(codes.PermissionDenied, "left team")
@@ -176,7 +176,7 @@ func TestDraftPreparerStopsAfterGroupDenial(t *testing.T) {
 	})
 	p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
 		t.Fatal("denied request reached model")
-		return taskDraft{}, nil
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}}, nil
 	})
 	id, err := p.prepare(context.Background(), "user-token", 200, 300, "提取待办", "request-1")
 	if id != 0 || status.Code(err) != codes.PermissionDenied {
@@ -191,6 +191,7 @@ func TestDraftPreparerRejectsUnverifiedModelFields(t *testing.T) {
 		{Title: "任务", DueAtUnixMs: 1000},
 		{Title: ""},
 	} {
+		draft.Deadline = draftDeadlineMetadata{Source: "none"}
 		p := testDraftPreparer(t)
 		p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) { return draft, nil })
 		p.store = draftPreparationStoreFuncs{
@@ -226,14 +227,14 @@ func TestDraftPreparerRejectsInvalidInputAndMasksModelFailure(t *testing.T) {
 		find: func(context.Context, draftRunScope, string, string) (int64, error) { return 0, nil },
 	}
 	p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
-		return taskDraft{}, errors.New("private provider detail")
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}}, errors.New("private provider detail")
 	})
 	id, err := p.prepare(context.Background(), "user-token", 200, 300, "提取待办", "request-1")
 	if id != 0 || status.Code(err) != codes.Unavailable || strings.Contains(err.Error(), "private provider detail") {
 		t.Fatalf("model error = %d, %v", id, err)
 	}
 	p.generator = taskDraftGeneratorFunc(func(context.Context, string, []*impb.TeamGroupMessage) (taskDraft, error) {
-		return taskDraft{}, status.Error(codes.FailedPrecondition, "private invalid output")
+		return taskDraft{Deadline: draftDeadlineMetadata{Source: "none"}}, status.Error(codes.FailedPrecondition, "private invalid output")
 	})
 	id, err = p.prepare(context.Background(), "user-token", 200, 300, "提取待办", "request-1")
 	if id != 0 || status.Code(err) != codes.FailedPrecondition || strings.Contains(err.Error(), "private invalid output") {

@@ -36,6 +36,7 @@ type taskDraft struct {
 	SourceMessageID    int64
 	AssigneeName       string
 	AssigneeResolution draftAssigneeResolution
+	Deadline           draftDeadlineMetadata
 }
 
 type draftAssigneeResolution string
@@ -124,7 +125,7 @@ func newWaitingTaskDraftRun(scope draftRunScope, draft taskDraft) (taskDraftRun,
 	if !utf8.ValidString(draft.Title) || utf8.RuneCountInString(draft.Title) < 1 || utf8.RuneCountInString(draft.Title) > 200 ||
 		!utf8.ValidString(draft.Description) || utf8.RuneCountInString(draft.Description) > 2000 ||
 		draft.AssigneeID < 0 || draft.SourceMessageID < 0 || !draft.validAssigneeResolution() ||
-		draft.DueAtUnixMs < 0 || draft.DueAtUnixMs > maxDraftDueAtUnixMs {
+		!draft.Deadline.valid(draft.DueAtUnixMs) {
 		return taskDraftRun{}, status.Error(codes.InvalidArgument, "invalid task draft")
 	}
 	return taskDraftRun{Scope: scope, Status: draftWaitingConfirmation, Draft: draft, Revision: 1}, nil

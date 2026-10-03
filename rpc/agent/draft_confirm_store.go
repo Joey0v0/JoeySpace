@@ -10,20 +10,29 @@ import (
 )
 
 type storedDraftRow struct {
-	Revision           int64
-	TeamID             int64
-	GroupID            int64
-	InitiatorID        int64
-	Status             string
-	Title              string
-	Description        string
-	AssigneeID         int64
-	DueAtUnixMs        int64
-	SourceMessageID    int64
-	TaskRequestKey     string
-	TaskID             int64
-	AssigneeName       string
-	AssigneeResolution draftAssigneeResolution
+	Revision                   int64
+	TeamID                     int64
+	GroupID                    int64
+	InitiatorID                int64
+	Status                     string
+	Title                      string
+	Description                string
+	AssigneeID                 int64
+	DueAtUnixMs                int64
+	SourceMessageID            int64
+	TaskRequestKey             string
+	TaskID                     int64
+	AssigneeName               string
+	AssigneeResolution         draftAssigneeResolution
+	DeadlineText               string
+	DeadlineSource             string
+	DeadlineSourceMessageID    int64
+	DeadlineReferenceUnixMs    int64
+	DeadlineTimezone           string
+	DeadlineResolution         string
+	DeadlineReason             string
+	DeadlineParsedUnixMs       int64
+	InstructionReferenceUnixMs int64
 }
 
 func (r storedDraftRow) run(id int64) taskDraftRun {
@@ -32,7 +41,8 @@ func (r storedDraftRow) run(id int64) taskDraftRun {
 		Status: draftRunStatus(r.Status), TaskRequestKey: r.TaskRequestKey, TaskID: r.TaskID,
 		Draft: taskDraft{Title: r.Title, Description: r.Description, AssigneeID: r.AssigneeID,
 			DueAtUnixMs: r.DueAtUnixMs, SourceMessageID: r.SourceMessageID,
-			AssigneeName: r.AssigneeName, AssigneeResolution: r.AssigneeResolution},
+			AssigneeName: r.AssigneeName, AssigneeResolution: r.AssigneeResolution,
+			Deadline: draftDeadlineMetadata{Text: r.DeadlineText, Source: r.DeadlineSource, SourceMessageID: r.DeadlineSourceMessageID, ReferenceUnixMs: r.DeadlineReferenceUnixMs, Timezone: r.DeadlineTimezone, Resolution: r.DeadlineResolution, Reason: r.DeadlineReason, ParsedUnixMs: r.DeadlineParsedUnixMs, InstructionReferenceUnixMs: r.InstructionReferenceUnixMs}},
 	}
 }
 
@@ -51,17 +61,21 @@ func lockedDraft(tx *gorm.DB, runID, actorID int64) (taskDraftRun, error) {
 	if result.RowsAffected == 0 || row.InitiatorID != actorID {
 		return taskDraftRun{}, status.Error(codes.NotFound, "draft run not found")
 	}
-	return row.run(runID), nil
+	run := row.run(runID)
+	if !run.Draft.Deadline.valid(run.Draft.DueAtUnixMs) {
+		return taskDraftRun{}, status.Error(codes.Unavailable, "stored deadline metadata is invalid")
+	}
+	return run, nil
 }
 
 // freezeDraft atomically compares the saved text and reserves a stable Task
 // request. Creating/succeeded replays never change its key or any task field.
-func (s *draftStore) freezeDraft(ctx context.Context, runID, actorID int64, expectedTitle, expectedDescription string, expectedRevision int64, expectedAssigneeID, expectedDueAtUnixMs *int64) (taskDraftRun, error) {
+func (s *draftStore) freezeDraft(ctx context.Context, runID, actorID int64, expectedTitle, expectedDescription string, expectedRevision int64, expectedAssigneeID, expectedDueAtUnixMs *int64, expectedDeadlineResolution string) (taskDraftRun, error) {
 	if s == nil || s.db == nil {
 		return taskDraftRun{}, status.Error(codes.Unavailable, "draft storage is not configured")
 	}
 	if runID <= 0 || actorID <= 0 || expectedRevision <= 0 || (expectedAssigneeID != nil && *expectedAssigneeID < 0) ||
-		(expectedDueAtUnixMs != nil && (*expectedDueAtUnixMs < 0 || *expectedDueAtUnixMs > maxDraftDueAtUnixMs)) {
+		(expectedDueAtUnixMs != nil && (*expectedDueAtUnixMs < 0 || *expectedDueAtUnixMs > maxDraftDueAtUnixMs)) || !validDeadlineResolution(expectedDeadlineResolution) {
 		return taskDraftRun{}, status.Error(codes.InvalidArgument, "invalid run or actor ID")
 	}
 	var run taskDraftRun
@@ -84,7 +98,7 @@ func (s *draftStore) freezeDraft(ctx context.Context, runID, actorID int64, expe
 		if err := run.Draft.requireAssigneeReview(expectedAssigneeID); err != nil {
 			return err
 		}
-		if err := run.Draft.requireDeadlineReview(expectedDueAtUnixMs); err != nil {
+		if err := run.Draft.requireDeadlineStateReview(expectedDueAtUnixMs, expectedDeadlineResolution); err != nil {
 			return err
 		}
 		key := draftTaskRequestKey(runID)

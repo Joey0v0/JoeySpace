@@ -104,7 +104,7 @@ func TestAssigneeProductionPreparationPersistsReadsAndReplaysOverTCP(t *testing.
 	var modelCalls atomic.Int32
 	generator, err := NewEinoTaskDraftGenerator(context.Background(), chatModelFunc(func(context.Context, []*schema.Message) (*schema.Message, error) {
 		modelCalls.Add(1)
-		return schema.AssistantMessage(`{"title":"整理文档","description":"","source_message_id":"600","assignee_name":"张三"}`, nil), nil
+		return schema.AssistantMessage(`{"title":"整理文档","description":"","source_message_id":"600","assignee_name":"张三","deadline_text":"","deadline_source":"none","deadline_source_message_id":"0"}`, nil), nil
 	}))
 	if err != nil {
 		listener.Close()
@@ -132,14 +132,14 @@ func TestAssigneeProductionPreparationPersistsReadsAndReplaysOverTCP(t *testing.
 	mock.ExpectBegin()
 	var runID atomic.Int64
 	mock.ExpectExec("INSERT INTO agent_runs").WithArgs(captureAssigneeRunID{&runID}, int64(200), int64(300), int64(400), "request-1", draftPreparationFingerprint(200, 300, "提取待办"), "waiting_confirmation").WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("INSERT INTO agent_task_drafts").WithArgs(sqlmock.AnyArg(), "整理文档", "", int64(77), int64(0), int64(600), "张三", "matched").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("INSERT INTO agent_task_drafts").WithArgs(sqlmock.AnyArg(), "整理文档", "", int64(77), int64(0), int64(600), "张三", "matched", "", "none", int64(0), int64(0), "Asia/Shanghai", "none", "", int64(0), int64(0)).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 	request := &pb.PrepareTaskDraftRequest{TeamId: 200, GroupId: 300, Instruction: "提取待办"}
 	prepared, err := client.PrepareTaskDraft(prepareCtx, request)
 	if err != nil || prepared.GetRunId() != runID.Load() || runID.Load() <= 0 {
 		t.Fatalf("prepare: %v, %v", prepared, err)
 	}
-	run := taskDraftRun{Revision: 1, ID: runID.Load(), Scope: draftRunScope{TeamID: 200, GroupID: 300, InitiatorID: 400}, Status: draftWaitingConfirmation, Draft: taskDraft{Title: "整理文档", SourceMessageID: 600, AssigneeID: 77, AssigneeName: "张三", AssigneeResolution: assigneeMatched}}
+	run := taskDraftRun{Revision: 1, ID: runID.Load(), Scope: draftRunScope{TeamID: 200, GroupID: 300, InitiatorID: 400}, Status: draftWaitingConfirmation, Draft: taskDraft{Deadline: draftDeadlineMetadata{Source: "none", Timezone: draftDeadlineTimezone, Resolution: "none"}, Title: "整理文档", SourceMessageID: 600, AssigneeID: 77, AssigneeName: "张三", AssigneeResolution: assigneeMatched}}
 	mock.ExpectQuery(regexp.QuoteMeta(selectDraftForInitiator)).WithArgs(run.ID, int64(400)).WillReturnRows(confirmationRows(run))
 	response, err := client.GetTaskDraft(readCtx, &pb.GetTaskDraftRequest{RunId: run.ID})
 	if err != nil || response.GetDraft().GetAssigneeId() != 77 || response.GetDraft().GetAssigneeName() != "张三" || response.GetDraft().GetAssigneeResolution() != "matched" {

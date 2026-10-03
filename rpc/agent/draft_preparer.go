@@ -85,9 +85,23 @@ func (p *draftPreparer) prepareWithReference(ctx context.Context, token string, 
 	}
 	content := draft
 	content.AssigneeName = ""
+	content.Deadline = draftDeadlineMetadata{}
 	if _, err := newWaitingTaskDraftRun(scope, content); err != nil {
 		return 0, status.Error(codes.FailedPrecondition, "generated draft is invalid")
 	}
+	evidence := draft.Deadline
+	if evidence.ReferenceUnixMs != 0 || evidence.Timezone != "" || evidence.Resolution != "" || evidence.Reason != "" || evidence.ParsedUnixMs != 0 || evidence.InstructionReferenceUnixMs != 0 {
+		return 0, status.Error(codes.FailedPrecondition, "model supplied trusted deadline fields")
+	}
+	interpreted, err := interpretDraftDeadline(instruction, messages, draftDeadlineEvidence{Text: evidence.Text, Source: evidence.Source, SourceMessageID: evidence.SourceMessageID}, reference)
+	if err != nil {
+		return 0, err
+	}
+	draft.Deadline = draftDeadlineMetadata{Text: interpreted.Text, Source: interpreted.Source, SourceMessageID: interpreted.SourceMessageID, ReferenceUnixMs: interpreted.ReferenceUnixMs, Timezone: interpreted.Timezone, Resolution: interpreted.Resolution, Reason: interpreted.Reason, ParsedUnixMs: interpreted.DueAtUnixMs}
+	if reference != nil {
+		draft.Deadline.InstructionReferenceUnixMs = *reference
+	}
+	draft.DueAtUnixMs = interpreted.DueAtUnixMs
 	name := strings.TrimSpace(draft.AssigneeName)
 	if name != "" && !assigneeMentionInAuthorizedText(instruction, messages, name) {
 		return 0, status.Error(codes.FailedPrecondition, "assignee mention could not be verified")

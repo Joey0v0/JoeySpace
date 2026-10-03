@@ -53,7 +53,7 @@ func TestDraftStorePersistsAndLoadsAssigneeMetadata(t *testing.T) {
 			run := taskDraftRun{Revision: 1, ID: 9001, Scope: draftRunScope{TeamID: 200, GroupID: 300, InitiatorID: 400}, Status: draftWaitingConfirmation, Draft: draft}
 			mock.ExpectBegin()
 			mock.ExpectExec("INSERT INTO agent_runs").WillReturnResult(sqlmock.NewResult(0, 1))
-			mock.ExpectExec("INSERT INTO agent_task_drafts").WithArgs(run.ID, draft.Title, "", draft.AssigneeID, int64(0), int64(0), draft.AssigneeName, string(state)).WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectExec("INSERT INTO agent_task_drafts").WithArgs(run.ID, draft.Title, "", draft.AssigneeID, int64(0), int64(0), draft.AssigneeName, string(state), "", "", int64(0), int64(0), "", "", "", int64(0), int64(0)).WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectCommit()
 			if _, err := store.saveWaitingDraft(context.Background(), run.ID, run.Scope, draft, "request-1", testDraftFingerprint); err != nil {
 				t.Fatal(err)
@@ -92,7 +92,7 @@ func TestDraftStoreSavesRunAndDraftAtomically(t *testing.T) {
 		WithArgs(int64(9001), int64(200), int64(300), int64(400), "request-1", testDraftFingerprint, "waiting_confirmation").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_task_drafts")).
-		WithArgs(int64(9001), "修复缓存", "复核", int64(500), int64(1000), int64(600), "", "").
+		WithArgs(int64(9001), "修复缓存", "复核", int64(500), int64(1000), int64(600), "", "", "", "", int64(0), int64(0), "", "", "", int64(0), int64(0)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 	id, err := store.saveWaitingDraft(context.Background(), 9001,

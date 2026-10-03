@@ -28,7 +28,7 @@ func TestEinoTaskDraftUsesOnlyTextAndStrictOutput(t *testing.T) {
 		if prompt.Instruction != "提取待办" || len(prompt.Messages) != 2 || prompt.Messages[0].MessageID != "10" || prompt.Messages[1].MessageID != "9007199254740993" {
 			t.Fatalf("prompt = %+v", prompt)
 		}
-		return schema.AssistantMessage(`{"title":"修复缓存","description":"先检查失效逻辑","source_message_id":"9007199254740993","assignee_name":"张三"}`, nil), nil
+		return schema.AssistantMessage(`{"title":"修复缓存","description":"先检查失效逻辑","source_message_id":"9007199254740993","assignee_name":"张三","deadline_text":"","deadline_source":"none","deadline_source_message_id":"0"}`, nil), nil
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -50,10 +50,10 @@ func TestEinoTaskDraftRejectsExtraFieldsAndMalformedOutput(t *testing.T) {
 		`{"title":"任务","description":"","source_message_id":"0"} {}`,
 		`{"title":"任务","description":"","source_message_id":9007199254740993}`,
 		`{"title":"任务","description":"","source_message_id":"0"}`,
-		`{"title":"任务","description":"","source_message_id":"0","assignee_name":null}`,
-		`{"title":"任务","description":"","source_message_id":"0","assignee_name":500}`,
-		`{"title":"任务","source_message_id":"0","assignee_name":""}`,
-		`{"title":"任务","description":"","source_message_id":"0","assignee_name":"张三","assignee_resolution":"matched"}`,
+		`{"title":"任务","description":"","source_message_id":"0","assignee_name":null,"deadline_text":"","deadline_source":"none","deadline_source_message_id":"0"}`,
+		`{"title":"任务","description":"","source_message_id":"0","assignee_name":500,"deadline_text":"","deadline_source":"none","deadline_source_message_id":"0"}`,
+		`{"title":"任务","source_message_id":"0","assignee_name":"","deadline_text":"","deadline_source":"none","deadline_source_message_id":"0"}`,
+		`{"title":"任务","description":"","source_message_id":"0","assignee_name":"张三","assignee_resolution":"matched","deadline_text":"","deadline_source":"none","deadline_source_message_id":"0"}`,
 	} {
 		generator, err := NewEinoTaskDraftGenerator(context.Background(), chatModelFunc(func(context.Context, []*schema.Message) (*schema.Message, error) {
 			return schema.AssistantMessage(output, nil), nil

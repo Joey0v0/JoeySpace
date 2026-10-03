@@ -177,7 +177,7 @@ func TestFreezeDraftDeadlineReviewAndFrozenReplay(t *testing.T) {
 				} else {
 					mock.ExpectRollback()
 				}
-				got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, run.Revision, nil, tc.reviewed)
+				got, err := store.freezeDraft(context.Background(), run.ID, run.Scope.InitiatorID, run.Draft.Title, run.Draft.Description, run.Revision, nil, tc.reviewed, "")
 				if status.Code(err) != tc.want || (tc.want == codes.OK && (got.Draft != run.Draft || got.Revision != run.Revision)) {
 					t.Fatalf("freeze: %+v %v", got, err)
 				}
