@@ -118,3 +118,11 @@ Confirm的`expected_deadline_resolution`与due/版本在编排和freeze事务二
 `GetTaskDraftCollection` 与 `GetTaskDraftItem` 经已有 `ConfigureDraftAccess` 接线，只允许原发起人并复查 IM 当前团队群资格。指定项 `optional item_index` 必须存在，零也是显式身份。读取验证持久 mode/count、连续项索引、每项正版本、完整负责人/时间依据和明确 waiting 状态；损坏记录拒绝，不能将空依据视为旧草稿。本批尚无多项编辑、确认、跳过和回帖。
 
 019 增加 run 的 `draft_mode/item_count` 和 draft 的独立 `status`。旧 single 从原 run 状态读取，默认空项状态不当作 waiting；新 collection 明确项状态。旧单项共同读取和冻结锁定拒绝 collection（包括仅一项），不改旧 Task/消息键与结果。升级前在 018 后核对执行 [019](../../deploy/mysql/migrations/019_agent_draft_collection.sql)，脚本尚未在真实数据库执行。[共同契约](../../docs/multi-draft-storage-contract.md)、[审查与验证范围](../../docs/multi-draft-storage-review.md)。
+
+## 多项草稿逐项编辑（2026-10-04）
+
+`EditTaskDraftItemText`、`SelectTaskDraftItemAssignee`、`EditTaskDraftItemDeadline` 使用显式optional项索引及正expected_revision，返回GetTaskDraftItemResponse。沿已有ConfigureDraftAccess、User本人身份与IM当前群资格，正负责人另查User当前成员，0明确未指派；全部外部调用在SQL事务前，不重新调用模型。
+
+事务复用最多5项完整集合校验并FOR UPDATE，仅比较/更新目标版本和完整草稿；其他项变化不使当前项过时。WHERE绑定run/index/原revision/waiting，必须更新恰好1行，报错回滚。实际变化仅目标版本加一，no-op仍检查但不UPDATE，版本耗尽仅拒绝实际变化。同轮锁可能短暂串行写入，不声称真实性能或跨服务授权原子性。
+
+新文字trim后沿原限制，人工负责人选择保持原称呼；人工deadline只改变due和resolution，其余原文/来源/参考/原候选保持。歧义0变明确unassigned/unset也加版本；原single与新collection隔离、旧键和请求指纹继续不改。没有新迁移、Task调用、跳过或独立回帖，仍依赖尚未真实执行的019。[共同契约](../../docs/multi-draft-edit-contract.md)、[八步审查](../../docs/multi-draft-edit-review.md)。

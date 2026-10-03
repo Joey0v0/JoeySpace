@@ -174,3 +174,9 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 | 主 agent | `D:/zy/GoLang/go-im` | `codex/multi-draft-storage-integration` | 协议/生成代码、迁移、共同文档、审查及整合 |
 
 本批共八步，接口先统一再并行，子 agent 不自行提交/合并/push。子 agent 仅编辑、gofmt、diff 检查，主 agent 集中跑测试，避免上一批测试工具审批等待拖住子任务。无需三个会话由用户分别调度；用户在主聊天审查。没有同一任务的单 agent 对照，不声称固定倍数提速。整合、提交和实际验证见[审查记录](multi-draft-storage-review.md)；新批次待用户审查，main 保留上一批，尚未推送、迁移或部署。
+
+## 15. 逐项编辑批次（2026-10-04）
+
+用户要求继续后，上轮c24dc97快进合main。共同协议/生成代码和[契约](multi-draft-edit-contract.md)提交01dedbf，三个原worktree干净复用，没有新建/删除目录。主工作区codex/multi-draft-edit-integration；后端目录assignee-backend对应codex/multi-draft-edit-backend，仅Agent非生成逐项编辑与必要读取helper；Gateway目录assignee-gateway对应codex/multi-draft-edit-gateway，仅三PUT与校验/路由/测试；组合目录assignee-ui对应codex/multi-draft-edit-flow，仅新api/multi_draft_edit_flow_test.go。本批仍不改页面。
+
+共同1、后端3、Gateway2、组合1、集中审查1，共八步；资格/版本/数据归属沿既定A50/A54，普通事务与字段取舍已记录，发现新架构选择仍先讨论。执行agent仅编辑/gofmt/diffcheck，主agent审查允许文件并提交整合与集中测试，不让子任务停在测试审批。当前交付记录、全部文件和验证以[本批审查](multi-draft-edit-review.md)为准；main合入新批次待用户审查，未push/迁移/部署，不声称固定倍数提速。

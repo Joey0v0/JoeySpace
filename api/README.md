@@ -256,3 +256,17 @@ Confirm 追加 optional 数字 `expected_due_at_unix_ms`；非零时间由 Agent
 所有 int64 ID 和 `revision` 保持十进制字符串，索引/项数是小整数。每项带 `status`、完整 `draft`（含负责人和九个时间依据字段）、`task_id`、`reply_status`、`reply_msg_id`。本批仅支持待确认新集合，任务 ID 为 `"0"`，回帖为 `disabled` 或 `not_started`；没有新页面操作、多项编辑/确认/跳过/回帖。旧单项入口遇到集合返回冲突，即使集合只有一项；新读取入口也不隐式适配旧单项运行。
 
 同键重放保持原集合，模式、范围、指令或首次参考改变返回冲突。每次重放和读取仍查当前本人及团队群资格；Gateway 不计算负责人/时间或直接读数据库。异常、不完整、错序、缺索引或损坏的服务响应返回 502。[共同契约](../docs/multi-draft-storage-contract.md)、[本批审查与验证](../docs/multi-draft-storage-review.md)。
+
+### 多项草稿逐项编辑（2026-10-04）
+
+新增三条15秒预算的PUT入口，沿原Bearer Token，仅原发起人且当前团队群资格有效时可操作：
+
+| 路径（前缀 `/api/v1/agent/runs/{run_id}/drafts/{item_index}`） | 正文 |
+| --- | --- |
+| 前缀本身 | `{"title":"修复缓存","description":"补充说明","expected_revision":"1"}` |
+| `/assignee` | `{"assignee_id":"9007199254740997","expected_revision":"1"}` |
+| `/deadline` | `{"due_at_unix_ms":0,"expected_revision":"1"}` |
+
+run/index/版本必须规范，index显式0—4且实际存在；所有正文字段必须存在，description可空，负责人字符串0明确未指派，时间整数0明确不设。拒绝null、额外字段、第二个JSON对象、非法或非正版本；新文字只带新值和整项版本，不要求旧文字字段，旧接口正文保持。
+
+成功返回已有指定项结构`data.{run_id,team_id,group_id,item_count,item}`，ID和revision仍字符串。Gateway核对原项身份、完整依据、提交值及保存版本为原版本或安全+1；错误结果502，过时/冻结/模式不符409，当前权限403。实际变化只增目标版本，相同内容和处理状态no-op不增；响应丢失后须先重读，不能用旧版本盲重试。原称呼、来源消息和时间解释依据保留，保存不创建Task、不回帖。[共同契约](../docs/multi-draft-edit-contract.md)、[审查与验证](../docs/multi-draft-edit-review.md)。当前页面仍单项，多项页面后续接入。
