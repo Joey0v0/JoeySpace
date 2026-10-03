@@ -61,6 +61,9 @@ func lockedDraft(tx *gorm.DB, runID, actorID int64) (taskDraftRun, error) {
 	if result.RowsAffected == 0 || row.InitiatorID != actorID {
 		return taskDraftRun{}, status.Error(codes.NotFound, "draft run not found")
 	}
+	if row.Status == "collection" {
+		return taskDraftRun{}, status.Error(codes.FailedPrecondition, "use the draft collection interface")
+	}
 	run := row.run(runID)
 	if !run.Draft.Deadline.valid(run.Draft.DueAtUnixMs) {
 		return taskDraftRun{}, status.Error(codes.Unavailable, "stored deadline metadata is invalid")

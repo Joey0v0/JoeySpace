@@ -64,7 +64,7 @@ func TestDraftRevisionEditChecksLockedVersionAndNoOpDoesNotWrite(t *testing.T) {
 		store, mock := testDraftStore(t)
 		run := editableRun()
 		mock.ExpectBegin()
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT r.status, d.title, d.description, d.revision FROM agent_runs")).WithArgs(run.ID, run.Scope.InitiatorID).
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT CASE WHEN r.draft_mode = 'single' THEN r.status ELSE 'collection' END AS status, d.title, d.description, d.revision FROM agent_runs")).WithArgs(run.ID, run.Scope.InitiatorID).
 			WillReturnRows(sqlmock.NewRows([]string{"status", "title", "description", "revision"}).AddRow("waiting_confirmation", run.Draft.Title, run.Draft.Description, tc.revision))
 		if tc.want == codes.OK {
 			mock.ExpectCommit()

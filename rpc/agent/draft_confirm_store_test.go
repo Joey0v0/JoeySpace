@@ -192,7 +192,7 @@ func TestConfirmationCannotAccessAnotherInitiatorAndEditCannotUnfreezeDraft(t *t
 	}
 	run := confirmationRun()
 	mock.ExpectBegin()
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT r.status, d.title, d.description")).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT CASE WHEN r.draft_mode = 'single' THEN r.status ELSE 'collection' END AS status, d.title, d.description")).
 		WithArgs(run.ID, run.Scope.InitiatorID).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "title", "description", "revision"}).AddRow("creating", "修复缓存", "复核", 1))
 	mock.ExpectRollback()

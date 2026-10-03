@@ -111,7 +111,7 @@ func TestDraftEditTextRejectsStaleClientView(t *testing.T) {
 func TestDraftStoreUpdatesOnlyWaitingFirstItemAfterComparingOldText(t *testing.T) {
 	store, mock := testDraftStore(t)
 	mock.ExpectBegin()
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT r.status, d.title, d.description, d.revision FROM agent_runs")).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT CASE WHEN r.draft_mode = 'single' THEN r.status ELSE 'collection' END AS status, d.title, d.description, d.revision FROM agent_runs")).
 		WithArgs(int64(9001), int64(400)).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "title", "description", "revision"}).AddRow("waiting_confirmation", "旧标题", "旧说明", 1))
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE agent_task_drafts SET title = ?, description = ?, revision = revision + 1")).
@@ -133,7 +133,7 @@ func TestDraftStoreRejectsStaleAndFinishedEdits(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store, mock := testDraftStore(t)
 			mock.ExpectBegin()
-			mock.ExpectQuery(regexp.QuoteMeta("SELECT r.status, d.title, d.description, d.revision FROM agent_runs")).
+			mock.ExpectQuery(regexp.QuoteMeta("SELECT CASE WHEN r.draft_mode = 'single' THEN r.status ELSE 'collection' END AS status, d.title, d.description, d.revision FROM agent_runs")).
 				WithArgs(int64(9001), int64(400)).
 				WillReturnRows(sqlmock.NewRows([]string{"status", "title", "description", "revision"}).AddRow(tc.status, tc.title, "旧说明", 1))
 			mock.ExpectRollback()
@@ -148,7 +148,7 @@ func TestDraftStoreRejectsStaleAndFinishedEdits(t *testing.T) {
 func TestDraftStoreMasksWriteFailure(t *testing.T) {
 	store, mock := testDraftStore(t)
 	mock.ExpectBegin()
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT r.status, d.title, d.description, d.revision FROM agent_runs")).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT CASE WHEN r.draft_mode = 'single' THEN r.status ELSE 'collection' END AS status, d.title, d.description, d.revision FROM agent_runs")).
 		WithArgs(int64(9001), int64(400)).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "title", "description", "revision"}).AddRow("waiting_confirmation", "旧标题", "旧说明", 1))
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE agent_task_drafts SET title = ?, description = ?, revision = revision + 1")).

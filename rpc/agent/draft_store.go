@@ -13,7 +13,7 @@ import (
 
 type draftStore struct{ db *gorm.DB }
 
-const selectDraftForInitiator = `SELECT r.team_id, r.group_id, r.initiator_id, r.status,
+const selectDraftForInitiator = `SELECT r.team_id, r.group_id, r.initiator_id, CASE WHEN r.draft_mode = 'single' THEN r.status ELSE 'collection' END AS status,
     d.title, d.description, d.assignee_id, d.due_at_unix_ms, d.source_message_id,
     d.task_request_key, d.task_id, d.assignee_name, d.assignee_resolution, d.revision,
     d.deadline_text, d.deadline_source, d.deadline_source_message_id, d.deadline_reference_unix_ms, d.deadline_timezone, d.deadline_resolution, d.deadline_reason, d.deadline_parsed_unix_ms, d.instruction_reference_unix_ms
@@ -141,6 +141,9 @@ func (s *draftStore) loadDraftForInitiator(ctx context.Context, runID, actorID i
 		// A missing run and another user's run are indistinguishable to callers.
 		return taskDraftRun{}, status.Error(codes.NotFound, "draft run not found")
 	}
+	if row.Status == "collection" {
+		return taskDraftRun{}, status.Error(codes.FailedPrecondition, "use the draft collection interface")
+	}
 	run := row.run(runID)
 	if !run.Draft.Deadline.valid(run.Draft.DueAtUnixMs) {
 		return taskDraftRun{}, status.Error(codes.Unavailable, "stored deadline metadata is invalid")
@@ -180,7 +183,7 @@ func (s *draftStore) updateDraftText(ctx context.Context, run taskDraftRun, titl
 			Description string
 			Revision    int64
 		}
-		result := tx.Raw(`SELECT r.status, d.title, d.description, d.revision FROM agent_runs AS r
+		result := tx.Raw(`SELECT CASE WHEN r.draft_mode = 'single' THEN r.status ELSE 'collection' END AS status, d.title, d.description, d.revision FROM agent_runs AS r
             JOIN agent_task_drafts AS d ON d.run_id = r.id AND d.item_index = 0
             WHERE r.id = ? AND r.initiator_id = ? FOR UPDATE`, run.ID, run.Scope.InitiatorID).Scan(&current)
 		if result.Error != nil {

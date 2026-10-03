@@ -51,3 +51,31 @@ func (s *Server) PrepareTaskDraft(ctx context.Context, req *pb.PrepareTaskDraftR
 	}
 	return &pb.PrepareTaskDraftResponse{RunId: runID}, nil
 }
+
+func (s *Server) PrepareTaskDraftCollection(ctx context.Context, req *pb.PrepareTaskDraftRequest) (*pb.PrepareTaskDraftResponse, error) {
+	token, err := loginToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "draft request is required")
+	}
+	md, _ := metadata.FromIncomingContext(ctx)
+	keys := md.Get("idempotency-key")
+	if len(keys) != 1 || !validDraftRequestKey(keys[0]) {
+		return nil, status.Error(codes.InvalidArgument, "invalid idempotency key")
+	}
+	if s == nil || s.preparer == nil {
+		return nil, status.Error(codes.Unavailable, "draft preparation is not configured")
+	}
+	prepareCtx, cancel := context.WithTimeout(ctx, askTimeout)
+	defer cancel()
+	runID, err := s.preparer.prepareCollectionWithReference(prepareCtx, token, req.GetTeamId(), req.GetGroupId(), req.GetInstruction(), keys[0], req.InstructionReferenceUnixMs)
+	if prepareCtx.Err() != nil {
+		return nil, status.FromContextError(prepareCtx.Err()).Err()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PrepareTaskDraftResponse{RunId: runID}, nil
+}
