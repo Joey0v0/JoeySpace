@@ -141,6 +141,8 @@ CREATE TABLE agent_runs (
     request_key  VARCHAR(64) NULL,
     request_fingerprint CHAR(64) NULL,
     status       VARCHAR(32) NOT NULL,
+    draft_mode   VARCHAR(16) NOT NULL DEFAULT 'single',
+    item_count   SMALLINT UNSIGNED NOT NULL DEFAULT 1,
     created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_agent_runs_initiator_request (initiator_id, request_key)
@@ -149,6 +151,7 @@ CREATE TABLE agent_runs (
 CREATE TABLE agent_task_drafts (
     run_id            BIGINT NOT NULL,
     item_index        SMALLINT UNSIGNED NOT NULL,
+    status            VARCHAR(32) NOT NULL DEFAULT '', -- legacy single reads run status; collection has item status
     title             VARCHAR(200) NOT NULL,
     description       TEXT NOT NULL,
     assignee_id       BIGINT NOT NULL DEFAULT 0,

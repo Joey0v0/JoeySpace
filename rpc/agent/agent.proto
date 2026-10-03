@@ -21,6 +21,42 @@ service Agent {
   rpc ConfirmTaskDraft(ConfirmTaskDraftRequest) returns (GetTaskDraftResponse);
   // 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
   rpc RetryTaskReply(GetTaskDraftRequest) returns (GetTaskDraftResponse);
+  // 一次生成并原子保存1..5项候选；和旧单项生成区分请求意图。
+  rpc PrepareTaskDraftCollection(PrepareTaskDraftRequest) returns (PrepareTaskDraftResponse);
+  // 仅发起人可读完整集合，每次重新核对当前团队群资格。
+  rpc GetTaskDraftCollection(GetTaskDraftRequest) returns (GetTaskDraftCollectionResponse);
+  // 显式指定稳定项序号；缺序号不默认第0项。
+  rpc GetTaskDraftItem(GetTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
+}
+
+message GetTaskDraftItemRequest {
+  int64 run_id = 1;
+  optional int32 item_index = 2;
+}
+
+message TaskDraftCollectionItem {
+  optional int32 item_index = 1;
+  string status = 2;
+  TaskDraftItem draft = 3;
+  int64 task_id = 4;
+  string reply_status = 5;
+  string reply_msg_id = 6;
+}
+
+message GetTaskDraftCollectionResponse {
+  int64 run_id = 1;
+  int64 team_id = 2;
+  int64 group_id = 3;
+  int32 item_count = 4;
+  repeated TaskDraftCollectionItem items = 5;
+}
+
+message GetTaskDraftItemResponse {
+  int64 run_id = 1;
+  int64 team_id = 2;
+  int64 group_id = 3;
+  int32 item_count = 4;
+  TaskDraftCollectionItem item = 5;
 }
 
 message AskRequest {

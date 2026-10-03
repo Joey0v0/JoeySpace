@@ -19,14 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Agent_Ask_FullMethodName                     = "/agent.Agent/Ask"
-	Agent_GetTaskDraft_FullMethodName            = "/agent.Agent/GetTaskDraft"
-	Agent_PrepareTaskDraft_FullMethodName        = "/agent.Agent/PrepareTaskDraft"
-	Agent_EditTaskDraft_FullMethodName           = "/agent.Agent/EditTaskDraft"
-	Agent_SelectTaskDraftAssignee_FullMethodName = "/agent.Agent/SelectTaskDraftAssignee"
-	Agent_EditTaskDraftDeadline_FullMethodName   = "/agent.Agent/EditTaskDraftDeadline"
-	Agent_ConfirmTaskDraft_FullMethodName        = "/agent.Agent/ConfirmTaskDraft"
-	Agent_RetryTaskReply_FullMethodName          = "/agent.Agent/RetryTaskReply"
+	Agent_Ask_FullMethodName                        = "/agent.Agent/Ask"
+	Agent_GetTaskDraft_FullMethodName               = "/agent.Agent/GetTaskDraft"
+	Agent_PrepareTaskDraft_FullMethodName           = "/agent.Agent/PrepareTaskDraft"
+	Agent_EditTaskDraft_FullMethodName              = "/agent.Agent/EditTaskDraft"
+	Agent_SelectTaskDraftAssignee_FullMethodName    = "/agent.Agent/SelectTaskDraftAssignee"
+	Agent_EditTaskDraftDeadline_FullMethodName      = "/agent.Agent/EditTaskDraftDeadline"
+	Agent_ConfirmTaskDraft_FullMethodName           = "/agent.Agent/ConfirmTaskDraft"
+	Agent_RetryTaskReply_FullMethodName             = "/agent.Agent/RetryTaskReply"
+	Agent_PrepareTaskDraftCollection_FullMethodName = "/agent.Agent/PrepareTaskDraftCollection"
+	Agent_GetTaskDraftCollection_FullMethodName     = "/agent.Agent/GetTaskDraftCollection"
+	Agent_GetTaskDraftItem_FullMethodName           = "/agent.Agent/GetTaskDraftItem"
 )
 
 // AgentClient is the client API for Agent service.
@@ -49,6 +52,12 @@ type AgentClient interface {
 	ConfirmTaskDraft(ctx context.Context, in *ConfirmTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftResponse, error)
 	// 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
 	RetryTaskReply(ctx context.Context, in *GetTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftResponse, error)
+	// 一次生成并原子保存1..5项候选；和旧单项生成区分请求意图。
+	PrepareTaskDraftCollection(ctx context.Context, in *PrepareTaskDraftRequest, opts ...grpc.CallOption) (*PrepareTaskDraftResponse, error)
+	// 仅发起人可读完整集合，每次重新核对当前团队群资格。
+	GetTaskDraftCollection(ctx context.Context, in *GetTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftCollectionResponse, error)
+	// 显式指定稳定项序号；缺序号不默认第0项。
+	GetTaskDraftItem(ctx context.Context, in *GetTaskDraftItemRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
 }
 
 type agentClient struct {
@@ -139,6 +148,36 @@ func (c *agentClient) RetryTaskReply(ctx context.Context, in *GetTaskDraftReques
 	return out, nil
 }
 
+func (c *agentClient) PrepareTaskDraftCollection(ctx context.Context, in *PrepareTaskDraftRequest, opts ...grpc.CallOption) (*PrepareTaskDraftResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PrepareTaskDraftResponse)
+	err := c.cc.Invoke(ctx, Agent_PrepareTaskDraftCollection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) GetTaskDraftCollection(ctx context.Context, in *GetTaskDraftRequest, opts ...grpc.CallOption) (*GetTaskDraftCollectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskDraftCollectionResponse)
+	err := c.cc.Invoke(ctx, Agent_GetTaskDraftCollection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) GetTaskDraftItem(ctx context.Context, in *GetTaskDraftItemRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskDraftItemResponse)
+	err := c.cc.Invoke(ctx, Agent_GetTaskDraftItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility.
@@ -159,6 +198,12 @@ type AgentServer interface {
 	ConfirmTaskDraft(context.Context, *ConfirmTaskDraftRequest) (*GetTaskDraftResponse, error)
 	// 仅本人显式重试原回帖；不重新创建任务，不接受任意正文或群范围。
 	RetryTaskReply(context.Context, *GetTaskDraftRequest) (*GetTaskDraftResponse, error)
+	// 一次生成并原子保存1..5项候选；和旧单项生成区分请求意图。
+	PrepareTaskDraftCollection(context.Context, *PrepareTaskDraftRequest) (*PrepareTaskDraftResponse, error)
+	// 仅发起人可读完整集合，每次重新核对当前团队群资格。
+	GetTaskDraftCollection(context.Context, *GetTaskDraftRequest) (*GetTaskDraftCollectionResponse, error)
+	// 显式指定稳定项序号；缺序号不默认第0项。
+	GetTaskDraftItem(context.Context, *GetTaskDraftItemRequest) (*GetTaskDraftItemResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -192,6 +237,15 @@ func (UnimplementedAgentServer) ConfirmTaskDraft(context.Context, *ConfirmTaskDr
 }
 func (UnimplementedAgentServer) RetryTaskReply(context.Context, *GetTaskDraftRequest) (*GetTaskDraftResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RetryTaskReply not implemented")
+}
+func (UnimplementedAgentServer) PrepareTaskDraftCollection(context.Context, *PrepareTaskDraftRequest) (*PrepareTaskDraftResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrepareTaskDraftCollection not implemented")
+}
+func (UnimplementedAgentServer) GetTaskDraftCollection(context.Context, *GetTaskDraftRequest) (*GetTaskDraftCollectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTaskDraftCollection not implemented")
+}
+func (UnimplementedAgentServer) GetTaskDraftItem(context.Context, *GetTaskDraftItemRequest) (*GetTaskDraftItemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTaskDraftItem not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 func (UnimplementedAgentServer) testEmbeddedByValue()               {}
@@ -358,6 +412,60 @@ func _Agent_RetryTaskReply_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_PrepareTaskDraftCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareTaskDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).PrepareTaskDraftCollection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_PrepareTaskDraftCollection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).PrepareTaskDraftCollection(ctx, req.(*PrepareTaskDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_GetTaskDraftCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTaskDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).GetTaskDraftCollection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_GetTaskDraftCollection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).GetTaskDraftCollection(ctx, req.(*GetTaskDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_GetTaskDraftItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTaskDraftItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).GetTaskDraftItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_GetTaskDraftItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).GetTaskDraftItem(ctx, req.(*GetTaskDraftItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -396,6 +504,18 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RetryTaskReply",
 			Handler:    _Agent_RetryTaskReply_Handler,
+		},
+		{
+			MethodName: "PrepareTaskDraftCollection",
+			Handler:    _Agent_PrepareTaskDraftCollection_Handler,
+		},
+		{
+			MethodName: "GetTaskDraftCollection",
+			Handler:    _Agent_GetTaskDraftCollection_Handler,
+		},
+		{
+			MethodName: "GetTaskDraftItem",
+			Handler:    _Agent_GetTaskDraftItem_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

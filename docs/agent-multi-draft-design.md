@@ -87,3 +87,5 @@
 | [rpc/agent/eino_task_drafts_test.go](../rpc/agent/eino_task_drafts_test.go) | 三个模型函数及多个拒绝子场景 |
 | [rpc/agent/draft_preparer.go](../rpc/agent/draft_preparer.go) | 单/多项共用核验，原授权/重放/保存顺序不变 |
 | [rpc/agent/draft_batch_preparer_test.go](../rpc/agent/draft_batch_preparer_test.go) | 四个逐项核验函数与 Eino 组合 |
+
+后续记录（2026-10-04）：用户回复“可以继续进行下一步”，上述准备结果 `5ef2ff8` 已快进合入 main。本轮继续按[保存与读取契约](multi-draft-storage-contract.md)推进；上方 main1065/尚未持久化是前置批次交付时历史，当前新批次实现和验证另行记录，不追改十文件清单。
