@@ -49,8 +49,9 @@ func (m *referenceFlowModel) Generate(_ context.Context, input []*schema.Message
 	if m.calls.Add(1) == 1 {
 		return nil, errors.New("private first model failure")
 	}
-	// This batch preserves the original model output, without automatic dates.
-	return schema.AssistantMessage(`{"title":"修复缓存","description":"","source_message_id":"600","assignee_name":""}`, nil), nil
+	// This reference-identity regression uses a no-deadline model result; the
+	// automatic interpretation cases are covered by deadline_auto_flow_test.go.
+	return schema.AssistantMessage(`{"title":"修复缓存","description":"","source_message_id":"600","assignee_name":"","deadline_text":"","deadline_source":"none","deadline_source_message_id":"0"}`, nil), nil
 }
 
 type referenceFlowIM struct {
@@ -82,7 +83,7 @@ func (c captureReferenceFlowRun) Match(value driver.Value) bool {
 }
 
 // Actual HTTP/TCP gRPC, Eino and production Agent storage adapters; database,
-// User/IM and model are substitutes. No automatic time extraction in this batch.
+// User/IM and model are substitutes.
 func TestDeadlineReferenceHTTPAgentPersistenceAndReplay(t *testing.T) {
 	sqlDB, mock, err := sqlmock.New()
 	if err != nil {
@@ -179,7 +180,8 @@ func TestDeadlineReferenceHTTPAgentPersistenceAndReplay(t *testing.T) {
 	expectLookup(false)
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO agent_runs").WithArgs(captureReferenceFlowRun{&runID}, flowTeamID, flowGroupID, int64(400), "reference-flow-1", fingerprint, "waiting_confirmation").WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("INSERT INTO agent_task_drafts").WithArgs(sqlmock.AnyArg(), "修复缓存", "", int64(0), int64(0), int64(600), "", "none").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("INSERT INTO agent_task_drafts").WithArgs(sqlmock.AnyArg(), "修复缓存", "", int64(0), int64(0), int64(600), "", "none",
+		"", "none", int64(0), int64(0), "Asia/Shanghai", "none", "", int64(0), reference).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 	request(body, 200)
 	expectLookup(true)

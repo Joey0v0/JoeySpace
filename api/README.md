@@ -236,3 +236,11 @@ Confirm 追加 optional 数字 `expected_due_at_unix_ms`；非零时间由 Agent
 缺失继续兼容旧请求，存在须JSON正整数`1..253402300799999`，null/0/字符串/小数/越界拒绝。Gateway不补当前时刻，原Token、请求键和范围转发Agent。新参考加入Agent请求指纹，同键变参考409；成功重放返回原run_id，不重新生成。响应仍仅run_id；参考不是服务端审计或授权时间。新页面需同版Gateway/Agent。
 
 页面首次实际请求前固定设备时刻，显示当前请求的上海/UTC时间供核对，失败重试保留键/参考；变身份、范围、指令或显式新键属于新请求。本页已知旧键可复用原参考，刷新后未知手输键不猜参考，要求New key或凭Run ID读取。读取不显示伪造的持久参考。业务自动提取/填日期、解析元数据持久保存及读回下一批接线；[全部文件和验证](../docs/deadline-reference-review.md)。
+
+### 自动截止时间依据与处理状态（2026-10-03）
+
+后续自动闭环在草稿响应`data.draft.deadline`输出九项：`text`、`source`、字符串`source_message_id`、`reference_unix_ms`、`timezone`、`resolution`、`reason`、`parsed_unix_ms`、`instruction_reference_unix_ms`。旧全空依据草稿省略deadline，新对象完整输出/校验；来源消息的参考和首次本人指令参考独立，当前`due_at_unix_ms`与原解析候选分开，全部时间UTC毫秒。Gateway不计算日期或访问数据库。
+
+状态为none/parsed/needs_input/selected/unset。needs_input即便due=0也不能确认；本人保存正时间得到selected，明确0得到unset，保留原文/来源/参考/原候选及原因；状态变化同样递增版本。旧legacy保存沿原规则。确认追加字符串`expected_deadline_resolution`，新对象必须审查当前状态及`expected_due_at_unix_ms`（含0），缺状态或未处理返回409；非法值/null拒绝，成功结果须一致。编辑、确认、读取和回帖共用完整shape检查，异常成功结果502。
+
+页面以纯文字显示完整依据，区分原候选、本人覆盖和持久指令参考；解析候选仍须本人确认，模糊结果先保存明确处理。旧对象缺依据不编造，部分/异常对象不允许操作；未保存或不确定仍要求重读。此前参考批次尚不能读回依据的描述为历史，现在新草稿可读回持久参考，旧草稿仍无依据。[本批契约](../docs/deadline-auto-contract.md)、[审查与实际验证](../docs/deadline-auto-review.md)。

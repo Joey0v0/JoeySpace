@@ -137,3 +137,17 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 主agent的请求接线提交`ebe8ec6`，解析/Gateway/页面分别`81b71c4`/`04e2f1f`/`5afe426`；按该顺序合并`3c8584d`/`9a97719`/`8c42599`无冲突。三个角色执行窗口UTC13:23:05—13:35:52，12分47秒，各自耗时7分46秒/4分21秒/9分24秒；不包括主agent准备、接线和集中验证，不能据此推断倍数提速。
 
 全量Go、Node126项、Linux编译及实际HTTP/TCPgRPC组合通过；main保持`db951b9`供新批次审查，执行agent未自行提交/合并/推送。完整[21文件、步骤及未接线部分](deadline-reference-review.md)。未删除目录或生成文件、未执行迁移、部署或请求真实模型。
+
+## 12. 自动时间闭环批次（2026-10-03）
+
+用户继续后，固定参考批次 `89fdceb` 快进合入 main。本批共同协议、018 初始化/迁移及契约提交 `3c7aaf6`，三个干净 worktree 复用，主 agent 统一负责共同文件、跨层组合测试及文档。全部角色仍按既定 A51/A52/A53 实施，没有改权限或数据归属；全批共同准备 1、后端 3、Gateway 2、页面 2、集中验证 1，最多九步。
+
+| 角色/工作目录 | 分支 / 交付 | UTC 开始 → 完成 | 耗时 |
+| --- | --- | --- | --- |
+| 后端 `.worktrees/assignee-backend` | `codex/deadline-auto-backend` / `175820c`；21 文件 | 14:02:39 → 14:25:47 | 23 分 08 秒 |
+| Gateway `.worktrees/assignee-gateway` | `codex/deadline-auto-gateway` / `f09eb3d`；6 文件 | 14:03:18 → 14:14:45 | 11 分 27 秒 |
+| 页面 `.worktrees/assignee-ui` | `codex/deadline-auto-ui` / `3978fab`；2 文件 | 14:03:42 → 14:16:51 | 13 分 09 秒 |
+
+最早开始到最晚交付的并行窗口 **23 分 08 秒**，不含共同准备、主 agent 审查、集中测试和文档。三个角色确实并行；没有同任务单 agent 对照，不声称倍数提速。主 agent 审查允许文件并逐个提交，子 agent 未自行提交/合并/推送。
+
+`codex/deadline-auto-integration` 按后端快进 → Gateway `0711f49` → 页面 `555f9be` 合并，无冲突。全量 Go、140 项 Node、Linux 编译及实际 HTTP/TCP gRPC 自动时间组合通过；主 agent 另适配原参考组合测试，保留旧断言。main 保持 `89fdceb`，新批待用户审查。[全部文件、九步、调用链及未验证项](deadline-auto-review.md)。没有删除原协议生成文件、重建目录、执行真实迁移、调用真实模型、部署或推送。

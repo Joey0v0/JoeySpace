@@ -21,6 +21,7 @@ TaskDraftItem新增deadline消息（字段9），TaskDraftDeadline九字段见pr
 - source=none：Text空/ID0/Reference0/Parsed0/Reason空；resolution可none/selected/unset。instruction_reference可0或正（0是旧请求缺值）。
 - source=instruction：Text非空/ID0/Reference等于InstructionReference（绝对日期可0）；source=message：Text非空/ID正/Reference正且独立于InstructionReference。
 - expression的原结果：Parsed正+Reason空，或Parsed0+非空合法Reason；本人处理保留这组原依据。
+- missing_reference原因仅可来自instruction且Reference=0；message始终要求原时间正值，不能当缺参考普通表达。
 - resolution=none要求source=none且due0；parsed要求expression且due=Parsed正；needs_input要求expression、Parsed0+Reason非空且due0；selected要求due正且原依据合法；unset要求due0且原依据合法。selected/unset保留原文、来源、原参考、原候选和原因供审查。
 
 ## 3. 本人处理和确认

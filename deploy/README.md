@@ -178,3 +178,9 @@ User 服务须同时包含 `ResolveTeamMember`，原 `USER_RPC_ADDR` 复用，�
 更新 Agent 前，已有数据库在 016 后须核对并执行一次 [017_agent_draft_revision.sql](mysql/migrations/017_agent_draft_revision.sql)，新库初始化已包含 revision。旧草稿默认版本 1，原负责人、任务键、任务结果和回帖不改变；读取/锁定旧草稿也依赖新列，仅更新 init.sql 不会改变已有数据卷。
 
 此轮版本契约要求 Agent、Gateway、页面协调更新：旧数据可读，缺版本旧写入明确拒绝，不保留绕过版本的旧写入模式。版本机制是现有草稿表的增量更新，没有增加服务或后台调度。全量 Go、Node 80 项与 Linux Agent/Gateway 构建通过；脚本未在真实 MySQL 执行，容器与云端同步按用户约定留到最终部署。[完整审查](../docs/agent-assignee-design.md#10-草稿版本基础与现有写入接线审查2026-10-03)。
+
+## Agent 自动截止时间依据迁移（2026-10-03）
+
+已有数据库在017后须核对并执行一次[018_agent_draft_deadline.sql](mysql/migrations/018_agent_draft_deadline.sql)，再更新Agent；读取/锁定旧草稿也依赖新增九列。新库init.sql已包含，旧数据卷不会因改init.sql自动升级。空/0默认保留旧草稿、原deadline、版本、Task键/结果及回帖，不重新解释历史表达。本批只准备脚本，没有执行真实迁移；最终同步时核对数据库实际结构与迁移记录。
+
+Agent、Gateway、页面需协调升级：模型输出新增三个必填时间原文字段；新deadline依据草稿确认要求当前处理状态和时间一起审查，旧页面不能盲确认，旧legacy草稿保留旧规则。模糊表达须本人补完整时间或明确保存不设置，不能因due=0视为已处理。仍用原RPC地址、数据库和模型配置，不新增端口、环境变量或服务。真实方舟输出、数据库事务及浏览器/容器联调待最终统一验收，见[共同契约](../docs/deadline-auto-contract.md)。

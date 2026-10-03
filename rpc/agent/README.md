@@ -94,3 +94,11 @@ Confirm 追加 optional `expected_due_at_unix_ms`。非零保存值必须显式�
 `interpretDraftDeadline`是本包内部纯Go解释器，接原文、指令/消息来源和固定参考。消息来源必须唯一且属于传入授权文本，按那条消息的发送时间；指令相对日期必须有参考，绝对日期可无参考。明确完整日期或今天/明天/后天带时分可解释，支持秒毫秒；模糊/错误日期/DST歧义输出needs_input，不擅补，非法证据拒绝。依赖现有Asia/Shanghai标准时区数据，加载失败返回Unavailable，不固定+08或读取Now。
 
 解释器尚未接Eino输出、存储或对外RPC；原模型仍只生成旧四字段，运行摘要不是可读解析依据。下一批需完整持久元数据/状态及本人歧义处理与确认保护。本批没有新增迁移；[共同契约](../../docs/deadline-reference-contract.md)、[21文件及验证范围](../../docs/deadline-reference-review.md)。
+
+## 自动截止时间闭环（2026-10-03，后续实施）
+
+Eino输出升级为七个必填字符串：原四项加deadline_text/deadline_source/deadline_source_message_id。Agent只接受完整原文/来源，在当前指令或指定唯一授权文本消息中核对，再调用有限解释器；模型不得输出可信UTC/参考/状态。明确候选写当前due，模糊结果due0但状态needs_input，不能当普通无时间确认。来源消息ID与任务来源ID独立。
+
+解析结果与独立首次指令参考在Agent草稿事务保存，读取/锁定和RPC完整返回；依赖[018迁移](../../deploy/mysql/migrations/018_agent_draft_deadline.sql)，旧全空默认仍legacy，冻结/任务/回帖不改依据。本人deadline保存只改当前due和resolution，原文/参考/原候选/原因保持；同零needs_input→unset也递增版本。
+
+Confirm的`expected_deadline_resolution`与due/版本在编排和freeze事务二次比较，新对象缺审查拒绝，needs_input始终拒绝创建；冻结后本人显式重试同键不重新提取/解析，Task只收到本人最终due。原legacy仍沿旧确认规则。前节“解释器尚未接线”为准备批次历史，本批完整进展/验证见[交付审查](../../docs/deadline-auto-review.md)，真实数据库/模型/浏览器/容器待验收。
