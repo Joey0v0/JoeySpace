@@ -57,6 +57,21 @@ func main() {
 		Handler: prepareTaskDraftHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
 	}, rest.WithTimeout(22*time.Second))
 	server.AddRoute(rest.Route{
+		Method:  http.MethodPost,
+		Path:    "/api/v1/teams/:team_id/groups/:group_id/task-draft-collections",
+		Handler: prepareTaskDraftCollectionHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(22*time.Second))
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/agent/runs/:run_id/drafts",
+		Handler: getTaskDraftCollectionHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/agent/runs/:run_id/drafts/:item_index",
+		Handler: getTaskDraftItemHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
 		Path:    "/api/v1/agent/runs/:run_id/draft",
 		Handler: getTaskDraftHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
