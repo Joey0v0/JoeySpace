@@ -69,7 +69,10 @@ func editTaskDraftDeadlineHandler(client agentDraftDeadlineEditor) http.HandlerF
 		}
 		validRevisionResult := result != nil && (result.GetDraft().GetRevision() == revision ||
 			(revision < math.MaxInt64 && result.GetDraft().GetRevision() == revision+1))
-		if !validRevisionResult || result.GetStatus() != "waiting_confirmation" || result.GetDraft().GetDueAtUnixMs() != deadline {
+		validResolutionResult := result.GetDraft().GetDeadline() == nil ||
+			(deadline > 0 && result.GetDraft().GetDeadline().GetResolution() == "selected") ||
+			(deadline == 0 && result.GetDraft().GetDeadline().GetResolution() == "unset")
+		if !validRevisionResult || !validResolutionResult || result.GetStatus() != "waiting_confirmation" || result.GetDraft().GetDueAtUnixMs() != deadline {
 			httpx.WriteJson(w, http.StatusBadGateway, agentDraftResponse{Code: errcode.ErrInternal, Msg: "deadline edit returned invalid saved draft; reload the same run"})
 			return
 		}

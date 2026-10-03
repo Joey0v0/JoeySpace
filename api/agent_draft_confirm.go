@@ -35,11 +35,12 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			return
 		}
 		var body struct {
-			ExpectedDueAtUnixMs json.RawMessage `json:"expected_due_at_unix_ms"`
-			ExpectedAssigneeID  json.RawMessage `json:"expected_assignee_id"`
-			ExpectedRevision    string          `json:"expected_revision"`
-			ExpectedTitle       *string         `json:"expected_title"`
-			ExpectedDescription *string         `json:"expected_description"`
+			ExpectedDeadlineResolution json.RawMessage `json:"expected_deadline_resolution"`
+			ExpectedDueAtUnixMs        json.RawMessage `json:"expected_due_at_unix_ms"`
+			ExpectedAssigneeID         json.RawMessage `json:"expected_assignee_id"`
+			ExpectedRevision           string          `json:"expected_revision"`
+			ExpectedTitle              *string         `json:"expected_title"`
+			ExpectedDescription        *string         `json:"expected_description"`
 		}
 		// Supplementary Unicode characters can need 12 bytes per escaped rune.
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32768))
@@ -87,13 +88,22 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 			}
 			expectedDueAtUnixMs = &deadline
 		}
+		expectedDeadlineResolution := ""
+		if len(body.ExpectedDeadlineResolution) != 0 {
+			if strings.TrimSpace(string(body.ExpectedDeadlineResolution)) == "null" ||
+				json.Unmarshal(body.ExpectedDeadlineResolution, &expectedDeadlineResolution) != nil || !validDeadlineResolution(expectedDeadlineResolution) {
+				httpx.WriteJson(w, http.StatusBadRequest, agentDraftResponse{Code: errcode.ErrBadRequest, Msg: "invalid reviewed deadline resolution"})
+				return
+			}
+		}
 		// Task's stable operation key belongs to Agent, never HTTP headers/body.
 		ctx := metadata.NewOutgoingContext(r.Context(), metadata.Pairs("authorization", token))
 		result, err := client.ConfirmTaskDraft(ctx, &pb.ConfirmTaskDraftRequest{
-			ExpectedDueAtUnixMs: expectedDueAtUnixMs,
-			ExpectedAssigneeId:  expectedAssigneeID,
-			ExpectedRevision:    revision,
-			RunId:               runID, ExpectedTitle: *body.ExpectedTitle, ExpectedDescription: *body.ExpectedDescription,
+			ExpectedDeadlineResolution: expectedDeadlineResolution,
+			ExpectedDueAtUnixMs:        expectedDueAtUnixMs,
+			ExpectedAssigneeId:         expectedAssigneeID,
+			ExpectedRevision:           revision,
+			RunId:                      runID, ExpectedTitle: *body.ExpectedTitle, ExpectedDescription: *body.ExpectedDescription,
 		})
 		if err != nil {
 			switch status.Code(err) {
@@ -108,7 +118,8 @@ func confirmTaskDraftHandler(client agentDraftConfirmer) http.HandlerFunc {
 		}
 		if result == nil || result.GetStatus() != "succeeded" || result.GetTaskId() <= 0 || result.GetDraft().GetRevision() != revision ||
 			(expectedAssigneeID != nil && result.GetDraft().GetAssigneeId() != *expectedAssigneeID) ||
-			(expectedDueAtUnixMs != nil && result.GetDraft().GetDueAtUnixMs() != *expectedDueAtUnixMs) {
+			(expectedDueAtUnixMs != nil && result.GetDraft().GetDueAtUnixMs() != *expectedDueAtUnixMs) ||
+			result.GetDraft().GetDeadline().GetResolution() != expectedDeadlineResolution {
 			httpx.WriteJson(w, http.StatusBadGateway, agentDraftResponse{Code: errcode.ErrInternal, Msg: "confirmation returned no saved task result; reload the same run"})
 			return
 		}
