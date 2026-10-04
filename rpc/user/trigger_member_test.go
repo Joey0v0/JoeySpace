@@ -302,7 +302,7 @@ func TestResolveTriggerMemberDatabaseFailureCancellationAndDeadline(t *testing.T
 			}
 			defer cancel()
 			response, err := s.ResolveTriggerTeamMember(triggerTeamIMContext(ctx), req)
-			if response != nil || status.Code(err) != want || strings.Contains(status.Convert(err).Message(), "private") || strings.Contains(status.Convert(err).Message(), req.Name) {
+			if response != nil || status.Code(err) != want || strings.Contains(status.Convert(err).Message(), "private") || (req.Name != "" && strings.Contains(status.Convert(err).Message(), req.Name)) {
 				t.Fatalf("response=%v err=%v want=%v", response, err, want)
 			}
 		})
