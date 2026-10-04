@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-04）：main已合上批完整6592d28。本轮业务0ef64fa在codex/trigger-context-integration完成Agent→IM持久触发上下文只读链路：请求仅来源ID，IM核对Outbox/原消息、当前群及User资格，再读取固定上界最多20条历史；独立Agent mTLS监听/IM进程接线及Agent严格响应客户端完成。三worktree由root整合，最终全量Go与Linux IM/Agent通过，新增31个测试函数；首次两处测试字段编译错误已修复。[九步与17文件](trigger-context-review.md)。Agent客户端未接worker/main、队列/租约与模型仍后续；Outbox开关false、022未执行，无真实DB/模型/云联调、push或同步，阶段6不标全完成。
+最新进展（2026-10-04）：main已合上批71d3161。本轮业务9abf15f在codex/trigger-inbox-integration完成Agent持久通知接收：严格三字段/Key解析、来源主键去重保存queued后才同步确认Kafka，保存/确认失败保持同条；用户本轮明确A62异常停消费不确认、本人RPC继续。默认关闭的配置和Agent进程已接线。三worktree整合后，最终全量Go一次通过、Linux Agent通过，新增28个测试函数，[九步与18文件](trigger-inbox-review.md)。023/022未执行，真实Kafka/DB/模型/云仍后续；租约、模型预算/生成和后台草稿入口尚未实现，阶段6不标全完成，未push或同步。
 
 ## 1. 项目目标与学习背景
 
@@ -448,7 +448,9 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] A60持久来源读取（2026-10-04）：Agent请求只message_id，独立IMTrigger按Outbox/原消息派生actor/team/group/instruction/reference/key，核对当前群及User当前团队/有效账户；历史SQL再次限定成员，来源ID上界最多20条。IM进程接专用mTLS及User资格客户端，Agent读取清metadata/严格核对成功响应。三worktree交付与root实际TLS/SQL替身组合后，最终全量Go和Linux IM/Agent通过，业务0ef64fa；首次两处测试字段编译失败已修。没有更改旧Bearer/机器人/Task权限，没有开启Outbox、执行022或调用模型；这不是后台草稿生成完成。[架构记录](architecture-decisions.md) A60、[完整九步/17文件/验证限制](trigger-context-review.md)。
 
-当前下一步（2026-10-04）：Outbox、IM→User资格和[Agent→IM受限来源读取](trigger-context-review.md)已有本地实现/验证；继续A61的Agent持久接收/执行状态、租约及最多两次自动生成，再接本人草稿入口。后续背景负责人解析必须遵守A60受限服务身份，不能伪造Token复用旧Bearer入口。Task确认/回帖仍A41/A46本人显式。main6592d28、本轮整合分支codex/trigger-context-integration、三个worktree保留，不标阶段6全部完成。022及后续增量/生产证书/真实DB与模型验收留最终部署，方舟接入点/预算未定前不请求真实模型。
+- [x] A61通知排队基础/A62异常策略（2026-10-04）：Agent新inbox只保存来源ID/action/version/queued与数据库接收时间；严格事件/Key后保存成功才同步commit，相同来源重复锁读事实不更新；SQL/确认失败同条重试，无更高offset越过未完成通知。用户选择异常通知停止消费、不确认、原本人RPC继续，选择/备选/代价已记录A62。Agent默认禁用接进程并可取消等Run后关闭，023与初始化定义一致但未执行。真实生产publisher/consumer/GORM配SQL/Kafka替身及实际本机本人RPC测试，全量Go一次通过/Linux Agent通过，业务9abf15f，[九步18文件和边界](trigger-inbox-review.md)。不把queued当合法权限、模型运行/草稿/Task，不改变原确认/回帖规则。
+
+当前下一步（2026-10-04）：Outbox、IM→User资格、Agent→IM受限来源及[Agent通知持久排队](trigger-inbox-review.md)已有本地实现/验证；继续A61租约与持久执行恢复、最多两次模型预算，再接后台草稿和本人入口。后台负责人解析必须遵守A60受限服务身份，不能伪造Token复用旧Bearer入口；原消息参考不用inbox.received_at。Task确认/回帖仍A41/A46本人显式。main71d3161、本轮整合分支codex/trigger-inbox-integration、三个worktree保留，不标阶段6全部完成。022/023及后续增量/生产证书/真实DB/Kafka与模型验收留最终部署，方舟接入点/预算未定前不请求真实模型。
 
 ## 10. 决策记录与文档关系
 

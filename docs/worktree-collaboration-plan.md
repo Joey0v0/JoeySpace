@@ -302,3 +302,18 @@ API与允许范围以[共同契约](agent-trigger-outbox-contract.md)为准；�
 实际交付：共同7737896、handler63f9668、listener5476476、client7b263e5；root无冲突整合并加实际Agent→IM→User TLS组合。首次Go检查两处测试旧UserId字段编译失败，listener在允许文件修复，root保存1013aa6并整合；最终全量Go及Linux IM/Agent通过，业务0ef64fa。[17个全文件/31测试函数/未验收范围](trigger-context-review.md)。三worktree干净保留，main仍6592d28，本轮整合分支供主聊天审查；没有push、迁移、模型或云部署。
 
 三角色各约8分46秒、8分1秒（另审查修复）、10分20秒，无单agent对照不声称固定倍数速度。持久触发只读完成，A61后台排队/租约与草稿生成继续后续。
+
+## 24. Agent 持久通知接收批次（2026-10-04）
+
+上批71d3161已因用户继续快进合本地main。本轮用户明确A62：异常通知停消费/不确认，旧本人RPC继续。root统一接口、023/init和[共同契约](trigger-inbox-contract.md)，共同d6fb988；主目录D:/zy/GoLang/go-im，分支codex/trigger-inbox-integration。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 持久去重 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-inbox-store | 新rpc/agent/trigger_inbox_store.go/test.go |
+| 通知消费 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-inbox-consumer | 新rpc/agent/trigger_notification.go/test.go、trigger_consumer.go/test.go |
+| 进程接入 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-inbox-runtime | cmd/agent/main.go、新trigger_inbox.go/test.go |
+| root | D:/zy/GoLang/go-im | codex/trigger-inbox-integration | 共同接口/迁移/docs、实际producer+consumer+SQL替身组合、集中验证/Git整合 |
+
+九步：共同1、store2、consumer2、runtime2、root组合1、审查1。执行agent只编辑/gofmt/diffcheck，不tests/build/审批/Git提交/合main/push；root不开放真模型/迁移/开关。只有queued，不标租约、模型生成或整阶段6完成。
+
+实际完成：共同d6fb988、store3391102、consumer5d05ab2、runtime6b46654；root无冲突整合并补真实producer/consumer+SQL替身及schema组合为业务9abf15f。最终全量Go一次全通过，Linux Agent通过；[九步18文件/28测试函数及限制](trigger-inbox-review.md)。main仍71d3161，三个worktree干净保留，本轮整合分支供主聊天审查，未push/部署/迁移/模型。三角色约4分43秒、9分43秒、9分35秒，无单agent对照，不声称固定倍数效率。
