@@ -204,7 +204,11 @@ func TestIMTriggerListenerOnlyExposesDedicatedServiceToAgent(t *testing.T) {
 	r, agentFiles, _ := startIMTriggerListenerTest(t)
 	info := r.server.GetServiceInfo()
 	service, ok := info["im.IMTrigger"]
-	if !ok || len(info) != 1 || len(service.Methods) != 1 || service.Methods[0].Name != "ReadTaskTriggerContext" {
+	methods := make(map[string]bool, len(service.Methods))
+	for _, method := range service.Methods {
+		methods[method.Name] = true
+	}
+	if !ok || len(info) != 1 || len(service.Methods) != 2 || !methods["ReadTaskTriggerContext"] || !methods["ResolveTaskTriggerMember"] {
 		t.Fatalf("unexpected services: %+v", info)
 	}
 	creds, err := rpcauth.NewServiceClientCredentials(agentFiles, "im.go-im.internal")

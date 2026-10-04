@@ -185,7 +185,11 @@ func TestUserTriggerListenerOnlyRegistersDedicatedService(t *testing.T) {
 	r, imFiles, _ := startTriggerListenerTest(t)
 	info := r.server.GetServiceInfo()
 	service, ok := info["user.UserTrigger"]
-	if !ok || len(info) != 1 || len(service.Methods) != 1 || service.Methods[0].Name != "CheckTriggerTeamMember" {
+	methods := make(map[string]bool, len(service.Methods))
+	for _, method := range service.Methods {
+		methods[method.Name] = true
+	}
+	if !ok || len(info) != 1 || len(service.Methods) != 2 || !methods["CheckTriggerTeamMember"] || !methods["ResolveTriggerTeamMember"] {
 		t.Fatalf("unexpected services: %+v", info)
 	}
 	creds, err := rpcauth.NewServiceClientCredentials(imFiles, "user.go-im.internal")
