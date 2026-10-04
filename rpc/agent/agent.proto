@@ -35,6 +35,14 @@ service Agent {
   rpc EditTaskDraftItemDeadline(EditTaskDraftItemDeadlineRequest) returns (GetTaskDraftItemResponse);
   // 本人逐项审查并创建；先持久冻结，再以固定项请求键调用 Task。
   rpc ConfirmTaskDraftItem(ConfirmTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
+  // 本人显式跳过未提交项，保留原内容；冻结或成功项不能跳过。
+  rpc SkipTaskDraftItem(SkipTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
+}
+
+message SkipTaskDraftItemRequest {
+  int64 run_id = 1;
+  optional int32 item_index = 2;
+  int64 expected_revision = 3;
 }
 
 message ConfirmTaskDraftItemRequest {

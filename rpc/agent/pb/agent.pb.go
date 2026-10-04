@@ -21,6 +21,66 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type SkipTaskDraftItemRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RunId            int64                  `protobuf:"varint,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	ItemIndex        *int32                 `protobuf:"varint,2,opt,name=item_index,json=itemIndex,proto3,oneof" json:"item_index,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SkipTaskDraftItemRequest) Reset() {
+	*x = SkipTaskDraftItemRequest{}
+	mi := &file_agent_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SkipTaskDraftItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SkipTaskDraftItemRequest) ProtoMessage() {}
+
+func (x *SkipTaskDraftItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SkipTaskDraftItemRequest.ProtoReflect.Descriptor instead.
+func (*SkipTaskDraftItemRequest) Descriptor() ([]byte, []int) {
+	return file_agent_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *SkipTaskDraftItemRequest) GetRunId() int64 {
+	if x != nil {
+		return x.RunId
+	}
+	return 0
+}
+
+func (x *SkipTaskDraftItemRequest) GetItemIndex() int32 {
+	if x != nil && x.ItemIndex != nil {
+		return *x.ItemIndex
+	}
+	return 0
+}
+
+func (x *SkipTaskDraftItemRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
 type ConfirmTaskDraftItemRequest struct {
 	state                      protoimpl.MessageState `protogen:"open.v1"`
 	RunId                      int64                  `protobuf:"varint,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
@@ -37,7 +97,7 @@ type ConfirmTaskDraftItemRequest struct {
 
 func (x *ConfirmTaskDraftItemRequest) Reset() {
 	*x = ConfirmTaskDraftItemRequest{}
-	mi := &file_agent_proto_msgTypes[0]
+	mi := &file_agent_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +109,7 @@ func (x *ConfirmTaskDraftItemRequest) String() string {
 func (*ConfirmTaskDraftItemRequest) ProtoMessage() {}
 
 func (x *ConfirmTaskDraftItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[0]
+	mi := &file_agent_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +122,7 @@ func (x *ConfirmTaskDraftItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmTaskDraftItemRequest.ProtoReflect.Descriptor instead.
 func (*ConfirmTaskDraftItemRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{0}
+	return file_agent_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ConfirmTaskDraftItemRequest) GetRunId() int64 {
@@ -134,7 +194,7 @@ type EditTaskDraftItemTextRequest struct {
 
 func (x *EditTaskDraftItemTextRequest) Reset() {
 	*x = EditTaskDraftItemTextRequest{}
-	mi := &file_agent_proto_msgTypes[1]
+	mi := &file_agent_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +206,7 @@ func (x *EditTaskDraftItemTextRequest) String() string {
 func (*EditTaskDraftItemTextRequest) ProtoMessage() {}
 
 func (x *EditTaskDraftItemTextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[1]
+	mi := &file_agent_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -159,7 +219,7 @@ func (x *EditTaskDraftItemTextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditTaskDraftItemTextRequest.ProtoReflect.Descriptor instead.
 func (*EditTaskDraftItemTextRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{1}
+	return file_agent_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *EditTaskDraftItemTextRequest) GetRunId() int64 {
@@ -209,7 +269,7 @@ type SelectTaskDraftItemAssigneeRequest struct {
 
 func (x *SelectTaskDraftItemAssigneeRequest) Reset() {
 	*x = SelectTaskDraftItemAssigneeRequest{}
-	mi := &file_agent_proto_msgTypes[2]
+	mi := &file_agent_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -221,7 +281,7 @@ func (x *SelectTaskDraftItemAssigneeRequest) String() string {
 func (*SelectTaskDraftItemAssigneeRequest) ProtoMessage() {}
 
 func (x *SelectTaskDraftItemAssigneeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[2]
+	mi := &file_agent_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -234,7 +294,7 @@ func (x *SelectTaskDraftItemAssigneeRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use SelectTaskDraftItemAssigneeRequest.ProtoReflect.Descriptor instead.
 func (*SelectTaskDraftItemAssigneeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{2}
+	return file_agent_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SelectTaskDraftItemAssigneeRequest) GetRunId() int64 {
@@ -277,7 +337,7 @@ type EditTaskDraftItemDeadlineRequest struct {
 
 func (x *EditTaskDraftItemDeadlineRequest) Reset() {
 	*x = EditTaskDraftItemDeadlineRequest{}
-	mi := &file_agent_proto_msgTypes[3]
+	mi := &file_agent_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -289,7 +349,7 @@ func (x *EditTaskDraftItemDeadlineRequest) String() string {
 func (*EditTaskDraftItemDeadlineRequest) ProtoMessage() {}
 
 func (x *EditTaskDraftItemDeadlineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[3]
+	mi := &file_agent_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -302,7 +362,7 @@ func (x *EditTaskDraftItemDeadlineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditTaskDraftItemDeadlineRequest.ProtoReflect.Descriptor instead.
 func (*EditTaskDraftItemDeadlineRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{3}
+	return file_agent_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EditTaskDraftItemDeadlineRequest) GetRunId() int64 {
@@ -343,7 +403,7 @@ type GetTaskDraftItemRequest struct {
 
 func (x *GetTaskDraftItemRequest) Reset() {
 	*x = GetTaskDraftItemRequest{}
-	mi := &file_agent_proto_msgTypes[4]
+	mi := &file_agent_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -355,7 +415,7 @@ func (x *GetTaskDraftItemRequest) String() string {
 func (*GetTaskDraftItemRequest) ProtoMessage() {}
 
 func (x *GetTaskDraftItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[4]
+	mi := &file_agent_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -368,7 +428,7 @@ func (x *GetTaskDraftItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskDraftItemRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskDraftItemRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{4}
+	return file_agent_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetTaskDraftItemRequest) GetRunId() int64 {
@@ -399,7 +459,7 @@ type TaskDraftCollectionItem struct {
 
 func (x *TaskDraftCollectionItem) Reset() {
 	*x = TaskDraftCollectionItem{}
-	mi := &file_agent_proto_msgTypes[5]
+	mi := &file_agent_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -411,7 +471,7 @@ func (x *TaskDraftCollectionItem) String() string {
 func (*TaskDraftCollectionItem) ProtoMessage() {}
 
 func (x *TaskDraftCollectionItem) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[5]
+	mi := &file_agent_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -424,7 +484,7 @@ func (x *TaskDraftCollectionItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskDraftCollectionItem.ProtoReflect.Descriptor instead.
 func (*TaskDraftCollectionItem) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{5}
+	return file_agent_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TaskDraftCollectionItem) GetItemIndex() int32 {
@@ -482,7 +542,7 @@ type GetTaskDraftCollectionResponse struct {
 
 func (x *GetTaskDraftCollectionResponse) Reset() {
 	*x = GetTaskDraftCollectionResponse{}
-	mi := &file_agent_proto_msgTypes[6]
+	mi := &file_agent_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -494,7 +554,7 @@ func (x *GetTaskDraftCollectionResponse) String() string {
 func (*GetTaskDraftCollectionResponse) ProtoMessage() {}
 
 func (x *GetTaskDraftCollectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[6]
+	mi := &file_agent_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -507,7 +567,7 @@ func (x *GetTaskDraftCollectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskDraftCollectionResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskDraftCollectionResponse) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{6}
+	return file_agent_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetTaskDraftCollectionResponse) GetRunId() int64 {
@@ -558,7 +618,7 @@ type GetTaskDraftItemResponse struct {
 
 func (x *GetTaskDraftItemResponse) Reset() {
 	*x = GetTaskDraftItemResponse{}
-	mi := &file_agent_proto_msgTypes[7]
+	mi := &file_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -570,7 +630,7 @@ func (x *GetTaskDraftItemResponse) String() string {
 func (*GetTaskDraftItemResponse) ProtoMessage() {}
 
 func (x *GetTaskDraftItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[7]
+	mi := &file_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -583,7 +643,7 @@ func (x *GetTaskDraftItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskDraftItemResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskDraftItemResponse) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{7}
+	return file_agent_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetTaskDraftItemResponse) GetRunId() int64 {
@@ -632,7 +692,7 @@ type AskRequest struct {
 
 func (x *AskRequest) Reset() {
 	*x = AskRequest{}
-	mi := &file_agent_proto_msgTypes[8]
+	mi := &file_agent_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -644,7 +704,7 @@ func (x *AskRequest) String() string {
 func (*AskRequest) ProtoMessage() {}
 
 func (x *AskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[8]
+	mi := &file_agent_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -657,7 +717,7 @@ func (x *AskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AskRequest.ProtoReflect.Descriptor instead.
 func (*AskRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{8}
+	return file_agent_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AskRequest) GetTeamId() int64 {
@@ -690,7 +750,7 @@ type AskResponse struct {
 
 func (x *AskResponse) Reset() {
 	*x = AskResponse{}
-	mi := &file_agent_proto_msgTypes[9]
+	mi := &file_agent_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -702,7 +762,7 @@ func (x *AskResponse) String() string {
 func (*AskResponse) ProtoMessage() {}
 
 func (x *AskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[9]
+	mi := &file_agent_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -715,7 +775,7 @@ func (x *AskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AskResponse.ProtoReflect.Descriptor instead.
 func (*AskResponse) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{9}
+	return file_agent_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AskResponse) GetAnswer() string {
@@ -734,7 +794,7 @@ type GetTaskDraftRequest struct {
 
 func (x *GetTaskDraftRequest) Reset() {
 	*x = GetTaskDraftRequest{}
-	mi := &file_agent_proto_msgTypes[10]
+	mi := &file_agent_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -746,7 +806,7 @@ func (x *GetTaskDraftRequest) String() string {
 func (*GetTaskDraftRequest) ProtoMessage() {}
 
 func (x *GetTaskDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[10]
+	mi := &file_agent_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -759,7 +819,7 @@ func (x *GetTaskDraftRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskDraftRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskDraftRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{10}
+	return file_agent_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetTaskDraftRequest) GetRunId() int64 {
@@ -788,7 +848,7 @@ type GetTaskDraftResponse struct {
 
 func (x *GetTaskDraftResponse) Reset() {
 	*x = GetTaskDraftResponse{}
-	mi := &file_agent_proto_msgTypes[11]
+	mi := &file_agent_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -800,7 +860,7 @@ func (x *GetTaskDraftResponse) String() string {
 func (*GetTaskDraftResponse) ProtoMessage() {}
 
 func (x *GetTaskDraftResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[11]
+	mi := &file_agent_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -813,7 +873,7 @@ func (x *GetTaskDraftResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskDraftResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskDraftResponse) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{11}
+	return file_agent_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetTaskDraftResponse) GetRunId() int64 {
@@ -894,7 +954,7 @@ type TaskDraftItem struct {
 
 func (x *TaskDraftItem) Reset() {
 	*x = TaskDraftItem{}
-	mi := &file_agent_proto_msgTypes[12]
+	mi := &file_agent_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -906,7 +966,7 @@ func (x *TaskDraftItem) String() string {
 func (*TaskDraftItem) ProtoMessage() {}
 
 func (x *TaskDraftItem) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[12]
+	mi := &file_agent_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -919,7 +979,7 @@ func (x *TaskDraftItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskDraftItem.ProtoReflect.Descriptor instead.
 func (*TaskDraftItem) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{12}
+	return file_agent_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TaskDraftItem) GetTitle() string {
@@ -1002,7 +1062,7 @@ type TaskDraftDeadline struct {
 
 func (x *TaskDraftDeadline) Reset() {
 	*x = TaskDraftDeadline{}
-	mi := &file_agent_proto_msgTypes[13]
+	mi := &file_agent_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1014,7 +1074,7 @@ func (x *TaskDraftDeadline) String() string {
 func (*TaskDraftDeadline) ProtoMessage() {}
 
 func (x *TaskDraftDeadline) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[13]
+	mi := &file_agent_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1027,7 +1087,7 @@ func (x *TaskDraftDeadline) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskDraftDeadline.ProtoReflect.Descriptor instead.
 func (*TaskDraftDeadline) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{13}
+	return file_agent_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *TaskDraftDeadline) GetText() string {
@@ -1107,7 +1167,7 @@ type PrepareTaskDraftRequest struct {
 
 func (x *PrepareTaskDraftRequest) Reset() {
 	*x = PrepareTaskDraftRequest{}
-	mi := &file_agent_proto_msgTypes[14]
+	mi := &file_agent_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1119,7 +1179,7 @@ func (x *PrepareTaskDraftRequest) String() string {
 func (*PrepareTaskDraftRequest) ProtoMessage() {}
 
 func (x *PrepareTaskDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[14]
+	mi := &file_agent_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1132,7 +1192,7 @@ func (x *PrepareTaskDraftRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareTaskDraftRequest.ProtoReflect.Descriptor instead.
 func (*PrepareTaskDraftRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{14}
+	return file_agent_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PrepareTaskDraftRequest) GetTeamId() int64 {
@@ -1172,7 +1232,7 @@ type PrepareTaskDraftResponse struct {
 
 func (x *PrepareTaskDraftResponse) Reset() {
 	*x = PrepareTaskDraftResponse{}
-	mi := &file_agent_proto_msgTypes[15]
+	mi := &file_agent_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1184,7 +1244,7 @@ func (x *PrepareTaskDraftResponse) String() string {
 func (*PrepareTaskDraftResponse) ProtoMessage() {}
 
 func (x *PrepareTaskDraftResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[15]
+	mi := &file_agent_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1197,7 +1257,7 @@ func (x *PrepareTaskDraftResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareTaskDraftResponse.ProtoReflect.Descriptor instead.
 func (*PrepareTaskDraftResponse) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{15}
+	return file_agent_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PrepareTaskDraftResponse) GetRunId() int64 {
@@ -1222,7 +1282,7 @@ type EditTaskDraftRequest struct {
 
 func (x *EditTaskDraftRequest) Reset() {
 	*x = EditTaskDraftRequest{}
-	mi := &file_agent_proto_msgTypes[16]
+	mi := &file_agent_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1294,7 @@ func (x *EditTaskDraftRequest) String() string {
 func (*EditTaskDraftRequest) ProtoMessage() {}
 
 func (x *EditTaskDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[16]
+	mi := &file_agent_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1307,7 @@ func (x *EditTaskDraftRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditTaskDraftRequest.ProtoReflect.Descriptor instead.
 func (*EditTaskDraftRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{16}
+	return file_agent_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *EditTaskDraftRequest) GetRunId() int64 {
@@ -1311,7 +1371,7 @@ type ConfirmTaskDraftRequest struct {
 
 func (x *ConfirmTaskDraftRequest) Reset() {
 	*x = ConfirmTaskDraftRequest{}
-	mi := &file_agent_proto_msgTypes[17]
+	mi := &file_agent_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1323,7 +1383,7 @@ func (x *ConfirmTaskDraftRequest) String() string {
 func (*ConfirmTaskDraftRequest) ProtoMessage() {}
 
 func (x *ConfirmTaskDraftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[17]
+	mi := &file_agent_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +1396,7 @@ func (x *ConfirmTaskDraftRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmTaskDraftRequest.ProtoReflect.Descriptor instead.
 func (*ConfirmTaskDraftRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{17}
+	return file_agent_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ConfirmTaskDraftRequest) GetRunId() int64 {
@@ -1400,7 +1460,7 @@ type SelectTaskDraftAssigneeRequest struct {
 
 func (x *SelectTaskDraftAssigneeRequest) Reset() {
 	*x = SelectTaskDraftAssigneeRequest{}
-	mi := &file_agent_proto_msgTypes[18]
+	mi := &file_agent_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1412,7 +1472,7 @@ func (x *SelectTaskDraftAssigneeRequest) String() string {
 func (*SelectTaskDraftAssigneeRequest) ProtoMessage() {}
 
 func (x *SelectTaskDraftAssigneeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[18]
+	mi := &file_agent_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1425,7 +1485,7 @@ func (x *SelectTaskDraftAssigneeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectTaskDraftAssigneeRequest.ProtoReflect.Descriptor instead.
 func (*SelectTaskDraftAssigneeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{18}
+	return file_agent_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SelectTaskDraftAssigneeRequest) GetRunId() int64 {
@@ -1460,7 +1520,7 @@ type EditTaskDraftDeadlineRequest struct {
 
 func (x *EditTaskDraftDeadlineRequest) Reset() {
 	*x = EditTaskDraftDeadlineRequest{}
-	mi := &file_agent_proto_msgTypes[19]
+	mi := &file_agent_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1472,7 +1532,7 @@ func (x *EditTaskDraftDeadlineRequest) String() string {
 func (*EditTaskDraftDeadlineRequest) ProtoMessage() {}
 
 func (x *EditTaskDraftDeadlineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_proto_msgTypes[19]
+	mi := &file_agent_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1485,7 +1545,7 @@ func (x *EditTaskDraftDeadlineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditTaskDraftDeadlineRequest.ProtoReflect.Descriptor instead.
 func (*EditTaskDraftDeadlineRequest) Descriptor() ([]byte, []int) {
-	return file_agent_proto_rawDescGZIP(), []int{19}
+	return file_agent_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *EditTaskDraftDeadlineRequest) GetRunId() int64 {
@@ -1513,7 +1573,13 @@ var File_agent_proto protoreflect.FileDescriptor
 
 const file_agent_proto_rawDesc = "" +
 	"\n" +
-	"\vagent.proto\x12\x05agent\"\xd7\x03\n" +
+	"\vagent.proto\x12\x05agent\"\x91\x01\n" +
+	"\x18SkipTaskDraftItemRequest\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\x03R\x05runId\x12\"\n" +
+	"\n" +
+	"item_index\x18\x02 \x01(\x05H\x00R\titemIndex\x88\x01\x01\x12+\n" +
+	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevisionB\r\n" +
+	"\v_item_index\"\xd7\x03\n" +
 	"\x1bConfirmTaskDraftItemRequest\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\x03R\x05runId\x12\"\n" +
 	"\n" +
@@ -1658,7 +1724,7 @@ const file_agent_proto_rawDesc = "" +
 	"\x06run_id\x18\x01 \x01(\x03R\x05runId\x12(\n" +
 	"\x0edue_at_unix_ms\x18\x02 \x01(\x03H\x00R\vdueAtUnixMs\x88\x01\x01\x12+\n" +
 	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevisionB\x11\n" +
-	"\x0f_due_at_unix_ms2\x93\n" +
+	"\x0f_due_at_unix_ms2\xea\n" +
 	"\n" +
 	"\x05Agent\x12,\n" +
 	"\x03Ask\x12\x11.agent.AskRequest\x1a\x12.agent.AskResponse\x12G\n" +
@@ -1675,7 +1741,8 @@ const file_agent_proto_rawDesc = "" +
 	"\x15EditTaskDraftItemText\x12#.agent.EditTaskDraftItemTextRequest\x1a\x1f.agent.GetTaskDraftItemResponse\x12i\n" +
 	"\x1bSelectTaskDraftItemAssignee\x12).agent.SelectTaskDraftItemAssigneeRequest\x1a\x1f.agent.GetTaskDraftItemResponse\x12e\n" +
 	"\x19EditTaskDraftItemDeadline\x12'.agent.EditTaskDraftItemDeadlineRequest\x1a\x1f.agent.GetTaskDraftItemResponse\x12[\n" +
-	"\x14ConfirmTaskDraftItem\x12\".agent.ConfirmTaskDraftItemRequest\x1a\x1f.agent.GetTaskDraftItemResponseB'Z%github.com/yjydist/go-im/rpc/agent/pbb\x06proto3"
+	"\x14ConfirmTaskDraftItem\x12\".agent.ConfirmTaskDraftItemRequest\x1a\x1f.agent.GetTaskDraftItemResponse\x12U\n" +
+	"\x11SkipTaskDraftItem\x12\x1f.agent.SkipTaskDraftItemRequest\x1a\x1f.agent.GetTaskDraftItemResponseB'Z%github.com/yjydist/go-im/rpc/agent/pbb\x06proto3"
 
 var (
 	file_agent_proto_rawDescOnce sync.Once
@@ -1689,67 +1756,70 @@ func file_agent_proto_rawDescGZIP() []byte {
 	return file_agent_proto_rawDescData
 }
 
-var file_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_agent_proto_goTypes = []any{
-	(*ConfirmTaskDraftItemRequest)(nil),        // 0: agent.ConfirmTaskDraftItemRequest
-	(*EditTaskDraftItemTextRequest)(nil),       // 1: agent.EditTaskDraftItemTextRequest
-	(*SelectTaskDraftItemAssigneeRequest)(nil), // 2: agent.SelectTaskDraftItemAssigneeRequest
-	(*EditTaskDraftItemDeadlineRequest)(nil),   // 3: agent.EditTaskDraftItemDeadlineRequest
-	(*GetTaskDraftItemRequest)(nil),            // 4: agent.GetTaskDraftItemRequest
-	(*TaskDraftCollectionItem)(nil),            // 5: agent.TaskDraftCollectionItem
-	(*GetTaskDraftCollectionResponse)(nil),     // 6: agent.GetTaskDraftCollectionResponse
-	(*GetTaskDraftItemResponse)(nil),           // 7: agent.GetTaskDraftItemResponse
-	(*AskRequest)(nil),                         // 8: agent.AskRequest
-	(*AskResponse)(nil),                        // 9: agent.AskResponse
-	(*GetTaskDraftRequest)(nil),                // 10: agent.GetTaskDraftRequest
-	(*GetTaskDraftResponse)(nil),               // 11: agent.GetTaskDraftResponse
-	(*TaskDraftItem)(nil),                      // 12: agent.TaskDraftItem
-	(*TaskDraftDeadline)(nil),                  // 13: agent.TaskDraftDeadline
-	(*PrepareTaskDraftRequest)(nil),            // 14: agent.PrepareTaskDraftRequest
-	(*PrepareTaskDraftResponse)(nil),           // 15: agent.PrepareTaskDraftResponse
-	(*EditTaskDraftRequest)(nil),               // 16: agent.EditTaskDraftRequest
-	(*ConfirmTaskDraftRequest)(nil),            // 17: agent.ConfirmTaskDraftRequest
-	(*SelectTaskDraftAssigneeRequest)(nil),     // 18: agent.SelectTaskDraftAssigneeRequest
-	(*EditTaskDraftDeadlineRequest)(nil),       // 19: agent.EditTaskDraftDeadlineRequest
+	(*SkipTaskDraftItemRequest)(nil),           // 0: agent.SkipTaskDraftItemRequest
+	(*ConfirmTaskDraftItemRequest)(nil),        // 1: agent.ConfirmTaskDraftItemRequest
+	(*EditTaskDraftItemTextRequest)(nil),       // 2: agent.EditTaskDraftItemTextRequest
+	(*SelectTaskDraftItemAssigneeRequest)(nil), // 3: agent.SelectTaskDraftItemAssigneeRequest
+	(*EditTaskDraftItemDeadlineRequest)(nil),   // 4: agent.EditTaskDraftItemDeadlineRequest
+	(*GetTaskDraftItemRequest)(nil),            // 5: agent.GetTaskDraftItemRequest
+	(*TaskDraftCollectionItem)(nil),            // 6: agent.TaskDraftCollectionItem
+	(*GetTaskDraftCollectionResponse)(nil),     // 7: agent.GetTaskDraftCollectionResponse
+	(*GetTaskDraftItemResponse)(nil),           // 8: agent.GetTaskDraftItemResponse
+	(*AskRequest)(nil),                         // 9: agent.AskRequest
+	(*AskResponse)(nil),                        // 10: agent.AskResponse
+	(*GetTaskDraftRequest)(nil),                // 11: agent.GetTaskDraftRequest
+	(*GetTaskDraftResponse)(nil),               // 12: agent.GetTaskDraftResponse
+	(*TaskDraftItem)(nil),                      // 13: agent.TaskDraftItem
+	(*TaskDraftDeadline)(nil),                  // 14: agent.TaskDraftDeadline
+	(*PrepareTaskDraftRequest)(nil),            // 15: agent.PrepareTaskDraftRequest
+	(*PrepareTaskDraftResponse)(nil),           // 16: agent.PrepareTaskDraftResponse
+	(*EditTaskDraftRequest)(nil),               // 17: agent.EditTaskDraftRequest
+	(*ConfirmTaskDraftRequest)(nil),            // 18: agent.ConfirmTaskDraftRequest
+	(*SelectTaskDraftAssigneeRequest)(nil),     // 19: agent.SelectTaskDraftAssigneeRequest
+	(*EditTaskDraftDeadlineRequest)(nil),       // 20: agent.EditTaskDraftDeadlineRequest
 }
 var file_agent_proto_depIdxs = []int32{
-	12, // 0: agent.TaskDraftCollectionItem.draft:type_name -> agent.TaskDraftItem
-	5,  // 1: agent.GetTaskDraftCollectionResponse.items:type_name -> agent.TaskDraftCollectionItem
-	5,  // 2: agent.GetTaskDraftItemResponse.item:type_name -> agent.TaskDraftCollectionItem
-	12, // 3: agent.GetTaskDraftResponse.draft:type_name -> agent.TaskDraftItem
-	13, // 4: agent.TaskDraftItem.deadline:type_name -> agent.TaskDraftDeadline
-	8,  // 5: agent.Agent.Ask:input_type -> agent.AskRequest
-	10, // 6: agent.Agent.GetTaskDraft:input_type -> agent.GetTaskDraftRequest
-	14, // 7: agent.Agent.PrepareTaskDraft:input_type -> agent.PrepareTaskDraftRequest
-	16, // 8: agent.Agent.EditTaskDraft:input_type -> agent.EditTaskDraftRequest
-	18, // 9: agent.Agent.SelectTaskDraftAssignee:input_type -> agent.SelectTaskDraftAssigneeRequest
-	19, // 10: agent.Agent.EditTaskDraftDeadline:input_type -> agent.EditTaskDraftDeadlineRequest
-	17, // 11: agent.Agent.ConfirmTaskDraft:input_type -> agent.ConfirmTaskDraftRequest
-	10, // 12: agent.Agent.RetryTaskReply:input_type -> agent.GetTaskDraftRequest
-	14, // 13: agent.Agent.PrepareTaskDraftCollection:input_type -> agent.PrepareTaskDraftRequest
-	10, // 14: agent.Agent.GetTaskDraftCollection:input_type -> agent.GetTaskDraftRequest
-	4,  // 15: agent.Agent.GetTaskDraftItem:input_type -> agent.GetTaskDraftItemRequest
-	1,  // 16: agent.Agent.EditTaskDraftItemText:input_type -> agent.EditTaskDraftItemTextRequest
-	2,  // 17: agent.Agent.SelectTaskDraftItemAssignee:input_type -> agent.SelectTaskDraftItemAssigneeRequest
-	3,  // 18: agent.Agent.EditTaskDraftItemDeadline:input_type -> agent.EditTaskDraftItemDeadlineRequest
-	0,  // 19: agent.Agent.ConfirmTaskDraftItem:input_type -> agent.ConfirmTaskDraftItemRequest
-	9,  // 20: agent.Agent.Ask:output_type -> agent.AskResponse
-	11, // 21: agent.Agent.GetTaskDraft:output_type -> agent.GetTaskDraftResponse
-	15, // 22: agent.Agent.PrepareTaskDraft:output_type -> agent.PrepareTaskDraftResponse
-	11, // 23: agent.Agent.EditTaskDraft:output_type -> agent.GetTaskDraftResponse
-	11, // 24: agent.Agent.SelectTaskDraftAssignee:output_type -> agent.GetTaskDraftResponse
-	11, // 25: agent.Agent.EditTaskDraftDeadline:output_type -> agent.GetTaskDraftResponse
-	11, // 26: agent.Agent.ConfirmTaskDraft:output_type -> agent.GetTaskDraftResponse
-	11, // 27: agent.Agent.RetryTaskReply:output_type -> agent.GetTaskDraftResponse
-	15, // 28: agent.Agent.PrepareTaskDraftCollection:output_type -> agent.PrepareTaskDraftResponse
-	6,  // 29: agent.Agent.GetTaskDraftCollection:output_type -> agent.GetTaskDraftCollectionResponse
-	7,  // 30: agent.Agent.GetTaskDraftItem:output_type -> agent.GetTaskDraftItemResponse
-	7,  // 31: agent.Agent.EditTaskDraftItemText:output_type -> agent.GetTaskDraftItemResponse
-	7,  // 32: agent.Agent.SelectTaskDraftItemAssignee:output_type -> agent.GetTaskDraftItemResponse
-	7,  // 33: agent.Agent.EditTaskDraftItemDeadline:output_type -> agent.GetTaskDraftItemResponse
-	7,  // 34: agent.Agent.ConfirmTaskDraftItem:output_type -> agent.GetTaskDraftItemResponse
-	20, // [20:35] is the sub-list for method output_type
-	5,  // [5:20] is the sub-list for method input_type
+	13, // 0: agent.TaskDraftCollectionItem.draft:type_name -> agent.TaskDraftItem
+	6,  // 1: agent.GetTaskDraftCollectionResponse.items:type_name -> agent.TaskDraftCollectionItem
+	6,  // 2: agent.GetTaskDraftItemResponse.item:type_name -> agent.TaskDraftCollectionItem
+	13, // 3: agent.GetTaskDraftResponse.draft:type_name -> agent.TaskDraftItem
+	14, // 4: agent.TaskDraftItem.deadline:type_name -> agent.TaskDraftDeadline
+	9,  // 5: agent.Agent.Ask:input_type -> agent.AskRequest
+	11, // 6: agent.Agent.GetTaskDraft:input_type -> agent.GetTaskDraftRequest
+	15, // 7: agent.Agent.PrepareTaskDraft:input_type -> agent.PrepareTaskDraftRequest
+	17, // 8: agent.Agent.EditTaskDraft:input_type -> agent.EditTaskDraftRequest
+	19, // 9: agent.Agent.SelectTaskDraftAssignee:input_type -> agent.SelectTaskDraftAssigneeRequest
+	20, // 10: agent.Agent.EditTaskDraftDeadline:input_type -> agent.EditTaskDraftDeadlineRequest
+	18, // 11: agent.Agent.ConfirmTaskDraft:input_type -> agent.ConfirmTaskDraftRequest
+	11, // 12: agent.Agent.RetryTaskReply:input_type -> agent.GetTaskDraftRequest
+	15, // 13: agent.Agent.PrepareTaskDraftCollection:input_type -> agent.PrepareTaskDraftRequest
+	11, // 14: agent.Agent.GetTaskDraftCollection:input_type -> agent.GetTaskDraftRequest
+	5,  // 15: agent.Agent.GetTaskDraftItem:input_type -> agent.GetTaskDraftItemRequest
+	2,  // 16: agent.Agent.EditTaskDraftItemText:input_type -> agent.EditTaskDraftItemTextRequest
+	3,  // 17: agent.Agent.SelectTaskDraftItemAssignee:input_type -> agent.SelectTaskDraftItemAssigneeRequest
+	4,  // 18: agent.Agent.EditTaskDraftItemDeadline:input_type -> agent.EditTaskDraftItemDeadlineRequest
+	1,  // 19: agent.Agent.ConfirmTaskDraftItem:input_type -> agent.ConfirmTaskDraftItemRequest
+	0,  // 20: agent.Agent.SkipTaskDraftItem:input_type -> agent.SkipTaskDraftItemRequest
+	10, // 21: agent.Agent.Ask:output_type -> agent.AskResponse
+	12, // 22: agent.Agent.GetTaskDraft:output_type -> agent.GetTaskDraftResponse
+	16, // 23: agent.Agent.PrepareTaskDraft:output_type -> agent.PrepareTaskDraftResponse
+	12, // 24: agent.Agent.EditTaskDraft:output_type -> agent.GetTaskDraftResponse
+	12, // 25: agent.Agent.SelectTaskDraftAssignee:output_type -> agent.GetTaskDraftResponse
+	12, // 26: agent.Agent.EditTaskDraftDeadline:output_type -> agent.GetTaskDraftResponse
+	12, // 27: agent.Agent.ConfirmTaskDraft:output_type -> agent.GetTaskDraftResponse
+	12, // 28: agent.Agent.RetryTaskReply:output_type -> agent.GetTaskDraftResponse
+	16, // 29: agent.Agent.PrepareTaskDraftCollection:output_type -> agent.PrepareTaskDraftResponse
+	7,  // 30: agent.Agent.GetTaskDraftCollection:output_type -> agent.GetTaskDraftCollectionResponse
+	8,  // 31: agent.Agent.GetTaskDraftItem:output_type -> agent.GetTaskDraftItemResponse
+	8,  // 32: agent.Agent.EditTaskDraftItemText:output_type -> agent.GetTaskDraftItemResponse
+	8,  // 33: agent.Agent.SelectTaskDraftItemAssignee:output_type -> agent.GetTaskDraftItemResponse
+	8,  // 34: agent.Agent.EditTaskDraftItemDeadline:output_type -> agent.GetTaskDraftItemResponse
+	8,  // 35: agent.Agent.ConfirmTaskDraftItem:output_type -> agent.GetTaskDraftItemResponse
+	8,  // 36: agent.Agent.SkipTaskDraftItem:output_type -> agent.GetTaskDraftItemResponse
+	21, // [21:37] is the sub-list for method output_type
+	5,  // [5:21] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name
 	5,  // [5:5] is the sub-list for extension extendee
 	0,  // [0:5] is the sub-list for field type_name
@@ -1766,17 +1836,18 @@ func file_agent_proto_init() {
 	file_agent_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[5].OneofWrappers = []any{}
-	file_agent_proto_msgTypes[14].OneofWrappers = []any{}
-	file_agent_proto_msgTypes[17].OneofWrappers = []any{}
+	file_agent_proto_msgTypes[6].OneofWrappers = []any{}
+	file_agent_proto_msgTypes[15].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[18].OneofWrappers = []any{}
 	file_agent_proto_msgTypes[19].OneofWrappers = []any{}
+	file_agent_proto_msgTypes[20].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_proto_rawDesc), len(file_agent_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
