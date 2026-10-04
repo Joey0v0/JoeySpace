@@ -9,6 +9,7 @@ import (
 const (
 	TriggerInboxRunning      = "running"
 	TriggerInboxExhausted    = "exhausted"
+	TriggerInboxCompleted    = "completed"
 	TriggerModelAttemptLimit = 2
 	TriggerLeaseDuration     = 30 * time.Second
 )

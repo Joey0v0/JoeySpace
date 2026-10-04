@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 const triggerInboxSQLTimeout = 3 * time.Second
 const triggerInboxColumns = `message_id, action, event_version, status, received_at`
 const insertTriggerInbox = `INSERT INTO agent_task_trigger_inbox (message_id, action, event_version, status) VALUES (?, ?, ?, ?)`
-const selectTriggerInboxForUpdate = `SELECT ` + triggerInboxColumns + ` FROM agent_task_trigger_inbox WHERE message_id = ? FOR UPDATE`
+const selectTriggerInboxForUpdate = `SELECT ` + triggerInboxColumns + `, result_run_id FROM agent_task_trigger_inbox WHERE message_id = ? FOR UPDATE`
 
 var errInvalidTriggerInboxReceipt = errors.New("saved trigger notification receipt is invalid")
 
@@ -100,8 +101,9 @@ func checkTriggerInboxReceipt(ctx context.Context, tx *gorm.DB, expected model.A
 		var saved model.AgentTriggerEvent
 		var savedStatus string
 		var receivedAt time.Time
-		if found || rows.Scan(&saved.MessageID, &saved.Action, &saved.Version, &savedStatus, &receivedAt) != nil ||
-			saved != expected || validateTriggerNotification(saved) != nil || !validTriggerInboxReceiptStatus(savedStatus) || receivedAt.IsZero() || receivedAt.UnixMilli() <= 0 {
+		var resultRunID sql.NullInt64
+		if found || rows.Scan(&saved.MessageID, &saved.Action, &saved.Version, &savedStatus, &receivedAt, &resultRunID) != nil ||
+			saved != expected || validateTriggerNotification(saved) != nil || !validTriggerInboxReceiptStatus(savedStatus) || !validTriggerInboxResult(savedStatus, resultRunID) || receivedAt.IsZero() || receivedAt.UnixMilli() <= 0 {
 			return errInvalidTriggerInboxReceipt
 		}
 		found = true

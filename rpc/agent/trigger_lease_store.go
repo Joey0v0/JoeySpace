@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const triggerExecutionColumns = triggerInboxColumns + `, lease_token, lease_until, model_attempts, model_started`
+const triggerExecutionColumns = triggerInboxColumns + `, lease_token, lease_until, model_attempts, model_started, result_run_id`
 const selectLiveTriggerLease = `SELECT ` + triggerExecutionColumns + ` FROM agent_task_trigger_inbox WHERE message_id = ? AND status = 'running' AND lease_token = ? AND lease_until > UTC_TIMESTAMP(6) FOR UPDATE`
 
 type triggerExecutionRow struct {
@@ -23,6 +23,7 @@ type triggerExecutionRow struct {
 	Until         sql.NullTime
 	ModelAttempts int
 	ModelStarted  int
+	ResultRunID   sql.NullInt64
 }
 
 func validTriggerLeaseToken(token string) bool {
@@ -39,10 +40,15 @@ func validTriggerLeaseToken(token string) bool {
 
 func validateTriggerExecutionRow(row *triggerExecutionRow) error {
 	if row == nil || validateTriggerNotification(row.Event) != nil || row.ReceivedAt.IsZero() || row.ReceivedAt.UnixMilli() <= 0 ||
-		row.ModelAttempts < 0 || row.ModelAttempts > TriggerModelAttemptLimit || row.ModelStarted < 0 || row.ModelStarted > 1 {
+		row.ModelAttempts < 0 || row.ModelAttempts > TriggerModelAttemptLimit || row.ModelStarted < 0 || row.ModelStarted > 1 ||
+		!validTriggerInboxResult(row.Status, row.ResultRunID) {
 		return ErrInvalidTriggerState
 	}
 	switch row.Status {
+	case TriggerInboxCompleted:
+		if row.Token.Valid || row.Until.Valid || row.ModelStarted != 0 || row.ModelAttempts < 1 {
+			return ErrInvalidTriggerState
+		}
 	case TriggerInboxQueued, TriggerInboxExhausted:
 		if row.Token.Valid || row.Until.Valid || row.ModelStarted != 0 ||
 			(row.Status == TriggerInboxQueued && row.ModelAttempts >= TriggerModelAttemptLimit) ||
@@ -88,7 +94,7 @@ func readTriggerExecutionRow(ctx context.Context, tx *gorm.DB, query string, arg
 		}
 		row := &triggerExecutionRow{}
 		if result != nil || rows.Scan(&row.Event.MessageID, &row.Event.Action, &row.Event.Version, &row.Status, &row.ReceivedAt,
-			&row.Token, &row.Until, &row.ModelAttempts, &row.ModelStarted) != nil || validateTriggerExecutionRow(row) != nil {
+			&row.Token, &row.Until, &row.ModelAttempts, &row.ModelStarted, &row.ResultRunID) != nil || validateTriggerExecutionRow(row) != nil {
 			return nil, ErrInvalidTriggerState
 		}
 		result = row
@@ -185,5 +191,12 @@ func (s *TriggerInboxStore) withTriggerLease(ctx context.Context, lease TriggerL
 }
 
 func validTriggerInboxReceiptStatus(value string) bool {
-	return value == TriggerInboxQueued || value == TriggerInboxRunning || value == TriggerInboxExhausted
+	return value == TriggerInboxQueued || value == TriggerInboxRunning || value == TriggerInboxExhausted || value == TriggerInboxCompleted
+}
+
+func validTriggerInboxResult(state string, result sql.NullInt64) bool {
+	if state == TriggerInboxCompleted {
+		return result.Valid && result.Int64 > 0
+	}
+	return !result.Valid
 }
