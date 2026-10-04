@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "rpc/im/im.proto";
+
+package im;
+option go_package = "github.com/yjydist/go-im/rpc/im/pb";
+
+// Dedicated mTLS service. Never registered on the ordinary IM or bot port.
+service IMTrigger {
+  rpc ReadTaskTriggerContext(ReadTaskTriggerContextRequest) returns (ReadTaskTriggerContextResponse);
+}
+
+message ReadTaskTriggerContextRequest {
+  int64 message_id = 1;
+}
+
+message ReadTaskTriggerContextResponse {
+  int64 message_id = 1;
+  string msg_id = 2;
+  int64 actor_id = 3;
+  int64 team_id = 4;
+  int64 group_id = 5;
+  string instruction = 6;
+  int64 reference_time_unix_ms = 7;
+  string request_key = 8;
+  // At most 20 messages, descending IDs <= the trigger ID; includes the source.
+  repeated TeamGroupMessage messages = 9;
+}
