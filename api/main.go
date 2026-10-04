@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/yjydist/go-im/examples"
 	agentpb "github.com/yjydist/go-im/rpc/agent/pb"
 	impb "github.com/yjydist/go-im/rpc/im/pb"
 	taskpb "github.com/yjydist/go-im/rpc/task/pb"
@@ -45,6 +46,11 @@ func main() {
 		Method:  http.MethodGet,
 		Path:    "/demo/chat",
 		Handler: chatDemoHandler,
+	})
+	server.AddRoutes([]rest.Route{
+		{Method: http.MethodGet, Path: "/demo/multi-draft-core.js", Handler: chatDemoScriptHandler(examples.MultiDraftCoreJS)},
+		{Method: http.MethodGet, Path: "/demo/multi-draft-actions.js", Handler: chatDemoScriptHandler(examples.MultiDraftActionsJS)},
+		{Method: http.MethodGet, Path: "/demo/multi-draft-view.js", Handler: chatDemoScriptHandler(examples.MultiDraftViewJS)},
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodPost,

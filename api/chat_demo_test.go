@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/yjydist/go-im/examples"
 )
 
 func TestChatDemoServesEmbeddedPage(t *testing.T) {
@@ -20,5 +22,22 @@ func TestChatDemoServesEmbeddedPage(t *testing.T) {
 		if !strings.Contains(w.Body.String(), expected) {
 			t.Fatalf("embedded page missing %q", expected)
 		}
+	}
+}
+
+func TestMultiDraftDemoServesSameOriginEmbeddedScripts(t *testing.T) {
+	for _, asset := range []struct{ path, body string }{
+		{"/demo/multi-draft-core.js", examples.MultiDraftCoreJS},
+		{"/demo/multi-draft-actions.js", examples.MultiDraftActionsJS},
+		{"/demo/multi-draft-view.js", examples.MultiDraftViewJS},
+	} {
+		t.Run(asset.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			chatDemoScriptHandler(asset.body)(w, httptest.NewRequest(http.MethodGet, asset.path, nil))
+			if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/javascript; charset=utf-8" || w.Header().Get("Cache-Control") != "no-store" ||
+				asset.body == "" || w.Body.String() != asset.body || !strings.Contains(examples.ChatHTML, `src="`+asset.path+`"`) {
+				t.Fatalf("missing same-origin embedded script: status=%d type=%q", w.Code, w.Header().Get("Content-Type"))
+			}
+		})
 	}
 }
