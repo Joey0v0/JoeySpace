@@ -253,7 +253,7 @@ Confirm 追加 optional 数字 `expected_due_at_unix_ms`；非零时间由 Agent
 - `GET /api/v1/agent/runs/{run_id}/drafts`：返回运行范围、`item_count` 和按稳定 `item_index` 排列的全部 `items`。
 - `GET /api/v1/agent/runs/{run_id}/drafts/{item_index}`：显式读取一项，索引为 0—4 的规范整数；实际项不存在返回 404，不退回第 0 项。
 
-所有 int64 ID 和 `revision` 保持十进制字符串，索引/项数是小整数。每项带 `status`、完整 `draft`（含负责人和九个时间依据字段）、`task_id`、`reply_status`、`reply_msg_id`。本批仅支持待确认新集合，任务 ID 为 `"0"`，回帖为 `disabled` 或 `not_started`；没有新页面操作、多项编辑/确认/跳过/回帖。旧单项入口遇到集合返回冲突，即使集合只有一项；新读取入口也不隐式适配旧单项运行。
+所有 int64 ID 和 `revision` 保持十进制字符串，索引/项数是小整数。每项带 `status`、完整 `draft`（含负责人和九个时间依据字段）、`task_id`、`reply_status`、`reply_msg_id`。保存批次先仅支持待确认；后续逐项编辑和确认见下文，当前页面仍单项。旧单项入口遇到集合返回冲突，即使集合只有一项；新读取入口也不隐式适配旧单项运行。
 
 同键重放保持原集合，模式、范围、指令或首次参考改变返回冲突。每次重放和读取仍查当前本人及团队群资格；Gateway 不计算负责人/时间或直接读数据库。异常、不完整、错序、缺索引或损坏的服务响应返回 502。[共同契约](../docs/multi-draft-storage-contract.md)、[本批审查与验证](../docs/multi-draft-storage-review.md)。
 
@@ -270,3 +270,15 @@ Confirm 追加 optional 数字 `expected_due_at_unix_ms`；非零时间由 Agent
 run/index/版本必须规范，index显式0—4且实际存在；所有正文字段必须存在，description可空，负责人字符串0明确未指派，时间整数0明确不设。拒绝null、额外字段、第二个JSON对象、非法或非正版本；新文字只带新值和整项版本，不要求旧文字字段，旧接口正文保持。
 
 成功返回已有指定项结构`data.{run_id,team_id,group_id,item_count,item}`，ID和revision仍字符串。Gateway核对原项身份、完整依据、提交值及保存版本为原版本或安全+1；错误结果502，过时/冻结/模式不符409，当前权限403。实际变化只增目标版本，相同内容和处理状态no-op不增；响应丢失后须先重读，不能用旧版本盲重试。原称呼、来源消息和时间解释依据保留，保存不创建Task、不回帖。[共同契约](../docs/multi-draft-edit-contract.md)、[审查与验证](../docs/multi-draft-edit-review.md)。当前页面仍单项，多项页面后续接入。
+
+### 多项草稿逐项确认（2026-10-04）
+
+POST `/api/v1/agent/runs/{run_id}/drafts/{item_index}/confirm`，20秒路由预算。正文是完整本人审查快照：
+
+```json
+{"expected_title":"修复缓存","expected_description":"补充说明","expected_revision":"2","expected_assignee_id":"0","expected_due_at_unix_ms":0,"expected_deadline_resolution":"unset"}
+```
+
+所有字段必填；负责人/版本是规范十进制字符串，时间是整数，说明可空。已读取文字精确转发，不替用户trim快照；拒绝null、额外字段、第二JSON、缺索引和非法值。Agent仍核对本人/当前群资格及waiting正负责人，逐项冻结后调用Task；失败或超时先GET重读，再由本人明确重试同一项，不解冻或换生成键。
+
+GET集合与项允许waiting_confirmation（TaskID0）、creating（0）、succeeded（正ID）混合，各项版本独立。成功确认只有该项succeeded且保存了TaskID，版本/文字/负责人/时间/处理状态须与快照完全一致，否则502；旧版本/冻结修改409。其他waiting项仍可编辑，冻结/结果保存不增内容版本。当前回复仅disabled/not_started，空消息ID，未接逐项群回帖，也未接多项页面或跳过。[共同契约](../docs/multi-draft-confirm-contract.md)、[本轮审查](../docs/multi-draft-confirm-review.md)。

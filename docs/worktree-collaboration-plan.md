@@ -1,6 +1,6 @@
 # Worktree 多 Agent 协作方案
 
-日期：2026-10-03。状态：**首批负责人闭环已通过本地验证并快进合入 main；下一批截止时间正在讨论选型**。
+日期：2026-10-03，进展更新2026-10-04。状态：**负责人、自动时间、多项保存/读取、逐项编辑已通过本地验证并逐批合入main；当前逐项确认批次见末尾记录**。
 
 本方案中的 Agent 指参与项目开发的 Codex agent，与项目运行时的 Eino Agent 服务不同。依据 [项目计划](project-plan.md)、[负责人方案](agent-assignee-design.md)和现行 [AGENTS.md](../AGENTS.md)。方案讨论时仅新增本文；用户随后明确要求按方案执行，已将协作要求加入 AGENTS.md，准备共同契约。实际进展另见本文第 9 节。
 
@@ -180,3 +180,18 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 用户要求继续后，上轮c24dc97快进合main。共同协议/生成代码和[契约](multi-draft-edit-contract.md)提交01dedbf，三个原worktree干净复用，没有新建/删除目录。主工作区codex/multi-draft-edit-integration；后端目录assignee-backend对应codex/multi-draft-edit-backend，仅Agent非生成逐项编辑与必要读取helper；Gateway目录assignee-gateway对应codex/multi-draft-edit-gateway，仅三PUT与校验/路由/测试；组合目录assignee-ui对应codex/multi-draft-edit-flow，仅新api/multi_draft_edit_flow_test.go。本批仍不改页面。
 
 共同1、后端3、Gateway2、组合1、集中审查1，共八步；资格/版本/数据归属沿既定A50/A54，普通事务与字段取舍已记录，发现新架构选择仍先讨论。执行agent仅编辑/gofmt/diffcheck，主agent审查允许文件并提交整合与集中测试，不让子任务停在测试审批。当前交付记录、全部文件和验证以[本批审查](multi-draft-edit-review.md)为准；main合入新批次待用户审查，未push/迁移/部署，不声称固定倍数提速。
+
+## 16. 逐项确认批次（2026-10-04）
+
+用户继续后，上轮完整4700612快进合本地main。共同协议/生成代码及[契约](multi-draft-confirm-contract.md)提交fbe19f7，通过Agent/Gateway原测试后，复用三个干净worktree从同一提交建新分支；没有删除目录或生成代码。主工作区codex/multi-draft-confirm-integration。
+
+| 角色 | 绝对目录 | 分支 | 允许范围 |
+| --- | --- | --- | --- |
+| 后端 | `D:/zy/GoLang/go-im/.worktrees/assignee-backend` | `codex/multi-draft-confirm-backend` | Agent非生成collection确认/存储与必要混合校验/测试，复用现有确认配置 |
+| Gateway | `D:/zy/GoLang/go-im/.worktrees/assignee-gateway` | `codex/multi-draft-confirm-gateway` | api新confirm handler/test，集合读取校验、编辑成功保护及main路由 |
+| 组合 | `D:/zy/GoLang/go-im/.worktrees/assignee-ui` | `codex/multi-draft-confirm-flow` | 仅新增api/multi_draft_confirm_flow_test.go，不改页面 |
+| 主agent | `D:/zy/GoLang/go-im` | `codex/multi-draft-confirm-integration` | 协议/generated/docs、统一提交、检查/集成和集中验证 |
+
+本批八步按整体计算。执行agent只编辑/gofmt/diffcheck，不自行提交/合并/push或测试审批；主agent检查允许文件、集中运行定向/全量验证并后端→Gateway→组合整合。单项已有流程保持，逐项回帖/跳过/页面留后续。实际结果和全部文件以[本轮审查](multi-draft-confirm-review.md)为准；真实数据库、迁移、模型、容器/浏览器、云同步仍留最终统一验收，不声称固定倍数效率。
+
+实际整合：root提交后端1b043b1（7文件）、Gateway3fca606（7文件）、组合5268223（1文件）；后端快进，Gateway/组合无冲突合并，业务代码00bc208。主agent定向和整合全量Go、Node140、LinuxAgent/Gateway编译通过，实际验证范围见审查记录。当前整合分支供用户审查，main仍4700612；三个执行worktree干净保留，没有push或云同步。

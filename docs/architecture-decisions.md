@@ -168,3 +168,5 @@ A51/A52/A53 确认来源：用户对三项方案问题分别明确选择 A，并
 沿用户已确认同步持久冻结、本人显式重试、逐项版本和创建方案，项状态归草稿表，集合头不随任一项成功改成succeeded。备选复用run状态会冻结其他项并混淆部分成功；现在读出各项状态，代价为集合无单一成功状态，汇总/跳过后续接线。Task键沿已有agent-task-run-index格式，index0保持原键；备选每次随机键会重复创建，重新调用模型会改变冻结内容。短事务完整锁读只比较目标，提交冻结后才调用Task；成功再保存该项结果。备选跨服务持锁或后台自动恢复引入阻塞/身份与调度，本批不改变A41。
 
 新确认使用专用RPC/HTTP并要求显式项身份、全部审查字段，旧single入口不改；读取校验扩到合法混合状态，编辑成功仍waiting。代价是协调更新Agent/Gateway，不给旧单项客户端默认操作第0项。复用现有生产ConfigureDraftConfirmation与Task客户端，不重复配置。A55逐项回帖尚未接线，不将新集合调用旧run级回帖键，回复仅disabled/not_started而非accepted。上述均为既定选择中的实现细节；[共同契约](multi-draft-confirm-contract.md)规定字段/SQL/错误/范围，实际验证待完成。
+
+逐项确认实际验证（2026-10-04）：新RPC/HTTP、短事务冻结、固定项键、Task调用与独立结果保存已接线；相同内容合法creating/succeeded推进复用原结果，旧版本/异结果/损坏拒绝，冻结版本不增。共享校验同时拒绝未处理负责人或needs_input的伪冻结，编辑返回仍waiting/task0；Task键冲突HTTP409用Task专用业务码，备选沿生成键码会混淆操作。全量Go、Node140、Linux编译和三项实际HTTP/TCP gRPC加SQL/业务替身通过，[全部26文件与限制](multi-draft-confirm-review.md)。不新增架构选型，确认依据仍用户A41/A50/A54；真实数据库、模型、容器/浏览器未验收。
