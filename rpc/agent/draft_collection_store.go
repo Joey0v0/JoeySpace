@@ -106,28 +106,12 @@ func (s *draftStore) saveWaitingDraftCollection(ctx context.Context, runID int64
 	if runID <= 0 || !validDraftRequestKey(requestKey) || !validDraftFingerprint(fingerprint) || len(drafts) < 1 || len(drafts) > maxGeneratedTaskDrafts {
 		return 0, status.Error(codes.InvalidArgument, "invalid draft collection")
 	}
-	items := make([]taskDraft, len(drafts))
-	for i, draft := range drafts {
-		run, err := newWaitingTaskDraftRun(scope, draft)
-		if err != nil {
-			return 0, err
-		}
-		if run.Draft.AssigneeResolution == "" || run.Draft.Deadline.Resolution == "" {
-			return 0, status.Error(codes.InvalidArgument, "draft collection metadata is required")
-		}
-		items[i] = run.Draft
+	items, err := prepareWaitingDraftCollection(scope, drafts)
+	if err != nil {
+		return 0, err
 	}
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(insertDraftCollectionRun, runID, scope.TeamID, scope.GroupID, scope.InitiatorID, requestKey, fingerprint, string(draftWaitingConfirmation), "collection", len(items)).Error; err != nil {
-			return err
-		}
-		for i, draft := range items {
-			d := draft.Deadline
-			if err := tx.Exec(insertDraftCollectionItem, runID, i, draft.Title, draft.Description, draft.AssigneeID, draft.DueAtUnixMs, draft.SourceMessageID, draft.AssigneeName, string(draft.AssigneeResolution), d.Text, d.Source, d.SourceMessageID, d.ReferenceUnixMs, d.Timezone, d.Resolution, d.Reason, d.ParsedUnixMs, d.InstructionReferenceUnixMs, string(draftWaitingConfirmation)).Error; err != nil {
-				return err
-			}
-		}
-		return nil
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return insertWaitingDraftCollection(tx, runID, scope, items, requestKey, fingerprint)
 	})
 	if err != nil {
 		var mysqlErr *mysql.MySQLError
@@ -137,4 +121,51 @@ func (s *draftStore) saveWaitingDraftCollection(ctx context.Context, runID int64
 		return 0, draftStorageError(ctx, err)
 	}
 	return runID, nil
+}
+
+// Validate and normalize the whole collection before any SQL is executed.
+// The trusted caller still owns source authorization and request identity.
+func prepareWaitingDraftCollection(scope draftRunScope, drafts []taskDraft) ([]taskDraft, error) {
+	if len(drafts) < 1 || len(drafts) > maxGeneratedTaskDrafts {
+		return nil, status.Error(codes.InvalidArgument, "invalid draft collection")
+	}
+	items := make([]taskDraft, len(drafts))
+	for i, draft := range drafts {
+		run, err := newWaitingTaskDraftRun(scope, draft)
+		if err != nil {
+			return nil, err
+		}
+		if run.Draft.AssigneeResolution == "" || run.Draft.Deadline.Resolution == "" {
+			return nil, status.Error(codes.InvalidArgument, "draft collection metadata is required")
+		}
+		items[i] = run.Draft
+	}
+	return items, nil
+}
+
+// Insert already validated items and identity in the caller's transaction.
+// In particular, this does not commit, start a transaction, or replay conflicts:
+// a background caller must atomically save its inbox result in the same tx.
+func insertWaitingDraftCollection(tx *gorm.DB, runID int64, scope draftRunScope, items []taskDraft, requestKey, fingerprint string) error {
+	if tx == nil {
+		return errors.New("draft collection transaction is required")
+	}
+	result := tx.Exec(insertDraftCollectionRun, runID, scope.TeamID, scope.GroupID, scope.InitiatorID, requestKey, fingerprint, string(draftWaitingConfirmation), "collection", len(items))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("draft collection run insert affected an invalid number of rows")
+	}
+	for i, draft := range items {
+		d := draft.Deadline
+		result := tx.Exec(insertDraftCollectionItem, runID, i, draft.Title, draft.Description, draft.AssigneeID, draft.DueAtUnixMs, draft.SourceMessageID, draft.AssigneeName, string(draft.AssigneeResolution), d.Text, d.Source, d.SourceMessageID, d.ReferenceUnixMs, d.Timezone, d.Resolution, d.Reason, d.ParsedUnixMs, d.InstructionReferenceUnixMs, string(draftWaitingConfirmation))
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errors.New("draft collection item insert affected an invalid number of rows")
+		}
+	}
+	return nil
 }
