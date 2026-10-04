@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-04）：用户继续后，完整IM Outbox批次6ac032f已快进合本地main（全量Go/Linux Push通过，[九步22文件](agent-trigger-outbox-review.md)）。当前codex/trigger-team-auth-integration先按用户A60准备[IM→User受限资格核对契约](trigger-team-auth-contract.md)：专用mTLS仅允许IM、核对当前成员/有效用户、仅echo已查范围；三worktree分别资格逻辑、User监听、IM客户端。Agent→IM持久来源/群权限、队列/租约及模型仍后续。Outbox开关false、022未执行，没有真实模型/DB/Kafka/云联调、push或云同步，阶段6不标全完成。
+最新进展（2026-10-04）：main已合上批完整6ac032f。本轮业务1db0499在codex/trigger-team-auth-integration完成IM→User受限当前资格通道：独立UserTrigger/mTLS仅信任IM、当前成员/账户检查、仅双ID echo、独立User监听及IM客户端，Token不转发。三worktree交付由root整合，最终全量Go及Linux User/IM通过，[九步与20文件](trigger-team-auth-review.md)。IM客户端尚未接进程，Agent→IM持久来源/当前群资格、队列/租约与模型仍后续；Outbox开关false、022未执行，无真实DB/模型/云联调、push或同步，阶段6不标全完成。
 
 ## 1. 项目目标与学习背景
 
@@ -446,7 +446,7 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] 原生多项页面（2026-10-04）：独立集合面板经新HTTP逐项读取/编辑/确认/跳过/回帖，严格版本、完整时间证据、当前上下文和大ID；各项输入/重读标记独立，生成key/reference/已知run固定；明确区分候选处理、Task创建和回复受理，全部跳过不声称创建。Node187含实际三脚本组合/DOM与HTTP替身、全量Go、LinuxGateway通过。[九步20文件审查](multi-draft-page-review.md)。原single140回归保持，无新增协议/迁移/依赖，真实浏览器及外部服务未验收。
 
-当前下一步（2026-10-04）：A57—A61已由用户明确确认，[群内@AI方案](agent-mention-design.md)先按[IM Outbox契约](agent-trigger-outbox-contract.md)落地可靠通知。随后实施专用mTLS受限读取及触发者当前资格核对，再实施Agent持久排队/租约最多两次模型尝试与本人草稿入口；Task确认/回帖仍本人显式，不因后台生成改变A41/A46。mainf7abfd5、整合分支codex/agent-trigger-outbox-integration、三个worktree保留，阶段6不标全完成。最终核对已有库013—022及后续必要增量、机器人/独立证书；022尚未执行，真实验收留最终部署，方舟接入点/预算未定前不请求真实模型。离队须清理群资格，后台服务身份不得绕过当前权限。
+当前下一步（2026-10-04）：IM Outbox可靠通知与[IM→User当前资格通道](trigger-team-auth-review.md)均已有本地实现/验证；继续A60的Agent→IM专用mTLS来源读取，只按已保存触发派生actor/team/group、核对当前群并接本批User客户端，不信任Kafka自报范围。之后A61持久排队/租约最多两次生成和本人草稿入口；Task确认/回帖仍A41/A46本人显式。main6ac032f、本轮整合分支codex/trigger-team-auth-integration、三个worktree保留，不标阶段6全部完成。022及后续增量/生产证书/真实DB与模型验收留最终部署，方舟接入点/预算未定前不请求真实模型。
 
 ## 10. 决策记录与文档关系
 

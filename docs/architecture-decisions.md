@@ -224,3 +224,5 @@ A51/A52/A53 确认来源：用户对三项方案问题分别明确选择 A，并
 ### A60 受限资格核对实施分解（2026-10-04）
 
 沿已确认专用mTLS与当前用户资格，先建IM→User独立UserTrigger监听：只有exact IM证书服务可传自身已保存触发的actor/team，User只检查当前成员＋有效用户并echo这两个ID，不返回资料/角色，不模拟用户Token；随后Agent→IM来源接口从Outbox派生范围并再查当前群。备选IM跨库读User破坏归属，Agent直接按任意actor查User扩大读取面，复用原User Bearer方法则仍需长期Token，均不采用。代价是一条可配置的IM→User证书连接/独立端口，严格SAN而非信任同CA所有服务；无新中间件或权限方案，属于用户A60确定方案内调用分解。[共同契约](trigger-team-auth-contract.md)，本轮只实现资格通道，下轮实现IM持久范围约束；不把User资格成功当消息授权。
+
+资格通道实际验证：业务1db0499、最终全量Go和Linux User/IM通过，[九步20文件及限制](trigger-team-auth-review.md)。Role证书两端exact SAN，不接受wildcard代替；独立User服务与普通JWT端口隔离，禁用/离队拒绝，client清空metadata/严格echo/2秒无RPC重试。初次关闭conn被误归Canceled，已改Shutdown为Unavailable且caller取消优先；生命周期不依赖zrpc.Stop关闭普通监听，实际grpc.Stop与模拟Linux shutdown-wait行为通过。真实进程/数据库/证书部署仍未验收；IM新client未接main，Agent→IM范围查验、群资格与后台执行尚后续。

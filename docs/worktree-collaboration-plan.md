@@ -283,3 +283,5 @@ API与允许范围以[共同契约](agent-trigger-outbox-contract.md)为准；�
 | root | D:/zy/GoLang/go-im | codex/trigger-team-auth-integration | 共同协议/生成/TLS/declarations/fixture/docs、User实际TLS/SQL组合、提交/整合/集中验证 |
 
 共九步：共同1、handler2、listener2、client2、root组合1、审查1；子agent仅编辑/gofmt/diffcheck，不测试/build/审批、提交/合main/push。沿既定A60，不跨库或按用户metadata模拟身份；只建当前团队资格通道，不标Agent→IM来源或模型链完成。用户仍在主聊天审查，真实证书/数据库/迁移/云部署后续。
+
+实际完成：共同2c00b9c、资格c1fd2a4、监听b524afa、客户端0c21371，root无冲突整合并补exact服务器SAN/实际TLS组合为业务1db0499。集中包验证、最终全量Go与Linux User/IM通过；client初次conn关闭错误及监听退出行为均在审查内补齐后验证。[全部20文件/九步/未验收范围](trigger-team-auth-review.md)。main仍6ac032f，三个worktree干净保留，未push/迁移/模型调用/部署；没有单agent对照，不声称固定倍数效率。
