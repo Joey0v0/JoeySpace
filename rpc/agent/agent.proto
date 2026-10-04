@@ -37,6 +37,8 @@ service Agent {
   rpc ConfirmTaskDraftItem(ConfirmTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
   // 本人显式跳过未提交项，保留原内容；冻结或成功项不能跳过。
   rpc SkipTaskDraftItem(SkipTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
+  // 本人显式重试指定成功项的固定回帖；不重建任务、不接受新正文。
+  rpc RetryTaskReplyItem(GetTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
 }
 
 message SkipTaskDraftItemRequest {

@@ -12,6 +12,7 @@ import (
 
 type draftReplyRecord struct {
 	RunID       int64
+	ItemIndex   int32
 	TaskID      int64
 	TeamID      int64
 	GroupID     int64
@@ -49,7 +50,7 @@ type draftReplyStore interface {
 }
 
 const selectDraftReply = `SELECT run_id, task_id, team_id, group_id, initiator_id, msg_id, content, accepted
-    FROM agent_task_replies WHERE run_id = ? AND initiator_id = ?`
+    FROM agent_task_replies WHERE run_id = ? AND initiator_id = ? AND item_index = 0`
 
 // The run lock serializes preparation with confirmation and freezes one reply
 // from the committed task result. No network call runs inside this transaction.
@@ -115,7 +116,7 @@ func (s *draftStore) acceptReply(ctx context.Context, record draftReplyRecord) e
 		return status.Error(codes.Unavailable, "reply storage unavailable")
 	}
 	result := s.db.WithContext(ctx).Exec(`UPDATE agent_task_replies SET accepted = 1
-        WHERE run_id = ? AND initiator_id = ? AND msg_id = ? AND accepted = 0`, record.RunID, record.InitiatorID, record.MsgID)
+		WHERE run_id = ? AND initiator_id = ? AND msg_id = ? AND item_index = 0 AND accepted = 0`, record.RunID, record.InitiatorID, record.MsgID)
 	if result.Error != nil {
 		return draftStorageError(ctx, result.Error)
 	}

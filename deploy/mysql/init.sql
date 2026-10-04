@@ -179,7 +179,8 @@ CREATE TABLE agent_task_drafts (
 
 -- Agent 独立回帖意图；accepted 仅表示 IM 已受理，不表示群成员送达。
 CREATE TABLE agent_task_replies (
-    run_id       BIGINT PRIMARY KEY,
+    run_id       BIGINT NOT NULL,
+    item_index   INT NOT NULL DEFAULT 0,
     task_id      BIGINT NOT NULL,
     team_id      BIGINT NOT NULL,
     group_id     BIGINT NOT NULL,
@@ -189,5 +190,6 @@ CREATE TABLE agent_task_replies (
     accepted     TINYINT UNSIGNED NOT NULL DEFAULT 0,
     created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (run_id, item_index),
     UNIQUE KEY uk_agent_task_reply_msg (msg_id)
 ) ENGINE=InnoDB;

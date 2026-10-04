@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新批次（2026-10-04）：上轮本人跳过完整9a02643已快进合本地main；本轮IM专用逐项回帖接收、稳定项ID、完整持久冲突与同步重试已实现，旧第0项保留原消息/内容/时间/受理依据。三个worktree从196c97d并行，业务代码c3f3411无冲突整合；定向/全量Go、Node140、Linux IM/Agent/Gateway和三组实际生产客户端/监听TCP mTLS加SQL/User替身通过，Kafka失败由实际publisher＋writer替身验证。[七步、全部23文件与限制](multi-reply-im-review.md)、[A55取舍](architecture-decisions.md#a55多项任务逐项回帖用户已定2026-10-03)。当前codex/multi-reply-im-integration供审查，main仍9a02643；020/init已准备未实际迁移，Agent逐项回帖记录/编排与Gateway/页面后续，真实环境未验收，阶段6不标全部完成。
+最新批次（2026-10-04）：上轮IM逐项接收完整1a1156b已快进合本地main；本轮沿A55统一Agent回帖表021/默认项0、逐项重试RPC和状态校验契约，随后分存储、编排和Gateway三个worktree接持久回帖、同步尝试/本人重试及HTTP。共同准备不代表全部实现。[共同契约](multi-reply-agent-contract.md)、[A55取舍](architecture-decisions.md#a55多项任务逐项回帖用户已定2026-10-03)。多项页面/群内@AI及真实验收仍后续，阶段6不标全部完成。
 
 ## 1. 项目目标与学习背景
 

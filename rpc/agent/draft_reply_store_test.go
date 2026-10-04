@@ -148,7 +148,17 @@ func TestReplyMigrationMatchesFreshSchema(t *testing.T) {
 	}
 	pattern := regexp.MustCompile(`(?s)CREATE TABLE agent_task_replies \(.*?\) ENGINE=InnoDB;`)
 	normalize := func(b []byte) string { return strings.Join(strings.Fields(string(pattern.Find(b))), " ") }
-	if normalize(init) == "" || normalize(init) != normalize(migration) {
+	itemMigration, err := os.ReadFile("../../deploy/mysql/migrations/021_agent_task_reply_items.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	withoutComments := regexp.MustCompile(`(?m)--[^\r\n]*`).ReplaceAllString(string(itemMigration), "")
+	if strings.Join(strings.Fields(withoutComments), " ") != "USE go_im; ALTER TABLE agent_task_replies ADD COLUMN item_index INT NOT NULL DEFAULT 0 AFTER run_id, DROP PRIMARY KEY, ADD PRIMARY KEY (run_id, item_index);" {
+		t.Fatal("item migration must preserve existing reply data and unique message key")
+	}
+	expected := strings.Replace(normalize(migration), "run_id BIGINT PRIMARY KEY,", "run_id BIGINT NOT NULL, item_index INT NOT NULL DEFAULT 0,", 1)
+	expected = strings.Replace(expected, "UNIQUE KEY uk_agent_task_reply_msg", "PRIMARY KEY (run_id, item_index), UNIQUE KEY uk_agent_task_reply_msg", 1)
+	if normalize(init) == "" || normalize(init) != expected {
 		t.Fatal("fresh and migrated reply schema differ")
 	}
 }
