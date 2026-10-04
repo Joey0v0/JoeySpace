@@ -113,6 +113,26 @@ func (p *draftPreparer) verifyGeneratedDraft(ctx context.Context, token string, 
 	if p == nil {
 		return taskDraft{}, status.Error(codes.Unavailable, "draft preparation is not configured")
 	}
+	draft, err := verifyGeneratedDraftEvidence(ctx, scope, instruction, messages, draft, reference)
+	if err != nil {
+		return taskDraft{}, err
+	}
+	draft, err = p.assignees.resolve(ctx, token, scope.TeamID, draft)
+	if err != nil {
+		return taskDraft{}, err
+	}
+	if _, err := newWaitingTaskDraftRun(scope, draft); err != nil {
+		return taskDraft{}, status.Error(codes.FailedPrecondition, "generated draft is invalid")
+	}
+	return draft, nil
+}
+
+// The evidence boundary is shared by caller-authorized preparation and the
+// saved-trigger flow. It neither authorizes scope nor resolves user identities.
+func verifyGeneratedDraftEvidence(ctx context.Context, scope draftRunScope, instruction string, messages []*impb.TeamGroupMessage, draft taskDraft, reference *int64) (taskDraft, error) {
+	if ctx.Err() != nil {
+		return taskDraft{}, status.FromContextError(ctx.Err()).Err()
+	}
 	// The model supplies a literal mention, never a trusted member ID or state.
 	if draft.AssigneeID != 0 || draft.AssigneeResolution != "" || draft.DueAtUnixMs != 0 || !sourceInAuthorizedText(messages, draft.SourceMessageID) {
 		return taskDraft{}, status.Error(codes.FailedPrecondition, "draft source or fields could not be verified")
@@ -139,13 +159,6 @@ func (p *draftPreparer) verifyGeneratedDraft(ctx context.Context, token string, 
 	name := strings.TrimSpace(draft.AssigneeName)
 	if name != "" && !assigneeMentionInAuthorizedText(instruction, messages, name) {
 		return taskDraft{}, status.Error(codes.FailedPrecondition, "assignee mention could not be verified")
-	}
-	draft, err = p.assignees.resolve(ctx, token, scope.TeamID, draft)
-	if err != nil {
-		return taskDraft{}, err
-	}
-	if _, err := newWaitingTaskDraftRun(scope, draft); err != nil {
-		return taskDraft{}, status.Error(codes.FailedPrecondition, "generated draft is invalid")
 	}
 	return draft, nil
 }
