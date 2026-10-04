@@ -193,6 +193,17 @@ CREATE TABLE im_agent_trigger_outbox (
     KEY idx_im_agent_trigger_pending (published, message_id)
 ) ENGINE=InnoDB;
 
+-- Agent durable notification intake; queued is not a generated draft.
+CREATE TABLE agent_task_trigger_inbox (
+    message_id BIGINT NOT NULL,
+    action VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    event_version INT NOT NULL,
+    status VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'queued',
+    received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (message_id),
+    KEY idx_agent_trigger_inbox_pending (status, message_id)
+) ENGINE=InnoDB;
+
 -- Agent 独立回帖意图；accepted 仅表示 IM 已受理，不表示群成员送达。
 CREATE TABLE agent_task_replies (
     run_id       BIGINT NOT NULL,
