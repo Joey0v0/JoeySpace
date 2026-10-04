@@ -8,6 +8,7 @@ option go_package = "github.com/yjydist/go-im/rpc/im/pb";
 // Dedicated mTLS service. Never registered on the ordinary IM or bot port.
 service IMTrigger {
   rpc ReadTaskTriggerContext(ReadTaskTriggerContextRequest) returns (ReadTaskTriggerContextResponse);
+  rpc ResolveTaskTriggerMember(ResolveTaskTriggerMemberRequest) returns (ResolveTaskTriggerMemberResponse);
 }
 
 message ReadTaskTriggerContextRequest {
@@ -25,4 +26,28 @@ message ReadTaskTriggerContextResponse {
   string request_key = 8;
   // At most 20 messages, descending IDs <= the trigger ID; includes the source.
   repeated TeamGroupMessage messages = 9;
+}
+
+message ResolveTaskTriggerMemberRequest {
+  // No caller-supplied actor, team, group, JWT or reference time.
+  int64 message_id = 1;
+  string name = 2;
+}
+
+message TaskTriggerMemberCandidate {
+  int64 user_id = 1;
+  string username = 2;
+  string nickname = 3;
+}
+
+message ResolveTaskTriggerMemberResponse {
+  // All scope IDs and the stable key come from the saved trigger.
+  int64 message_id = 1;
+  int64 actor_id = 2;
+  int64 team_id = 3;
+  int64 group_id = 4;
+  string request_key = 5;
+  string name = 6;
+  repeated TaskTriggerMemberCandidate candidates = 7;
+  bool truncated = 8;
 }

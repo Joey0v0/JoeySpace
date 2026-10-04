@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IMTrigger_ReadTaskTriggerContext_FullMethodName = "/im.IMTrigger/ReadTaskTriggerContext"
+	IMTrigger_ReadTaskTriggerContext_FullMethodName   = "/im.IMTrigger/ReadTaskTriggerContext"
+	IMTrigger_ResolveTaskTriggerMember_FullMethodName = "/im.IMTrigger/ResolveTaskTriggerMember"
 )
 
 // IMTriggerClient is the client API for IMTrigger service.
@@ -29,6 +30,7 @@ const (
 // Dedicated mTLS service. Never registered on the ordinary IM or bot port.
 type IMTriggerClient interface {
 	ReadTaskTriggerContext(ctx context.Context, in *ReadTaskTriggerContextRequest, opts ...grpc.CallOption) (*ReadTaskTriggerContextResponse, error)
+	ResolveTaskTriggerMember(ctx context.Context, in *ResolveTaskTriggerMemberRequest, opts ...grpc.CallOption) (*ResolveTaskTriggerMemberResponse, error)
 }
 
 type iMTriggerClient struct {
@@ -49,6 +51,16 @@ func (c *iMTriggerClient) ReadTaskTriggerContext(ctx context.Context, in *ReadTa
 	return out, nil
 }
 
+func (c *iMTriggerClient) ResolveTaskTriggerMember(ctx context.Context, in *ResolveTaskTriggerMemberRequest, opts ...grpc.CallOption) (*ResolveTaskTriggerMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveTaskTriggerMemberResponse)
+	err := c.cc.Invoke(ctx, IMTrigger_ResolveTaskTriggerMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IMTriggerServer is the server API for IMTrigger service.
 // All implementations must embed UnimplementedIMTriggerServer
 // for forward compatibility.
@@ -56,6 +68,7 @@ func (c *iMTriggerClient) ReadTaskTriggerContext(ctx context.Context, in *ReadTa
 // Dedicated mTLS service. Never registered on the ordinary IM or bot port.
 type IMTriggerServer interface {
 	ReadTaskTriggerContext(context.Context, *ReadTaskTriggerContextRequest) (*ReadTaskTriggerContextResponse, error)
+	ResolveTaskTriggerMember(context.Context, *ResolveTaskTriggerMemberRequest) (*ResolveTaskTriggerMemberResponse, error)
 	mustEmbedUnimplementedIMTriggerServer()
 }
 
@@ -68,6 +81,9 @@ type UnimplementedIMTriggerServer struct{}
 
 func (UnimplementedIMTriggerServer) ReadTaskTriggerContext(context.Context, *ReadTaskTriggerContextRequest) (*ReadTaskTriggerContextResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadTaskTriggerContext not implemented")
+}
+func (UnimplementedIMTriggerServer) ResolveTaskTriggerMember(context.Context, *ResolveTaskTriggerMemberRequest) (*ResolveTaskTriggerMemberResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResolveTaskTriggerMember not implemented")
 }
 func (UnimplementedIMTriggerServer) mustEmbedUnimplementedIMTriggerServer() {}
 func (UnimplementedIMTriggerServer) testEmbeddedByValue()                   {}
@@ -108,6 +124,24 @@ func _IMTrigger_ReadTaskTriggerContext_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IMTrigger_ResolveTaskTriggerMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveTaskTriggerMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMTriggerServer).ResolveTaskTriggerMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IMTrigger_ResolveTaskTriggerMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMTriggerServer).ResolveTaskTriggerMember(ctx, req.(*ResolveTaskTriggerMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IMTrigger_ServiceDesc is the grpc.ServiceDesc for IMTrigger service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -118,6 +152,10 @@ var IMTrigger_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadTaskTriggerContext",
 			Handler:    _IMTrigger_ReadTaskTriggerContext_Handler,
+		},
+		{
+			MethodName: "ResolveTaskTriggerMember",
+			Handler:    _IMTrigger_ResolveTaskTriggerMember_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

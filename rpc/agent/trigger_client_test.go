@@ -29,6 +29,10 @@ func (f triggerContextRPCFunc) ReadTaskTriggerContext(ctx context.Context, req *
 	return f(ctx, req)
 }
 
+func (f triggerContextRPCFunc) ResolveTaskTriggerMember(context.Context, *impb.ResolveTaskTriggerMemberRequest, ...grpc.CallOption) (*impb.ResolveTaskTriggerMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "lookup is not used by source tests")
+}
+
 func triggerContextEnvironment(address, server string, files rpcauth.CertificateFiles) func(string) string {
 	values := map[string]string{"AGENT_IM_TRIGGER_ADDR": address, "AGENT_IM_TRIGGER_SERVER_NAME": server,
 		"AGENT_IM_TRIGGER_TLS_CERT_FILE": files.CertFile, "AGENT_IM_TRIGGER_TLS_KEY_FILE": files.KeyFile, "AGENT_IM_TRIGGER_TLS_CA_FILE": files.CAFile}

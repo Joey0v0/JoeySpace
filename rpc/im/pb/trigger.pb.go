@@ -174,6 +174,220 @@ func (x *ReadTaskTriggerContextResponse) GetMessages() []*TeamGroupMessage {
 	return nil
 }
 
+type ResolveTaskTriggerMemberRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// No caller-supplied actor, team, group, JWT or reference time.
+	MessageId     int64  `protobuf:"varint,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveTaskTriggerMemberRequest) Reset() {
+	*x = ResolveTaskTriggerMemberRequest{}
+	mi := &file_rpc_im_trigger_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveTaskTriggerMemberRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveTaskTriggerMemberRequest) ProtoMessage() {}
+
+func (x *ResolveTaskTriggerMemberRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_trigger_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveTaskTriggerMemberRequest.ProtoReflect.Descriptor instead.
+func (*ResolveTaskTriggerMemberRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_im_trigger_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ResolveTaskTriggerMemberRequest) GetMessageId() int64 {
+	if x != nil {
+		return x.MessageId
+	}
+	return 0
+}
+
+func (x *ResolveTaskTriggerMemberRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type TaskTriggerMemberCandidate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskTriggerMemberCandidate) Reset() {
+	*x = TaskTriggerMemberCandidate{}
+	mi := &file_rpc_im_trigger_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskTriggerMemberCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskTriggerMemberCandidate) ProtoMessage() {}
+
+func (x *TaskTriggerMemberCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_trigger_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskTriggerMemberCandidate.ProtoReflect.Descriptor instead.
+func (*TaskTriggerMemberCandidate) Descriptor() ([]byte, []int) {
+	return file_rpc_im_trigger_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *TaskTriggerMemberCandidate) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *TaskTriggerMemberCandidate) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *TaskTriggerMemberCandidate) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+type ResolveTaskTriggerMemberResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// All scope IDs and the stable key come from the saved trigger.
+	MessageId     int64                         `protobuf:"varint,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	ActorId       int64                         `protobuf:"varint,2,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	TeamId        int64                         `protobuf:"varint,3,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	GroupId       int64                         `protobuf:"varint,4,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	RequestKey    string                        `protobuf:"bytes,5,opt,name=request_key,json=requestKey,proto3" json:"request_key,omitempty"`
+	Name          string                        `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	Candidates    []*TaskTriggerMemberCandidate `protobuf:"bytes,7,rep,name=candidates,proto3" json:"candidates,omitempty"`
+	Truncated     bool                          `protobuf:"varint,8,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveTaskTriggerMemberResponse) Reset() {
+	*x = ResolveTaskTriggerMemberResponse{}
+	mi := &file_rpc_im_trigger_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveTaskTriggerMemberResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveTaskTriggerMemberResponse) ProtoMessage() {}
+
+func (x *ResolveTaskTriggerMemberResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_trigger_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveTaskTriggerMemberResponse.ProtoReflect.Descriptor instead.
+func (*ResolveTaskTriggerMemberResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_im_trigger_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetMessageId() int64 {
+	if x != nil {
+		return x.MessageId
+	}
+	return 0
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetActorId() int64 {
+	if x != nil {
+		return x.ActorId
+	}
+	return 0
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetRequestKey() string {
+	if x != nil {
+		return x.RequestKey
+	}
+	return ""
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetCandidates() []*TaskTriggerMemberCandidate {
+	if x != nil {
+		return x.Candidates
+	}
+	return nil
+}
+
+func (x *ResolveTaskTriggerMemberResponse) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
 var File_rpc_im_trigger_proto protoreflect.FileDescriptor
 
 const file_rpc_im_trigger_proto_rawDesc = "" +
@@ -193,9 +407,31 @@ const file_rpc_im_trigger_proto_rawDesc = "" +
 	"\x16reference_time_unix_ms\x18\a \x01(\x03R\x13referenceTimeUnixMs\x12\x1f\n" +
 	"\vrequest_key\x18\b \x01(\tR\n" +
 	"requestKey\x120\n" +
-	"\bmessages\x18\t \x03(\v2\x14.im.TeamGroupMessageR\bmessages2l\n" +
+	"\bmessages\x18\t \x03(\v2\x14.im.TeamGroupMessageR\bmessages\"T\n" +
+	"\x1fResolveTaskTriggerMemberRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\x03R\tmessageId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"m\n" +
+	"\x1aTaskTriggerMemberCandidate\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname\"\xa3\x02\n" +
+	" ResolveTaskTriggerMemberResponse\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\x03R\tmessageId\x12\x19\n" +
+	"\bactor_id\x18\x02 \x01(\x03R\aactorId\x12\x17\n" +
+	"\ateam_id\x18\x03 \x01(\x03R\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\x04 \x01(\x03R\agroupId\x12\x1f\n" +
+	"\vrequest_key\x18\x05 \x01(\tR\n" +
+	"requestKey\x12\x12\n" +
+	"\x04name\x18\x06 \x01(\tR\x04name\x12>\n" +
+	"\n" +
+	"candidates\x18\a \x03(\v2\x1e.im.TaskTriggerMemberCandidateR\n" +
+	"candidates\x12\x1c\n" +
+	"\ttruncated\x18\b \x01(\bR\ttruncated2\xd3\x01\n" +
 	"\tIMTrigger\x12_\n" +
-	"\x16ReadTaskTriggerContext\x12!.im.ReadTaskTriggerContextRequest\x1a\".im.ReadTaskTriggerContextResponseB$Z\"github.com/yjydist/go-im/rpc/im/pbb\x06proto3"
+	"\x16ReadTaskTriggerContext\x12!.im.ReadTaskTriggerContextRequest\x1a\".im.ReadTaskTriggerContextResponse\x12e\n" +
+	"\x18ResolveTaskTriggerMember\x12#.im.ResolveTaskTriggerMemberRequest\x1a$.im.ResolveTaskTriggerMemberResponseB$Z\"github.com/yjydist/go-im/rpc/im/pbb\x06proto3"
 
 var (
 	file_rpc_im_trigger_proto_rawDescOnce sync.Once
@@ -209,21 +445,27 @@ func file_rpc_im_trigger_proto_rawDescGZIP() []byte {
 	return file_rpc_im_trigger_proto_rawDescData
 }
 
-var file_rpc_im_trigger_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_rpc_im_trigger_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_rpc_im_trigger_proto_goTypes = []any{
-	(*ReadTaskTriggerContextRequest)(nil),  // 0: im.ReadTaskTriggerContextRequest
-	(*ReadTaskTriggerContextResponse)(nil), // 1: im.ReadTaskTriggerContextResponse
-	(*TeamGroupMessage)(nil),               // 2: im.TeamGroupMessage
+	(*ReadTaskTriggerContextRequest)(nil),    // 0: im.ReadTaskTriggerContextRequest
+	(*ReadTaskTriggerContextResponse)(nil),   // 1: im.ReadTaskTriggerContextResponse
+	(*ResolveTaskTriggerMemberRequest)(nil),  // 2: im.ResolveTaskTriggerMemberRequest
+	(*TaskTriggerMemberCandidate)(nil),       // 3: im.TaskTriggerMemberCandidate
+	(*ResolveTaskTriggerMemberResponse)(nil), // 4: im.ResolveTaskTriggerMemberResponse
+	(*TeamGroupMessage)(nil),                 // 5: im.TeamGroupMessage
 }
 var file_rpc_im_trigger_proto_depIdxs = []int32{
-	2, // 0: im.ReadTaskTriggerContextResponse.messages:type_name -> im.TeamGroupMessage
-	0, // 1: im.IMTrigger.ReadTaskTriggerContext:input_type -> im.ReadTaskTriggerContextRequest
-	1, // 2: im.IMTrigger.ReadTaskTriggerContext:output_type -> im.ReadTaskTriggerContextResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	5, // 0: im.ReadTaskTriggerContextResponse.messages:type_name -> im.TeamGroupMessage
+	3, // 1: im.ResolveTaskTriggerMemberResponse.candidates:type_name -> im.TaskTriggerMemberCandidate
+	0, // 2: im.IMTrigger.ReadTaskTriggerContext:input_type -> im.ReadTaskTriggerContextRequest
+	2, // 3: im.IMTrigger.ResolveTaskTriggerMember:input_type -> im.ResolveTaskTriggerMemberRequest
+	1, // 4: im.IMTrigger.ReadTaskTriggerContext:output_type -> im.ReadTaskTriggerContextResponse
+	4, // 5: im.IMTrigger.ResolveTaskTriggerMember:output_type -> im.ResolveTaskTriggerMemberResponse
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_rpc_im_trigger_proto_init() }
@@ -238,7 +480,7 @@ func file_rpc_im_trigger_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rpc_im_trigger_proto_rawDesc), len(file_rpc_im_trigger_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

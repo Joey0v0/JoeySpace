@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserTrigger_CheckTriggerTeamMember_FullMethodName = "/user.UserTrigger/CheckTriggerTeamMember"
+	UserTrigger_CheckTriggerTeamMember_FullMethodName   = "/user.UserTrigger/CheckTriggerTeamMember"
+	UserTrigger_ResolveTriggerTeamMember_FullMethodName = "/user.UserTrigger/ResolveTriggerTeamMember"
 )
 
 // UserTriggerClient is the client API for UserTrigger service.
@@ -30,6 +31,7 @@ const (
 // Never grants a user login or exposes profile/password/role information.
 type UserTriggerClient interface {
 	CheckTriggerTeamMember(ctx context.Context, in *CheckTriggerTeamMemberRequest, opts ...grpc.CallOption) (*CheckTriggerTeamMemberResponse, error)
+	ResolveTriggerTeamMember(ctx context.Context, in *ResolveTriggerTeamMemberRequest, opts ...grpc.CallOption) (*ResolveTriggerTeamMemberResponse, error)
 }
 
 type userTriggerClient struct {
@@ -50,6 +52,16 @@ func (c *userTriggerClient) CheckTriggerTeamMember(ctx context.Context, in *Chec
 	return out, nil
 }
 
+func (c *userTriggerClient) ResolveTriggerTeamMember(ctx context.Context, in *ResolveTriggerTeamMemberRequest, opts ...grpc.CallOption) (*ResolveTriggerTeamMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveTriggerTeamMemberResponse)
+	err := c.cc.Invoke(ctx, UserTrigger_ResolveTriggerTeamMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserTriggerServer is the server API for UserTrigger service.
 // All implementations must embed UnimplementedUserTriggerServer
 // for forward compatibility.
@@ -58,6 +70,7 @@ func (c *userTriggerClient) CheckTriggerTeamMember(ctx context.Context, in *Chec
 // Never grants a user login or exposes profile/password/role information.
 type UserTriggerServer interface {
 	CheckTriggerTeamMember(context.Context, *CheckTriggerTeamMemberRequest) (*CheckTriggerTeamMemberResponse, error)
+	ResolveTriggerTeamMember(context.Context, *ResolveTriggerTeamMemberRequest) (*ResolveTriggerTeamMemberResponse, error)
 	mustEmbedUnimplementedUserTriggerServer()
 }
 
@@ -70,6 +83,9 @@ type UnimplementedUserTriggerServer struct{}
 
 func (UnimplementedUserTriggerServer) CheckTriggerTeamMember(context.Context, *CheckTriggerTeamMemberRequest) (*CheckTriggerTeamMemberResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckTriggerTeamMember not implemented")
+}
+func (UnimplementedUserTriggerServer) ResolveTriggerTeamMember(context.Context, *ResolveTriggerTeamMemberRequest) (*ResolveTriggerTeamMemberResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResolveTriggerTeamMember not implemented")
 }
 func (UnimplementedUserTriggerServer) mustEmbedUnimplementedUserTriggerServer() {}
 func (UnimplementedUserTriggerServer) testEmbeddedByValue()                     {}
@@ -110,6 +126,24 @@ func _UserTrigger_CheckTriggerTeamMember_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserTrigger_ResolveTriggerTeamMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveTriggerTeamMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserTriggerServer).ResolveTriggerTeamMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserTrigger_ResolveTriggerTeamMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserTriggerServer).ResolveTriggerTeamMember(ctx, req.(*ResolveTriggerTeamMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserTrigger_ServiceDesc is the grpc.ServiceDesc for UserTrigger service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -120,6 +154,10 @@ var UserTrigger_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CheckTriggerTeamMember",
 			Handler:    _UserTrigger_CheckTriggerTeamMember_Handler,
+		},
+		{
+			MethodName: "ResolveTriggerTeamMember",
+			Handler:    _UserTrigger_ResolveTriggerTeamMember_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

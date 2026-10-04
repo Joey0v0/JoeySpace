@@ -127,6 +127,203 @@ func (x *CheckTriggerTeamMemberResponse) GetTeamId() int64 {
 	return 0
 }
 
+type ResolveTriggerTeamMemberRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// IM derives scope from its persisted source and checks current group access.
+	ActorId       int64  `protobuf:"varint,1,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	TeamId        int64  `protobuf:"varint,2,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveTriggerTeamMemberRequest) Reset() {
+	*x = ResolveTriggerTeamMemberRequest{}
+	mi := &file_rpc_user_trigger_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveTriggerTeamMemberRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveTriggerTeamMemberRequest) ProtoMessage() {}
+
+func (x *ResolveTriggerTeamMemberRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_user_trigger_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveTriggerTeamMemberRequest.ProtoReflect.Descriptor instead.
+func (*ResolveTriggerTeamMemberRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_user_trigger_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ResolveTriggerTeamMemberRequest) GetActorId() int64 {
+	if x != nil {
+		return x.ActorId
+	}
+	return 0
+}
+
+func (x *ResolveTriggerTeamMemberRequest) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *ResolveTriggerTeamMemberRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type TriggerTeamMemberCandidate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TriggerTeamMemberCandidate) Reset() {
+	*x = TriggerTeamMemberCandidate{}
+	mi := &file_rpc_user_trigger_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerTeamMemberCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerTeamMemberCandidate) ProtoMessage() {}
+
+func (x *TriggerTeamMemberCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_user_trigger_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerTeamMemberCandidate.ProtoReflect.Descriptor instead.
+func (*TriggerTeamMemberCandidate) Descriptor() ([]byte, []int) {
+	return file_rpc_user_trigger_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *TriggerTeamMemberCandidate) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *TriggerTeamMemberCandidate) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *TriggerTeamMemberCandidate) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+type ResolveTriggerTeamMemberResponse struct {
+	state         protoimpl.MessageState        `protogen:"open.v1"`
+	ActorId       int64                         `protobuf:"varint,1,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	TeamId        int64                         `protobuf:"varint,2,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	Name          string                        `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Candidates    []*TriggerTeamMemberCandidate `protobuf:"bytes,4,rep,name=candidates,proto3" json:"candidates,omitempty"`
+	Truncated     bool                          `protobuf:"varint,5,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveTriggerTeamMemberResponse) Reset() {
+	*x = ResolveTriggerTeamMemberResponse{}
+	mi := &file_rpc_user_trigger_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveTriggerTeamMemberResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveTriggerTeamMemberResponse) ProtoMessage() {}
+
+func (x *ResolveTriggerTeamMemberResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_user_trigger_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveTriggerTeamMemberResponse.ProtoReflect.Descriptor instead.
+func (*ResolveTriggerTeamMemberResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_user_trigger_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ResolveTriggerTeamMemberResponse) GetActorId() int64 {
+	if x != nil {
+		return x.ActorId
+	}
+	return 0
+}
+
+func (x *ResolveTriggerTeamMemberResponse) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *ResolveTriggerTeamMemberResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ResolveTriggerTeamMemberResponse) GetCandidates() []*TriggerTeamMemberCandidate {
+	if x != nil {
+		return x.Candidates
+	}
+	return nil
+}
+
+func (x *ResolveTriggerTeamMemberResponse) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
 var File_rpc_user_trigger_proto protoreflect.FileDescriptor
 
 const file_rpc_user_trigger_proto_rawDesc = "" +
@@ -137,9 +334,26 @@ const file_rpc_user_trigger_proto_rawDesc = "" +
 	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\"T\n" +
 	"\x1eCheckTriggerTeamMemberResponse\x12\x19\n" +
 	"\bactor_id\x18\x01 \x01(\x03R\aactorId\x12\x17\n" +
-	"\ateam_id\x18\x02 \x01(\x03R\x06teamId2r\n" +
+	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\"i\n" +
+	"\x1fResolveTriggerTeamMemberRequest\x12\x19\n" +
+	"\bactor_id\x18\x01 \x01(\x03R\aactorId\x12\x17\n" +
+	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"m\n" +
+	"\x1aTriggerTeamMemberCandidate\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname\"\xca\x01\n" +
+	" ResolveTriggerTeamMemberResponse\x12\x19\n" +
+	"\bactor_id\x18\x01 \x01(\x03R\aactorId\x12\x17\n" +
+	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12@\n" +
+	"\n" +
+	"candidates\x18\x04 \x03(\v2 .user.TriggerTeamMemberCandidateR\n" +
+	"candidates\x12\x1c\n" +
+	"\ttruncated\x18\x05 \x01(\bR\ttruncated2\xdd\x01\n" +
 	"\vUserTrigger\x12c\n" +
-	"\x16CheckTriggerTeamMember\x12#.user.CheckTriggerTeamMemberRequest\x1a$.user.CheckTriggerTeamMemberResponseB&Z$github.com/yjydist/go-im/rpc/user/pbb\x06proto3"
+	"\x16CheckTriggerTeamMember\x12#.user.CheckTriggerTeamMemberRequest\x1a$.user.CheckTriggerTeamMemberResponse\x12i\n" +
+	"\x18ResolveTriggerTeamMember\x12%.user.ResolveTriggerTeamMemberRequest\x1a&.user.ResolveTriggerTeamMemberResponseB&Z$github.com/yjydist/go-im/rpc/user/pbb\x06proto3"
 
 var (
 	file_rpc_user_trigger_proto_rawDescOnce sync.Once
@@ -153,19 +367,25 @@ func file_rpc_user_trigger_proto_rawDescGZIP() []byte {
 	return file_rpc_user_trigger_proto_rawDescData
 }
 
-var file_rpc_user_trigger_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_rpc_user_trigger_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_rpc_user_trigger_proto_goTypes = []any{
-	(*CheckTriggerTeamMemberRequest)(nil),  // 0: user.CheckTriggerTeamMemberRequest
-	(*CheckTriggerTeamMemberResponse)(nil), // 1: user.CheckTriggerTeamMemberResponse
+	(*CheckTriggerTeamMemberRequest)(nil),    // 0: user.CheckTriggerTeamMemberRequest
+	(*CheckTriggerTeamMemberResponse)(nil),   // 1: user.CheckTriggerTeamMemberResponse
+	(*ResolveTriggerTeamMemberRequest)(nil),  // 2: user.ResolveTriggerTeamMemberRequest
+	(*TriggerTeamMemberCandidate)(nil),       // 3: user.TriggerTeamMemberCandidate
+	(*ResolveTriggerTeamMemberResponse)(nil), // 4: user.ResolveTriggerTeamMemberResponse
 }
 var file_rpc_user_trigger_proto_depIdxs = []int32{
-	0, // 0: user.UserTrigger.CheckTriggerTeamMember:input_type -> user.CheckTriggerTeamMemberRequest
-	1, // 1: user.UserTrigger.CheckTriggerTeamMember:output_type -> user.CheckTriggerTeamMemberResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	3, // 0: user.ResolveTriggerTeamMemberResponse.candidates:type_name -> user.TriggerTeamMemberCandidate
+	0, // 1: user.UserTrigger.CheckTriggerTeamMember:input_type -> user.CheckTriggerTeamMemberRequest
+	2, // 2: user.UserTrigger.ResolveTriggerTeamMember:input_type -> user.ResolveTriggerTeamMemberRequest
+	1, // 3: user.UserTrigger.CheckTriggerTeamMember:output_type -> user.CheckTriggerTeamMemberResponse
+	4, // 4: user.UserTrigger.ResolveTriggerTeamMember:output_type -> user.ResolveTriggerTeamMemberResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_rpc_user_trigger_proto_init() }
@@ -179,7 +399,7 @@ func file_rpc_user_trigger_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rpc_user_trigger_proto_rawDesc), len(file_rpc_user_trigger_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

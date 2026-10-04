@@ -33,6 +33,10 @@ func (f triggerTeamCheckFunc) CheckTriggerTeamMember(ctx context.Context, req *u
 	return f(ctx, req)
 }
 
+func (f triggerTeamCheckFunc) ResolveTriggerTeamMember(context.Context, *userpb.ResolveTriggerTeamMemberRequest, ...grpc.CallOption) (*userpb.ResolveTriggerTeamMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "lookup is not used by eligibility tests")
+}
+
 func validTriggerClientConfig() triggerTeamClientConfig {
 	return triggerTeamClientConfig{Addr: "user-rpc:9004", ServerDNSName: "user.go-im.internal",
 		Files: rpcauth.CertificateFiles{CertFile: "cert.pem", KeyFile: "key.pem", CAFile: "ca.pem"}}
