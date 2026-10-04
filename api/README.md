@@ -298,3 +298,11 @@ GET集合/指定项包含合法skipped，其他waiting继续独立编辑/创建�
 重试成功仍返回 `data.{run_id,team_id,group_id,item_count,item}`，只接受目标 succeeded/正 Task ID、reply_status=accepted、reply_msg_id 与该 run/index 公共规则完全相符的结果；错误项/伪受理结果 502。冻结状态不符或固定记录冲突 409，当前权限错误 403，其余依原私密错误映射。大整数 ID/版本继续以字符串提供，时间依据和草稿字段保持。
 
 集合/指定项 GET 只读授权后的回帖记录，不重建任务或发送消息。pending/accepted 只属于成功项，携带 `bot-task:<run>`（index 0）或 `bot-task:<run>:<index>`；unknown 只表示成功项在确认响应中无法确定回帖事实、消息 ID 为空，须重新读取；not_started/disabled 亦无消息 ID。跳过固定 disabled，waiting/creating 不得伪造受理。accepted 不是成员已送达证明。Agent 依赖 021，IM 依赖 020，须协调升级；本轮不接多项页面。[共同契约](../docs/multi-reply-agent-contract.md)、[完整审查](../docs/multi-reply-agent-review.md)。
+
+### 原生多项草稿页面（2026-10-04）
+
+`/demo/chat` 新增独立多项面板，原单项区保留。页面通过三个嵌入Gateway的精确同源脚本资源读取/操作新集合接口，没有新增前端构建工具或独立服务器。使用已登录Token和选定团队群，先显式生成多项候选或按Run ID读取，再逐项保存文字、负责人和Asia/Shanghai截止时间；显示原称呼、时间原文/来源/参考依据和内容版本。新生成key首次提交固定参考时刻，重试保留原key/指令/范围/时刻；未知key或改变指令/范围应明确选择New key，不暗中再生成。
+
+每项分别确认创建或明确跳过，不能用跳过取消已冻结/已创建任务。未保存输入、未处理负责人或模糊时间会阻止确认；跳过可保留歧义，但须先处理未保存输入。冲突、网络不明或坏成功响应后保留输入和已知Task结果，先重读目标再本人决定，另一项仍能独立操作。回帖显示独立受理状态，失败先GET该项，再明确只重试原卡片，不重复创建Task。候选全部创建或跳过只代表审查处理完成，全部跳过不表示任务创建，accepted不表示所有成员已收到。
+
+Token/团队/群切换会清除多项状态并拒绝旧响应覆盖；同群内原单项操作不清新集合。页面只手动操作，无自动确认、后台恢复或群内@AI触发。本机验证和未验证范围见[页面审查](../docs/multi-draft-page-review.md)，真实模型、数据库、浏览器和部署仍留最终验收。

@@ -1,6 +1,6 @@
 # Worktree 多 Agent 协作方案
 
-日期：2026-10-03，进展更新2026-10-04。状态：**负责人、自动时间、多项保存/读取、逐项编辑和确认已通过本地验证并逐批合入main；当前本人跳过批次见末尾记录**。
+日期：2026-10-03，进展更新2026-10-04。状态：**负责人、自动时间、多项保存/读取、逐项编辑/确认/跳过和逐项回帖已验证并逐批合入main；当前原生多项页面批次见末尾记录**。
 
 本方案中的 Agent 指参与项目开发的 Codex agent，与项目运行时的 Eino Agent 服务不同。依据 [项目计划](project-plan.md)、[负责人方案](agent-assignee-design.md)和现行 [AGENTS.md](../AGENTS.md)。方案讨论时仅新增本文；用户随后明确要求按方案执行，已将协作要求加入 AGENTS.md，准备共同契约。实际进展另见本文第 9 节。
 
@@ -240,3 +240,18 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 整体九步：共同1、存储2、编排2、Gateway2、root组合1、审查1。执行agent只编辑/gofmt/diffcheck，不运行Go测试/build或自行提交/合并/push。root审查后依次保存406d1d2、1be0e98、9e7de80，按存储→编排→Gateway无冲突整合；root追加三组HTTP/TLS组合和兼容测试修正为业务5732006。定向和全量Go、Node140、Linux IM/Agent/Gateway通过；最终审查只更新文档，无追加业务代码。第0项沿原键，root修正一处测试把合法旧0键当错误键的fixture，并规范CRLF；生产逻辑未因此改变。
 
 存储agent自行记录约7分25秒，Gateway约11分钟，编排未记录精确起止；仅记录并行交付，不声称固定倍数效率。全部[33文件、调用链与未验收范围](multi-reply-agent-review.md)。main保持1a1156b，本批待用户审查，三个worktree干净保留；真实迁移/中间件/模型/浏览器/证书部署及云同步仍最终统一验收，未push。
+
+## 20. 原生多项页面批次（2026-10-04）
+
+用户继续后，上轮完整e17d97a快进合本地main；共同契约/测试辅助提交e2aa25a，从同共同提交复用三个干净worktree，新脚本契约先统一，再并行实现。主工作区codex/multi-draft-page-integration；没有删除目录、协议或生成文件。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 读取状态（复用后端角色） | `D:/zy/GoLang/go-im/.worktrees/assignee-backend` | `codex/multi-draft-page-core` | 新examples/multi-draft-core.js和test.cjs |
+| 逐项动作（复用Gateway角色） | `D:/zy/GoLang/go-im/.worktrees/assignee-gateway` | `codex/multi-draft-page-actions` | 新examples/multi-draft-actions.js和test.cjs |
+| 展示事件 | `D:/zy/GoLang/go-im/.worktrees/assignee-ui` | `codex/multi-draft-page-view` | examples/chat.html、新multi-draft-view.js和test.cjs |
+| 主 agent | `D:/zy/GoLang/go-im` | `codex/multi-draft-page-integration` | 契约/测试helper、Gateway嵌入/固定路由/资源检查、流程test、共同文档及集中验证 |
+
+共同1、core2、actions2、view2、root资源/组合1、集中审查1=九步。子agent仅编辑/静态检查，不运行测试/build、提交/合并/push；root保存aa07c91、99a8b33、ebb85c8，按core→actions→view无冲突整合，root补资源与三组流程为业务814b23f。core先单独10组通过，整合Node187（原140＋新47）一次全通过，全量Go与LinuxGateway通过；没有重复测试已通过的未变Agent/IM构建。实际范围及[全部20文件](multi-draft-page-review.md)以审查页为准。
+
+core自记约9分9秒，view约14分钟；actions未记录精确起止。以分工并行交付记录为准，不据此声称固定倍数效率。root预先审查修正文字PUT路径、成功提交输入规范和已知生成run固定，均既定接口内细节。main仍e17d97a，本轮供审查，三个worktree干净保留；未push、迁移、模型请求或云同步。后续群内@AI关键触发/身份/恢复方案仍先讨论。
