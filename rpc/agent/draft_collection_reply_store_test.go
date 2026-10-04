@@ -91,7 +91,9 @@ func TestCollectionReplyIntentRejectsUnsuccessfulOrInvalidTargetWithoutSQL(t *te
 					r.Status = draftWaitingConfirmation
 				}
 			case "wrong key":
-				r.TaskRequestKey = draftTaskRequestKey(c.ID)
+				// Item 0 intentionally shares the legacy key; item 1 must not.
+				index = 1
+				c.Items[index].TaskRequestKey = draftTaskRequestKey(c.ID)
 			case "zero task":
 				r.TaskID = 0
 			case "zero revision":
