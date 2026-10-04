@@ -82,7 +82,7 @@ func queryDraftCollection(ctx context.Context, db *gorm.DB, runID, actorID int64
 	frozenTarget := false
 	for i, row := range rows {
 		run := row.Draft.run(runID)
-		frozen := editTarget != nil && *editTarget == int32(i) && (run.Status == draftCreating || run.Status == draftSucceeded)
+		frozen := editTarget != nil && *editTarget == int32(i) && (run.Status == draftCreating || run.Status == draftSucceeded || run.Status == draftSkipped)
 		frozenTarget = frozenTarget || frozen
 		validated, err := newWaitingTaskDraftRun(run.Scope, run.Draft)
 		if row.RunID != runID || row.DraftMode != "collection" || row.ItemCount < 1 || row.ItemCount > maxGeneratedTaskDrafts || row.ItemCount != len(rows) ||

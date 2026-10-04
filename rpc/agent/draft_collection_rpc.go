@@ -53,7 +53,11 @@ func (s *Server) taskDraftCollectionResponse(collection taskDraftCollection) *pb
 	response := &pb.GetTaskDraftCollectionResponse{RunId: collection.ID, TeamId: collection.Scope.TeamID, GroupId: collection.Scope.GroupID, ItemCount: int32(len(collection.Items)), Items: make([]*pb.TaskDraftCollectionItem, 0, len(collection.Items))}
 	for i, run := range collection.Items {
 		index := int32(i)
-		response.Items = append(response.Items, &pb.TaskDraftCollectionItem{ItemIndex: &index, Status: string(run.Status), Draft: taskDraftRPCResponse(run).Draft, TaskId: run.TaskID, ReplyStatus: replyStatus})
+		itemReplyStatus := replyStatus
+		if run.Status == draftSkipped {
+			itemReplyStatus = "disabled"
+		}
+		response.Items = append(response.Items, &pb.TaskDraftCollectionItem{ItemIndex: &index, Status: string(run.Status), Draft: taskDraftRPCResponse(run).Draft, TaskId: run.TaskID, ReplyStatus: itemReplyStatus})
 	}
 	return response
 }

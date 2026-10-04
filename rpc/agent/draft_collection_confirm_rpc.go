@@ -37,6 +37,9 @@ func (s *Server) ConfirmTaskDraftItem(ctx context.Context, req *pb.ConfirmTaskDr
 	if err == nil && int(index) >= len(collection.Items) {
 		err = status.Error(codes.NotFound, "draft item not found")
 	}
+	if err == nil && collection.Items[index].Status == draftSkipped {
+		err = status.Error(codes.FailedPrecondition, "skipped draft item cannot be confirmed")
+	}
 	if err == nil {
 		err = review.require(collection.Items[index])
 	}
@@ -67,6 +70,9 @@ func (c *draftConfirmer) confirmCollectionItem(ctx context.Context, token string
 	}
 	if !validCollectionConfirmationTarget(authorized, index) || !review.valid() {
 		return taskDraftCollection{}, status.Error(codes.InvalidArgument, "invalid draft item confirmation")
+	}
+	if authorized.Items[index].Status == draftSkipped {
+		return taskDraftCollection{}, status.Error(codes.FailedPrecondition, "skipped draft item cannot be confirmed")
 	}
 	if err := review.require(authorized.Items[index]); err != nil {
 		return taskDraftCollection{}, err

@@ -15,7 +15,7 @@ func draftCollectionTaskRequestKey(runID int64, index int32) string {
 
 func validCollectionItemTaskState(run taskDraftRun, index int32) bool {
 	switch run.Status {
-	case draftWaitingConfirmation:
+	case draftWaitingConfirmation, draftSkipped:
 		return run.TaskRequestKey == "" && run.TaskID == 0
 	case draftCreating, draftSucceeded:
 		if run.TaskRequestKey != draftCollectionTaskRequestKey(run.ID, index) || (run.Status == draftCreating && run.TaskID != 0) || (run.Status == draftSucceeded && run.TaskID <= 0) {
