@@ -112,6 +112,9 @@ func (s *draftStore) loadReply(ctx context.Context, run taskDraftRun) (draftRepl
 }
 
 func (s *draftStore) acceptReply(ctx context.Context, record draftReplyRecord) error {
+	if record.ItemIndex != 0 {
+		return status.Error(codes.FailedPrecondition, "single reply requires item zero")
+	}
 	if s == nil || s.db == nil {
 		return status.Error(codes.Unavailable, "reply storage unavailable")
 	}
