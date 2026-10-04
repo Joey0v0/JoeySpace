@@ -37,6 +37,15 @@ func runAgent(c zrpc.RpcServerConf) error {
 	if err != nil {
 		return err
 	}
+	workerConfig, err := loadAgentTriggerWorkerConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
+	triggerSource, err := prepareAgentTriggerWorkerSource(workerConfig, os.Getenv, nil)
+	if err != nil {
+		return err
+	}
+	defer triggerSource.Close()
 	dsn := os.Getenv("AGENT_MYSQL_DSN")
 	if strings.TrimSpace(dsn) == "" {
 		return errors.New("AGENT_MYSQL_DSN is required")
@@ -61,8 +70,22 @@ func runAgent(c zrpc.RpcServerConf) error {
 			log.Print(err)
 		}
 	}()
+	worker, err := newAgentTriggerWorker(workerConfig, impl, triggerSource, db, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := worker.Stop(); err != nil {
+			log.Print(err)
+		}
+	}()
 	s, err := zrpc.NewServer(c, func(server *grpc.Server) {
 		pb.RegisterAgentServer(server, impl)
+		// The ordinary service is registered before background work begins.
+		// A worker fault is reported without stopping that service or intake.
+		if err := worker.Start(context.Background(), func(err error) { log.Print(err) }); err != nil {
+			log.Print("cannot start Agent trigger worker")
+		}
 	})
 	if err != nil {
 		return errors.New("cannot prepare Agent RPC server")
