@@ -291,6 +291,19 @@ func TestTriggerAttemptSQLDeadlineDoesNotGrantOrMutateAfterCancellation(t *testi
 			if granted, err := callTriggerAttemptOperation(NewTriggerInboxStore(draft.db), operation, ctx, lease); granted || status.Code(err) != codes.DeadlineExceeded {
 				t.Fatalf("SQL deadline: granted=%t err=%v", granted, err)
 			}
+			// database/sql can finish its context-triggered rollback after Return.
+			// Wait for that real rollback rather than dropping its expectation.
+			until := time.Now().Add(time.Second)
+			for {
+				err := mock.ExpectationsWereMet()
+				if err == nil {
+					break
+				}
+				if !time.Now().Before(until) {
+					t.Fatalf("asynchronous rollback did not complete: %v", err)
+				}
+				time.Sleep(time.Millisecond)
+			}
 		})
 	}
 }
