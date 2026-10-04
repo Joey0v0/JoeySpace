@@ -317,3 +317,20 @@ API与允许范围以[共同契约](agent-trigger-outbox-contract.md)为准；�
 九步：共同1、store2、consumer2、runtime2、root组合1、审查1。执行agent只编辑/gofmt/diffcheck，不tests/build/审批/Git提交/合main/push；root不开放真模型/迁移/开关。只有queued，不标租约、模型生成或整阶段6完成。
 
 实际完成：共同d6fb988、store3391102、consumer5d05ab2、runtime6b46654；root无冲突整合并补真实producer/consumer+SQL替身及schema组合为业务9abf15f。最终全量Go一次全通过，Linux Agent通过；[九步18文件/28测试函数及限制](trigger-inbox-review.md)。main仍71d3161，三个worktree干净保留，本轮整合分支供主聊天审查，未push/部署/迁移/模型。三角色约4分43秒、9分43秒、9分35秒，无单agent对照，不声称固定倍数效率。
+
+## 25. Agent 租约与模型预算批次（2026-10-04）
+
+用户继续后上批a44920c快进合本地main。root统一共同28a98e3：状态/API、严格行和事务防护、024/init及[契约](trigger-lease-contract.md)；在三个原干净worktree开独立分支，主目录D:/zy/GoLang/go-im，整合codex/trigger-lease-integration。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 领取/续租 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-lease-claim | rpc/agent/trigger_lease_claim.go/test.go |
+| 模型预算/释放 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-lease-attempt | rpc/agent/trigger_lease_attempt.go/test.go |
+| 通知重放兼容 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-lease-replay | rpc/agent/trigger_inbox_store.go/test.go |
+| root | D:/zy/GoLang/go-im | codex/trigger-lease-integration | 共同契约/迁移/helper/docs、防护/恢复/consumer组合、集中测试/Git整合 |
+
+九步：共同1、领取2、预算2、重放2、root组合1、审查1。执行agent仅编辑/gofmt/diffcheck，不tests/build/审批/Git提交或合main/push；root保存领取7765ded、预算2c160a4、重放1d7a05d并无冲突整合。新取消测试修正由原子agent在原允许文件编辑，root保存a40fa04/e7eddff；旧超时测试同类修正亦在同文件。集中结果见[18文件与边界](trigger-lease-review.md)及下文。只有执行存储，不提前接worker或给后台Task/回帖权限。
+
+最终业务613b441，全量Go、Linux Agent及取消/回滚三个场景10次通过；旧超时修正8addc78已由root保存无冲突整合。集中验证首次错误和修复记录见审查页；之后只改记录，无必要重复未变Linux构建。全部18文件均有定位，三个worktree干净保留。
+
+main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/执行024/部署/模型。领取约8分27秒、预算7分57秒、重放2分50秒，不含root集中审查/验证及后续测试修复；没有单agent对照，不声称固定效率倍数。
