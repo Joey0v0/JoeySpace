@@ -369,6 +369,17 @@ func TestTriggerInboxReplayExecutionReadCancellationWinsOverBadFacts(t *testing.
 				if err := NewTriggerInboxStore(drafts.db).Accept(ctx, event); status.Code(err) != want || strings.Contains(err.Error(), "private") {
 					t.Fatalf("cancellation lost priority: %v", err)
 				}
+				// database/sql can finish rollback asynchronously after cancellation.
+				// Wait for the actual expected rollback before test cleanup closes DB.
+				until := time.Now().Add(time.Second)
+				for {
+					if err := mock.ExpectationsWereMet(); err == nil {
+						break
+					} else if !time.Now().Before(until) {
+						t.Fatalf("cancelled transaction did not finish rollback: %v", err)
+					}
+					time.Sleep(time.Millisecond)
+				}
 			})
 		}
 	}
