@@ -210,3 +210,18 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 共同1、后端2、Gateway2、组合1、集中审查1，共七步；执行agent只编辑/gofmt/diffcheck，不自行commit/merge/push或go测试审批。root按后端→Gateway→组合整合与集中验证，实际提交/检查/全部文件见[审查记录](multi-draft-skip-review.md)。沿A50/A56既定身份与未提交边界，普通状态/版本/重放取舍已记录；新架构选择仍及时讨论。真实迁移/模型/数据库/浏览器/容器及云同步仍留最终验收。
 
 实际提交：root保存后端20bf871（9文件）、Gatewaybbb3fcf（7文件）、组合ba0e33c（1文件）。后端快进、Gateway/组合无冲突整合，业务代码e4163fd；定向及全量Go、Node140、LinuxAgent/Gateway编译通过。整合分支供用户审查，main仍91ff7ef；三个执行worktree干净保留，未push、执行迁移或云同步。
+
+## 18. 逐项回帖 IM 接收端批次（2026-10-04）
+
+用户继续后，上轮完整9a02643快进合本地main。共同协议/generated、公共消息 ID helper/test、020/init/schema检查和[契约](multi-reply-im-contract.md)提交196c97d；公共model/IM/Agent/Gateway旧回归通过。三个原worktree干净复用，从共同提交创建分支，不删除原目录或生成文件；主工作区codex/multi-reply-im-integration。
+
+| 角色 | 绝对目录 | 分支 | 允许范围 |
+| --- | --- | --- | --- |
+| IM 接收 | `D:/zy/GoLang/go-im/.worktrees/assignee-backend` | `codex/multi-reply-im-entry` | bot_reply.go/test 和新 bot_item_reply_test.go；mTLS/当前资格/显式项 |
+| IM 存储发布（复用 Gateway 角色） | `D:/zy/GoLang/go-im/.worktrees/assignee-gateway` | `codex/multi-reply-im-store` | bot_send_store.go/test、bot_publisher.go/test 和新 bot_item_send_test.go |
+| TLS 组合（复用页面角色） | `D:/zy/GoLang/go-im/.worktrees/assignee-ui` | `codex/multi-reply-im-flow` | 仅新 rpc/im/bot_item_flow_test.go，实际本机 TLS 加业务/SQL/Kafka 替身 |
+| 主 agent | `D:/zy/GoLang/go-im` | `codex/multi-reply-im-integration` | 协议/generated/helper、迁移/schema检查、共同文档、提交整合和集中验证 |
+
+整个批次七步：共同1、接收2、存储发布2、组合1、审查1。子 agent 仅编辑/gofmt/diffcheck，不自行 commit/merge/push 或运行 Go 测试；root 集中检查，按接收→存储→组合整合。已确认 A55 的实施取舍记录在 architecture-decisions.md；Agent 编排、逐项回帖表/HTTP/页面仍后续，未把接收端基础当整条功能完成。真实迁移/模型/数据库/Kafka/证书/容器及云端仍待最终验收。
+
+实际提交：接收b8a8b40（2文件）、存储6b87cfc（4文件）、组合ac26318（1文件），root审查后提交，无冲突整合为业务代码c3f3411。定向/全量Go、Node140、Linux IM/Agent/Gateway及三组本机生产客户端/监听TCP mTLS组合通过；SQL/User/Kafka仍为替身，实际范围与全部23文件见[审查记录](multi-reply-im-review.md)。接收agent记录约6分6秒、组合约7分30秒，各自并行完成，不据此声称固定倍数提速；存储角色未记录精确起止耗时。main保持9a02643，本批集成分支供用户审查，三个worktree干净保留，未push/云同步。

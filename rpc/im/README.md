@@ -48,3 +48,11 @@ IM 在 [014 迁移](../../deploy/mysql/migrations/014_im_bot_sends.sql)的 `im_b
 依然需要现有 IM MySQL/JWT 与 User RPC 配置。缺失部分变量、无效证书或缺少 User RPC 依赖会在开启监听前失败，没有明文回退。请求处理最多 8 秒，Kafka 写入子步骤最多 3 秒、同步 RequireAll、最多一次内部尝试；未来 Agent/Gateway 接线须给整条创建＋回帖链另算预算。证书读取为启动快照，更新后重启 IM；未扩展其他 RPC 的加密。
 
 普通 WS 不能发送内容类型 4，也不能提交 `bot-task:` 的大小写变体；新 WS 消息标识要求 1—64 个可见 ASCII 字符，页面 UUID 保持兼容，既有历史不更改。完整实际文件、测试及未验证范围见[本轮审查记录](../../docs/agent-group-reply-design.md#im-受保护发送入口实现记录2026-10-02)。
+
+## 多项任务卡接收（2026-10-04，A55）
+
+新 `IMBot.PostTaskCreatedCardItem` 仍只在上述专用 mTLS 监听提供，要求正 run/team/group、显式 `item_index`（0..4）和原 version-1 卡片；每次调用和已受理重放均核对精确 Agent 证书、原本人 Token、当前团队群权限及启用机器人。原 `PostTaskCreatedCard` 恒为第 0 项，两种入口共享该项记录。第 0 项仍 `bot-task:<run_id>`，其他项为 `bot-task:<run_id>:<item_index>`，同项同内容复用原时间/受理结果，同项换卡片或范围拒绝，不同项独立保存。
+
+升级此版本 IM 前，已有库须完成 [020](../../deploy/mysql/migrations/020_im_bot_send_items.sql)，在原 IM 自有发送表追加默认 0 的项列；014 旧迁移不改，已有消息 ID、内容、时间和受理结果不改。旧 IM 不认识新方法，返回 Unimplemented；调用方不能回退旧入口发送非零项。先持久固定发送依据，再同步 Kafka，失败重试相同消息；accepted 仍不表示历史已落库或群成员送达。
+
+本批只接收端和本机验证，Agent 集合确认尚不自动调用此方法，Agent 逐项回帖记录、独立重试 RPC/HTTP 和多项页面后续接入。[共同契约与修改范围](../../docs/multi-reply-im-contract.md)。真实 MySQL/迁移/Kafka、部署证书及容器未验收。
