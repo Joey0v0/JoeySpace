@@ -290,3 +290,11 @@ POST `/api/v1/agent/runs/{run_id}/drafts/{item_index}/skip`，15秒路由预算�
 未提交项可跳过，包括未处理的重名或needs_input。成功返回完整skipped项、TaskID字符串0、原内容版本、disabled/空回帖消息，草稿原文和时间依据完整保留。重复同版本跳过幂等；旧版本、creating/succeeded或跳过后再编辑/确认均409。跳过不递增内容版本，不调用Task、模型或回帖，不提供恢复入口。
 
 GET集合/指定项包含合法skipped，其他waiting继续独立编辑/创建；不能以跳过取消已开始创建的项。集合头不承诺整轮成功，全部跳过没有任务创建结果。页面按钮/进度汇总及逐项回帖后续接入。[共同契约](../docs/multi-draft-skip-contract.md)、[七步审查](../docs/multi-draft-skip-review.md)。
+
+### 多项草稿逐项回帖与本人重试（2026-10-04）
+
+最新逐项确认在任务保存成功后尝试机器人回帖，仍返回原任务 succeeded 和精确字符串 Task ID；回帖失败不把任务报成失败。重复成功确认只读回帖，本人须明确使用 POST `/api/v1/agent/runs/{run_id}/drafts/{item_index}/reply/retry` 重试目标卡片。新路由预算 19 秒，run 为规范正十进制、index 为 0..4，必须有原 Bearer Token；请求体只能为空或空白（最多 1024 字节），query 必须为空。不能提交 Task ID、标题、群范围、内容版本或请求键，Gateway 仅向 Agent 转发 run/index 和原 Token。
+
+重试成功仍返回 `data.{run_id,team_id,group_id,item_count,item}`，只接受目标 succeeded/正 Task ID、reply_status=accepted、reply_msg_id 与该 run/index 公共规则完全相符的结果；错误项/伪受理结果 502。冻结状态不符或固定记录冲突 409，当前权限错误 403，其余依原私密错误映射。大整数 ID/版本继续以字符串提供，时间依据和草稿字段保持。
+
+集合/指定项 GET 只读授权后的回帖记录，不重建任务或发送消息。pending/accepted 只属于成功项，携带 `bot-task:<run>`（index 0）或 `bot-task:<run>:<index>`；unknown 只表示成功项在确认响应中无法确定回帖事实、消息 ID 为空，须重新读取；not_started/disabled 亦无消息 ID。跳过固定 disabled，waiting/creating 不得伪造受理。accepted 不是成员已送达证明。Agent 依赖 021，IM 依赖 020，须协调升级；本轮不接多项页面。[共同契约](../docs/multi-reply-agent-contract.md)、[完整审查](../docs/multi-reply-agent-review.md)。

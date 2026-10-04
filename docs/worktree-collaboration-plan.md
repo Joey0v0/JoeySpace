@@ -225,3 +225,18 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 整个批次七步：共同1、接收2、存储发布2、组合1、审查1。子 agent 仅编辑/gofmt/diffcheck，不自行 commit/merge/push 或运行 Go 测试；root 集中检查，按接收→存储→组合整合。已确认 A55 的实施取舍记录在 architecture-decisions.md；Agent 编排、逐项回帖表/HTTP/页面仍后续，未把接收端基础当整条功能完成。真实迁移/模型/数据库/Kafka/证书/容器及云端仍待最终验收。
 
 实际提交：接收b8a8b40（2文件）、存储6b87cfc（4文件）、组合ac26318（1文件），root审查后提交，无冲突整合为业务代码c3f3411。定向/全量Go、Node140、Linux IM/Agent/Gateway及三组本机生产客户端/监听TCP mTLS组合通过；SQL/User/Kafka仍为替身，实际范围与全部23文件见[审查记录](multi-reply-im-review.md)。接收agent记录约6分6秒、组合约7分30秒，各自并行完成，不据此声称固定倍数提速；存储角色未记录精确起止耗时。main保持9a02643，本批集成分支供用户审查，三个worktree干净保留，未push/云同步。
+
+## 19. 逐项回帖 Agent/Gateway 闭环批次（2026-10-04）
+
+用户继续后，上轮完整1a1156b快进合本地main；共同协议/generated、021/init、旧schema检查和[契约](multi-reply-agent-contract.md)提交352f446，共同Agent/Gateway测试通过。三个原worktree从同一共同提交并行，不新建或删除目录，不删除生成代码；主工作区codex/multi-reply-agent-integration。
+
+| 角色 | 绝对目录 | 分支 | 允许范围 |
+| --- | --- | --- | --- |
+| 存储 | `D:/zy/GoLang/go-im/.worktrees/assignee-backend` | `codex/multi-reply-agent-store` | 原draft_reply_store.go旧0保护、新draft_collection_reply_store.go/test，共3文件 |
+| 编排（复用Gateway角色） | `D:/zy/GoLang/go-im/.worktrees/assignee-gateway` | `codex/multi-reply-agent-rpc` | draft_reply_rpc.go、draft_collection_confirm_rpc.go、draft_collection_rpc.go、新draft_collection_reply_rpc.go/test，共5文件 |
+| Gateway（复用页面角色） | `D:/zy/GoLang/go-im/.worktrees/assignee-ui` | `codex/multi-reply-agent-gateway` | 新reply handler/test、共享collection校验/test、confirm/edit/skip调用点和main，共8文件 |
+| 主 agent | `D:/zy/GoLang/go-im` | `codex/multi-reply-agent-integration` | 协议/generated/迁移/契约、HTTP/TLS组合、统一提交审查、文档及集中验证 |
+
+整体九步：共同1、存储2、编排2、Gateway2、root组合1、审查1。执行agent只编辑/gofmt/diffcheck，不运行Go测试/build或自行提交/合并/push。root审查后依次保存406d1d2、1be0e98、9e7de80，按存储→编排→Gateway无冲突整合；root追加三组HTTP/TLS组合和兼容测试修正为业务5732006。定向和全量Go、Node140、Linux IM/Agent/Gateway通过；最终审查只更新文档，无追加业务代码。第0项沿原键，root修正一处测试把合法旧0键当错误键的fixture，并规范CRLF；生产逻辑未因此改变。
+
+存储agent自行记录约7分25秒，Gateway约11分钟，编排未记录精确起止；仅记录并行交付，不声称固定倍数效率。全部[33文件、调用链与未验收范围](multi-reply-agent-review.md)。main保持1a1156b，本批待用户审查，三个worktree干净保留；真实迁移/中间件/模型/浏览器/证书部署及云同步仍最终统一验收，未push。

@@ -142,3 +142,13 @@ Confirm的`expected_deadline_resolution`与due/版本在编排和freeze事务二
 短事务复用完整集合FOR UPDATE，核对范围/项数、完整目标和版本，只更新该项status；条件含run/index/revision/waiting/空Task键/ID0，必须恰好1行。原内容/证据/内容版本保持，MaxInt64亦可跳过；其他项变化不冲突。skipped只允许空Task键/ID0和完整合法依据，回复disabled空msg，GET可读而编辑/确认终态拒绝。确认/跳过锁竞争只有一方推进，不取消已经提交的Task。原single保持。
 
 没有新迁移、依赖或恢复入口，019未真实执行；页面按钮/汇总进度及逐项群回帖后续接线。[共同契约](../../docs/multi-draft-skip-contract.md)、[完整审查](../../docs/multi-draft-skip-review.md)。
+
+## 多项草稿逐项群回帖（2026-10-04）
+
+最新接线复用 `ConfigureDraftReplies`，同时配置原单项和集合项存储/IM 客户端。`ConfirmTaskDraftItem` 在目标 Task 成功结果保存后，独立用最多 5 秒准备固定回帖并调用 IM 专用 `PostTaskCreatedCardItem`（子调用最多 4 秒）；原确认总预算 18 秒、创建阶段 12 秒保持。SQL 短事务只核对完整目标并保存卡片，网络调用在提交后。失败仍返回该项 Task 成功及 pending/unknown，不把已创建任务退回失败；起始已成功的重复确认只读回帖，不隐式再发送。
+
+新增 `RetryTaskReplyItem(GetTaskDraftItemRequest)`，总预算 18 秒，要求正 run_id 与显式 optional item_index 0..4。先经 User/IM 核对原发起人当前群资格，仅成功项可重试；复用原 Task ID、卡片和消息 ID，不重建 Task、不重新调用模型或查目标负责人，也不回退旧 run 方法。已受理重放仍先授权。`GetTaskDraftCollection`/`GetTaskDraftItem` 在授权后只读回帖：前者查每个成功项，后者只查目标；读取故障返回错误，读取不发送消息。
+
+Agent 表升级需先核对 [021](../../deploy/mysql/migrations/021_agent_task_reply_items.sql)：默认项 0，主键 `(run_id,item_index)`；原 015 不改、原 msg_id 唯一键保留。旧单项 SELECT/UPDATE 限第 0 项。消息 ID 使用公共 helper，第 0 项 `bot-task:<run>`，其他项 `bot-task:<run>:<index>`。IM 先核对 020 并升级专用方法，Agent/Gateway 协调升级，真实迁移尚未执行。
+
+成功项回帖状态：not_started 为当前没有保存意图；pending 为固定意图已保存但 Agent 尚未保存受理；accepted 为 IM 响应精确匹配并已保存本地受理；unknown 为确认过程中无法确定回帖存储事实，消息 ID 留空，须重读。pending/accepted 携带该 run/index 的规范消息 ID。跳过始终 disabled，无消息 ID。accepted 不代表 Push/历史落库或成员已收到，至少一次重试仍由客户端按 msg_id 去重。多项页面及群内 @AI 后续接线。[共同契约](../../docs/multi-reply-agent-contract.md)、[九步审查与验证限制](../../docs/multi-reply-agent-review.md)。

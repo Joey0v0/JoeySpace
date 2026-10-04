@@ -114,7 +114,7 @@ IM 进程提供专用机器人监听，Agent 已接入独立 mTLS 客户端、�
 
 启用前依次核对已有迁移与 [013](mysql/migrations/013_im_bots_and_message_sender.sql)，再执行一次 [014](mysql/migrations/014_im_bot_sends.sql)及 [015](mysql/migrations/015_agent_task_replies.sql)；新数据库初始化已包含两侧记录表。IM 保存发送依据和 Kafka 受理结果，Agent 保存从已成功任务构造的固定回帖及自身收到的受理结果，二者不跨表读写。没有执行真实迁移，不删除发送记录或旧消息来处理重复。
 
-2026-10-04 IM 逐项接收升级还须先执行一次 [020](mysql/migrations/020_im_bot_send_items.sql)，给 IM 发送表追加默认 0 的项序号；依照既有库实际版本依次准备前置迁移，勿重复执行。新初始化已包含该列，旧第 0 项身份/消息与受理依据不改。新专用 PostTaskCreatedCardItem 对旧 IM 返回 Unimplemented，不能回退旧方法；后续 Agent 逐项回帖编排部署前先升级 IM。本批尚不启用 Agent 集合回帖或改变 Compose，真实迁移/服务升级未执行；[接收端契约](../docs/multi-reply-im-contract.md)。
+2026-10-04 逐项回帖升级：IM 更新前须核对一次 [020](mysql/migrations/020_im_bot_send_items.sql)，给 IM 发送表追加默认 0 的项序号；Agent 更新前须核对一次 [021](mysql/migrations/021_agent_task_reply_items.sql)，给 Agent 回帖表追加默认 0 的项序号并改为 `(run_id,item_index)` 主键。原消息唯一键和旧第 0 项记录保留；013—019 等前置迁移按现有库实际版本核对，勿重复执行。新初始化已包含两侧项列/主键。先准备对应表，再协调升级 IM、Agent 和 Gateway；新专用 PostTaskCreatedCardItem 对旧 IM 返回 Unimplemented，禁止回退旧方法。本轮已接 Agent 集合逐项确认/回帖及 Gateway 重试，仍不改变 Compose 或启用真实环境；迁移与部署均未执行。[Agent 契约](../docs/multi-reply-agent-contract.md)、[本轮验证范围](../docs/multi-reply-agent-review.md)。
 
 在 IM 所用数据库先查询 `im_bots` 是否已有选定的 `code`。若没有，选择未占用的正机器人 ID 插入资料；机器人 ID 与用户 ID 属于不同身份空间，不创建用户密码、登录 Token 或群成员记录。以下仅是首次配置示例，ID 1 须确认在机器人表中未占用，不对已有资料自动 UPSERT：
 
