@@ -80,14 +80,35 @@ func validDraftCollectionScope(runID, resultRunID, teamID, groupID int64, count 
 }
 
 func validDraftCollectionItem(item *pb.TaskDraftCollectionItem, index int32) bool {
-	if item == nil || item.ItemIndex == nil || item.GetItemIndex() != index || item.GetStatus() != "waiting_confirmation" || item.GetTaskId() != 0 ||
+	if item == nil || item.ItemIndex == nil || item.GetItemIndex() != index ||
 		(item.GetReplyStatus() != "disabled" && item.GetReplyStatus() != "not_started") || item.GetReplyMsgId() != "" {
+		return false
+	}
+	switch item.GetStatus() {
+	case "waiting_confirmation", "creating":
+		if item.GetTaskId() != 0 {
+			return false
+		}
+	case "succeeded":
+		if item.GetTaskId() <= 0 {
+			return false
+		}
+	default:
 		return false
 	}
 	draft := item.GetDraft()
 	if draft == nil || draft.GetRevision() <= 0 || draft.GetSourceMessageId() < 0 || draft.GetAssigneeResolution() == "" || draft.GetDeadline() == nil ||
 		!validDraftAssignee(draft) || !validDraftDeadlineMetadata(draft) {
 		return false
+	}
+	if item.GetStatus() != "waiting_confirmation" {
+		switch draft.GetAssigneeResolution() {
+		case "not_found", "ambiguous", "truncated":
+			return false
+		}
+		if draft.GetDeadline().GetResolution() == "needs_input" {
+			return false
+		}
 	}
 	return utf8.ValidString(draft.GetTitle()) && strings.TrimSpace(draft.GetTitle()) == draft.GetTitle() &&
 		utf8.RuneCountInString(draft.GetTitle()) >= 1 && utf8.RuneCountInString(draft.GetTitle()) <= 200 &&

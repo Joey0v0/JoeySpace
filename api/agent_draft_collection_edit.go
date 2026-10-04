@@ -64,7 +64,8 @@ func decodeDraftItemEditBody(w http.ResponseWriter, r *http.Request, body any, m
 }
 
 func writeDraftItemEditResult(w http.ResponseWriter, runID int64, index int32, revision int64, result *pb.GetTaskDraftItemResponse, matches func(*pb.TaskDraftItem) bool) {
-	if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || index >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), index) {
+	if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || index >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), index) ||
+		result.GetItem().GetStatus() != "waiting_confirmation" || result.GetItem().GetTaskId() != 0 {
 		invalidDraftCollectionResult(w)
 		return
 	}
