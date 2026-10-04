@@ -12,7 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-const triggerExecutionColumns = triggerInboxColumns + `, lease_token, lease_until, model_attempts, model_started, result_run_id`
+const triggerExecutionColumns = triggerInboxColumns + `, lease_token, lease_until, model_attempts, model_started, result_run_id, retry_after, retry_failures`
+const triggerRetryFailureLimit = 8
 const selectLiveTriggerLease = `SELECT ` + triggerExecutionColumns + ` FROM agent_task_trigger_inbox WHERE message_id = ? AND status = 'running' AND lease_token = ? AND lease_until > UTC_TIMESTAMP(6) FOR UPDATE`
 
 type triggerExecutionRow struct {
@@ -24,6 +25,8 @@ type triggerExecutionRow struct {
 	ModelAttempts int
 	ModelStarted  int
 	ResultRunID   sql.NullInt64
+	RetryAfter    sql.NullTime
+	RetryFailures int
 }
 
 func validTriggerLeaseToken(token string) bool {
@@ -42,6 +45,11 @@ func validateTriggerExecutionRow(row *triggerExecutionRow) error {
 	if row == nil || validateTriggerNotification(row.Event) != nil || row.ReceivedAt.IsZero() || row.ReceivedAt.UnixMilli() <= 0 ||
 		row.ModelAttempts < 0 || row.ModelAttempts > TriggerModelAttemptLimit || row.ModelStarted < 0 || row.ModelStarted > 1 ||
 		!validTriggerInboxResult(row.Status, row.ResultRunID) {
+		return ErrInvalidTriggerState
+	}
+	if row.RetryFailures < 0 || row.RetryFailures > triggerRetryFailureLimit ||
+		row.RetryAfter.Valid && (row.Status != TriggerInboxQueued || row.RetryFailures == 0 || row.RetryAfter.Time.IsZero() || row.RetryAfter.Time.UnixMilli() <= 0 || row.RetryAfter.Time.Year() > 9999) ||
+		row.Status == TriggerInboxQueued && row.RetryFailures > 0 && !row.RetryAfter.Valid {
 		return ErrInvalidTriggerState
 	}
 	switch row.Status {
@@ -94,7 +102,7 @@ func readTriggerExecutionRow(ctx context.Context, tx *gorm.DB, query string, arg
 		}
 		row := &triggerExecutionRow{}
 		if result != nil || rows.Scan(&row.Event.MessageID, &row.Event.Action, &row.Event.Version, &row.Status, &row.ReceivedAt,
-			&row.Token, &row.Until, &row.ModelAttempts, &row.ModelStarted, &row.ResultRunID) != nil || validateTriggerExecutionRow(row) != nil {
+			&row.Token, &row.Until, &row.ModelAttempts, &row.ModelStarted, &row.ResultRunID, &row.RetryAfter, &row.RetryFailures) != nil || validateTriggerExecutionRow(row) != nil {
 			return nil, ErrInvalidTriggerState
 		}
 		result = row

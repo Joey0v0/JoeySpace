@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var triggerClaimColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id"}
+var triggerClaimColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id", "retry_after", "retry_failures"}
 
 type triggerClaimTokenCapture struct{ capture func(string) }
 
@@ -51,7 +51,7 @@ func triggerClaimValues(row triggerExecutionRow) []driver.Value {
 	if row.Until.Valid {
 		until = row.Until.Time
 	}
-	return []driver.Value{row.Event.MessageID, row.Event.Action, int64(row.Event.Version), row.Status, row.ReceivedAt, token, until, int64(row.ModelAttempts), int64(row.ModelStarted), nil}
+	return []driver.Value{row.Event.MessageID, row.Event.Action, int64(row.Event.Version), row.Status, row.ReceivedAt, token, until, int64(row.ModelAttempts), int64(row.ModelStarted), row.ResultRunID, row.RetryAfter, int64(row.RetryFailures)}
 }
 
 func triggerClaimRows(rows ...triggerExecutionRow) *sqlmock.Rows {
@@ -67,6 +67,7 @@ func claimedTriggerFixture(row triggerExecutionRow) triggerExecutionRow {
 	row.Token = sql.NullString{String: strings.Repeat("b", 64), Valid: true}
 	row.Until = sql.NullTime{Time: time.Date(2037, 10, 4, 2, 0, 30, 456000, time.UTC), Valid: true}
 	row.ModelStarted = 0
+	row.RetryAfter = sql.NullTime{}
 	return row
 }
 

@@ -25,6 +25,7 @@ func TestTriggerLeaseRecoveryBudgetAndNotificationReplayFlow(t *testing.T) {
 		t.Helper()
 		after := before
 		after.Status, after.Token, after.Until, after.ModelStarted = TriggerInboxRunning, sql.NullString{String: token, Valid: true}, sql.NullTime{Time: time.Date(2037, 1, 1, 0, 0, 30, 0, time.UTC), Valid: true}, 0
+		after.RetryAfter = sql.NullTime{}
 		mock.ExpectBegin()
 		mock.ExpectQuery(regexp.QuoteMeta(selectClaimableTriggerLease)).WillReturnRows(executionFixtureRows(before))
 		mock.ExpectExec(regexp.QuoteMeta(claimTriggerLeaseSQL)).WithArgs(token, before.Event.MessageID, before.Status, before.ModelAttempts, before.ModelStarted, before.Token.String).WillReturnResult(sqlmock.NewResult(0, 1))
@@ -53,7 +54,11 @@ func TestTriggerLeaseRecoveryBudgetAndNotificationReplayFlow(t *testing.T) {
 		t.Helper()
 		mock.ExpectBegin()
 		mock.ExpectQuery(regexp.QuoteMeta(selectLiveTriggerLease)).WithArgs(row.Event.MessageID, row.Token.String).WillReturnRows(executionFixtureRows(row))
-		mock.ExpectExec(regexp.QuoteMeta(releaseTriggerLease)).WithArgs(next, row.Event.MessageID, row.Token.String).WillReturnResult(sqlmock.NewResult(0, 1))
+		seconds, failures := triggerRetryBackoff(row.RetryFailures)
+		if next == TriggerInboxExhausted {
+			seconds, failures = 0, row.RetryFailures
+		}
+		mock.ExpectExec(regexp.QuoteMeta(releaseTriggerLease)).WithArgs(next, next, seconds, failures, row.Event.MessageID, row.Token.String, row.RetryFailures, row.ModelAttempts).WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
 		if err := NewTriggerInboxStore(drafts.db).Release(context.Background(), *row.lease()); err != nil {
 			t.Fatal(err)
@@ -72,6 +77,8 @@ func TestTriggerLeaseRecoveryBudgetAndNotificationReplayFlow(t *testing.T) {
 	// A failed source read can release before model without spending either try.
 	preflight := claim(source, strings.Repeat("1", 64))
 	release(preflight, TriggerInboxQueued)
+	source.RetryFailures = 1
+	source.RetryAfter = sql.NullTime{Time: source.ReceivedAt.Add(30 * time.Second), Valid: true}
 	first := claim(source, strings.Repeat("2", 64))
 	begin(first, true)
 	first.ModelAttempts, first.ModelStarted = 1, 1
