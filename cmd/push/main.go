@@ -24,6 +24,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config failed: %v", err)
 	}
+	// Fail before connecting infrastructure if the independent trigger topic is unsafe.
+	if err := validateAgentTriggerConfig(cfg.Kafka); err != nil {
+		log.Fatalf("invalid agent trigger config: %v", err)
+	}
 
 	// 初始化日志
 	if err := logger.Init(cfg.Log.Level, cfg.Log.Filename); err != nil {
@@ -47,12 +51,15 @@ func main() {
 	}
 
 	// 创建 Repository
-	messageRepo := repository.NewMessageRepository()
+	messaging, err := newPushMessaging(cfg.Kafka, repository.DB, logger.L, agentTriggerFactories{})
+	if err != nil {
+		log.Fatalf("init push messaging failed: %v", err)
+	}
 	groupRepo := repository.NewGroupRepository()
 	redisRepo := repository.NewRedisRepository()
 
 	// 创建 Pusher
-	pusher := push.NewPusher(messageRepo, groupRepo, redisRepo, logger.L)
+	pusher := push.NewPusher(messaging.messages, groupRepo, redisRepo, logger.L)
 
 	// 创建 Kafka Consumer
 	consumer := push.NewConsumer(
@@ -62,22 +69,25 @@ func main() {
 		pusher,
 		logger.L,
 	)
-	defer consumer.Close()
 
 	// 使用 context 控制优雅退出
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 启动消费循环
-	go consumer.Start(ctx)
+	// 启动消息消费及可选的 Outbox 发布循环
+	waitAndClose := startPushWorkers(ctx, consumer, messaging.publisher, messaging.writer)
 
 	logger.L.Sugar().Info("Push service started")
 
 	// 等待退出信号
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(quit)
 	<-quit
 
 	logger.L.Sugar().Info("Push service shutting down...")
 	cancel()
+	if err := waitAndClose(); err != nil {
+		logger.L.Sugar().Errorf("close push resources failed: %v", err)
+	}
 }
