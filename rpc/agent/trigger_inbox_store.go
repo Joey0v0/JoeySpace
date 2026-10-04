@@ -17,10 +17,11 @@ const triggerInboxColumns = `message_id, action, event_version, status, received
 const insertTriggerInbox = `INSERT INTO agent_task_trigger_inbox (message_id, action, event_version, status) VALUES (?, ?, ?, ?)`
 const selectTriggerInboxForUpdate = `SELECT ` + triggerInboxColumns + ` FROM agent_task_trigger_inbox WHERE message_id = ? FOR UPDATE`
 
-var errInvalidQueuedTriggerInbox = errors.New("saved queued trigger notification is invalid")
+var errInvalidTriggerInboxReceipt = errors.New("saved trigger notification receipt is invalid")
 
-// TriggerInboxStore owns notification receipt only. It does not authorize or
-// generate drafts, and never derives an instruction reference from received_at.
+// TriggerInboxStore owns notification receipt and execution state. Accept only
+// verifies immutable receipt facts; it never resets an existing lease or budget,
+// authorizes generation, or derives an instruction reference from received_at.
 type TriggerInboxStore struct {
 	db *gorm.DB
 }
@@ -60,13 +61,13 @@ func (s *TriggerInboxStore) Accept(ctx context.Context, event model.AgentTrigger
 		if !errors.As(result.Error, &duplicate) || duplicate.Number != 1062 {
 			return result.Error
 		}
-		return checkQueuedTriggerInbox(ctx, tx, event)
+		return checkTriggerInboxReceipt(ctx, tx, event)
 	})
 	if ctx.Err() != nil {
 		return status.FromContextError(ctx.Err()).Err()
 	}
-	if errors.Is(err, errInvalidQueuedTriggerInbox) {
-		return status.Error(codes.FailedPrecondition, "saved trigger notification does not match queued facts")
+	if errors.Is(err, errInvalidTriggerInboxReceipt) {
+		return status.Error(codes.FailedPrecondition, "saved trigger notification does not match immutable receipt facts")
 	}
 	if err != nil {
 		return status.Error(codes.Unavailable, "trigger inbox storage unavailable")
@@ -74,7 +75,9 @@ func (s *TriggerInboxStore) Accept(ctx context.Context, event model.AgentTrigger
 	return nil
 }
 
-func checkQueuedTriggerInbox(ctx context.Context, tx *gorm.DB, expected model.AgentTriggerEvent) error {
+// Execution fields are checked by the lease store. Notification replay only
+// checks this receipt, including a known status, and never writes the old row.
+func checkTriggerInboxReceipt(ctx context.Context, tx *gorm.DB, expected model.AgentTriggerEvent) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -98,8 +101,8 @@ func checkQueuedTriggerInbox(ctx context.Context, tx *gorm.DB, expected model.Ag
 		var savedStatus string
 		var receivedAt time.Time
 		if found || rows.Scan(&saved.MessageID, &saved.Action, &saved.Version, &savedStatus, &receivedAt) != nil ||
-			saved != expected || validateTriggerNotification(saved) != nil || savedStatus != TriggerInboxQueued || receivedAt.IsZero() || receivedAt.UnixMilli() <= 0 {
-			return errInvalidQueuedTriggerInbox
+			saved != expected || validateTriggerNotification(saved) != nil || !validTriggerInboxReceiptStatus(savedStatus) || receivedAt.IsZero() || receivedAt.UnixMilli() <= 0 {
+			return errInvalidTriggerInboxReceipt
 		}
 		found = true
 	}
@@ -110,7 +113,7 @@ func checkQueuedTriggerInbox(ctx context.Context, tx *gorm.DB, expected model.Ag
 		return rows.Err()
 	}
 	if !found {
-		return errInvalidQueuedTriggerInbox
+		return errInvalidTriggerInboxReceipt
 	}
 	return nil
 }
