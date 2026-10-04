@@ -82,12 +82,12 @@ func queryDraftCollection(ctx context.Context, db *gorm.DB, runID, actorID int64
 	frozenTarget := false
 	for i, row := range rows {
 		run := row.Draft.run(runID)
-		frozen := editTarget != nil && *editTarget == int32(i) && (run.Status == draftCreating || run.Status == draftSucceeded || run.Status == "skipped")
+		frozen := editTarget != nil && *editTarget == int32(i) && (run.Status == draftCreating || run.Status == draftSucceeded)
 		frozenTarget = frozenTarget || frozen
 		validated, err := newWaitingTaskDraftRun(run.Scope, run.Draft)
 		if row.RunID != runID || row.DraftMode != "collection" || row.ItemCount < 1 || row.ItemCount > maxGeneratedTaskDrafts || row.ItemCount != len(rows) ||
 			row.ItemCount != rows[0].ItemCount || row.RunStatus != string(draftWaitingConfirmation) || row.ItemIndex == nil || *row.ItemIndex != int32(i) ||
-			run.Scope != collection.Scope || run.Scope.InitiatorID != actorID || run.Revision <= 0 || (!frozen && (run.Status != draftWaitingConfirmation || run.TaskRequestKey != "" || run.TaskID != 0)) || run.TaskID < 0 ||
+			run.Scope != collection.Scope || run.Scope.InitiatorID != actorID || run.Revision <= 0 || !validCollectionItemTaskState(run, int32(i)) ||
 			run.Draft.AssigneeResolution == "" || run.Draft.Deadline.Resolution == "" || err != nil || validated.Draft != run.Draft {
 			return taskDraftCollection{}, status.Error(codes.Unavailable, "stored draft collection is invalid")
 		}

@@ -156,7 +156,12 @@ func TestDraftCollectionItemStoreRejectsChangedTargetAndInvalidUpdate(t *testing
 				c.Items[i].Scope = c.Scope
 			}
 		}, 1, nil, codes.Aborted},
-		{"target frozen", func(c *taskDraftCollection) { c.Items[1].Status = draftCreating }, 1, nil, codes.FailedPrecondition},
+		{"target frozen", func(c *taskDraftCollection) {
+			c.Items[1].Status = draftCreating
+			c.Items[1].TaskRequestKey = draftCollectionTaskRequestKey(c.ID, 1)
+			c.Items[1].Draft.AssigneeResolution = assigneeUnassigned
+			c.Items[1].Draft.Deadline.Resolution = "unset"
+		}, 1, nil, codes.FailedPrecondition},
 		{"zero affected", nil, 0, nil, codes.Aborted}, {"two affected", nil, 2, nil, codes.Aborted}, {"update failed", nil, 1, errors.New("private SQL failure"), codes.Unavailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -190,6 +195,9 @@ func TestDraftCollectionEditFrozenClassificationStillValidatesIntegrity(t *testi
 		store, mock := testDraftStore(t)
 		collection := collectionEditFixture()
 		collection.Items[1].Status = draftCreating
+		collection.Items[1].TaskRequestKey = draftCollectionTaskRequestKey(collection.ID, 1)
+		collection.Items[1].Draft.AssigneeResolution = assigneeUnassigned
+		collection.Items[1].Draft.Deadline.Resolution = "unset"
 		if damaged {
 			collection.Items[1].Draft.Deadline.Timezone = "invalid"
 		}
