@@ -45,9 +45,11 @@ type RedisConfig struct {
 }
 
 type KafkaConfig struct {
-	Brokers       []string `mapstructure:"brokers"`
-	TopicChat     string   `mapstructure:"topic_chat"`
-	ConsumerGroup string   `mapstructure:"consumer_group"`
+	AgentTriggerEnabled bool     `mapstructure:"agent_trigger_enabled"`
+	TopicAgentTrigger   string   `mapstructure:"topic_agent_trigger"`
+	Brokers             []string `mapstructure:"brokers"`
+	TopicChat           string   `mapstructure:"topic_chat"`
+	ConsumerGroup       string   `mapstructure:"consumer_group"`
 }
 
 type JWTConfig struct {

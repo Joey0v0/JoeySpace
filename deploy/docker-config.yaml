@@ -24,6 +24,9 @@ kafka:
   brokers: ["kafka:19092"]
   topic_chat: "chat_messages"
   consumer_group: "im_push_group"
+  # 022 migration and the later Agent consumer must be ready before enabling.
+  agent_trigger_enabled: false
+  topic_agent_trigger: "agent_task_triggers"
 
 jwt:
   secret: "CHANGE_ME_JWT_SECRET"

@@ -255,3 +255,16 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 共同1、core2、actions2、view2、root资源/组合1、集中审查1=九步。子agent仅编辑/静态检查，不运行测试/build、提交/合并/push；root保存aa07c91、99a8b33、ebb85c8，按core→actions→view无冲突整合，root补资源与三组流程为业务814b23f。core先单独10组通过，整合Node187（原140＋新47）一次全通过，全量Go与LinuxGateway通过；没有重复测试已通过的未变Agent/IM构建。实际范围及[全部20文件](multi-draft-page-review.md)以审查页为准。
 
 core自记约9分9秒，view约14分钟；actions未记录精确起止。以分工并行交付记录为准，不据此声称固定倍数效率。root预先审查修正文字PUT路径、成功提交输入规范和已知生成run固定，均既定接口内细节。main仍e17d97a，本轮供审查，三个worktree干净保留；未push、迁移、模型请求或云同步。后续群内@AI关键触发/身份/恢复方案仍先讨论。
+
+## 21. IM @AI Outbox 基础批次（2026-10-04）
+
+用户已明确确认A57—A61。共同契约/模型/配置/022由root负责，主分支codex/agent-trigger-outbox-integration；main保持f7abfd5。本轮共九步：共同1、事务2、发布2、接入2、root组合1、审查1。三个原干净worktree从共同提交开分支，不删除目录或生成代码。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 事务保存 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/agent-trigger-store | internal/repository/agent_trigger_repo.go/test.go |
+| 发布器 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/agent-trigger-publisher | internal/push/agent_trigger_publisher.go/test.go |
+| 进程接入 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/agent-trigger-runtime | cmd/push/main.go、agent_trigger.go/test.go |
+| root | D:/zy/GoLang/go-im | codex/agent-trigger-outbox-integration | 共同契约/model/interface/config/schema/docs、组合测试、提交/整合/集中验证 |
+
+API与允许范围以[共同契约](agent-trigger-outbox-contract.md)为准；执行agent只编辑/gofmt/diffcheck，不自行测试/build、提交/合并/push或请求审批。Agent受限RPC与异步执行后续，默认开关关闭；022尚未执行，不调用真实模型/MySQL/Kafka，不将IM发布基础标为群内@AI已完成。
