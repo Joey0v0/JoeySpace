@@ -351,7 +351,7 @@ func TestCollectionEditsHTTPMapRPCFailuresWithoutDetails(t *testing.T) {
 
 func TestCollectionEditsHTTPRejectValidFrozenOrCreatedResults(t *testing.T) {
 	for _, kind := range []string{"text", "assignee", "deadline"} {
-		for _, state := range []string{"creating", "succeeded"} {
+		for _, state := range []string{"creating", "succeeded", "skipped"} {
 			result := collectionEditResponse(1, 2)
 			result.Item.Status = state
 			if state == "succeeded" {
