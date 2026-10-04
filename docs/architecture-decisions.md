@@ -226,3 +226,11 @@ A51/A52/A53 确认来源：用户对三项方案问题分别明确选择 A，并
 沿已确认专用mTLS与当前用户资格，先建IM→User独立UserTrigger监听：只有exact IM证书服务可传自身已保存触发的actor/team，User只检查当前成员＋有效用户并echo这两个ID，不返回资料/角色，不模拟用户Token；随后Agent→IM来源接口从Outbox派生范围并再查当前群。备选IM跨库读User破坏归属，Agent直接按任意actor查User扩大读取面，复用原User Bearer方法则仍需长期Token，均不采用。代价是一条可配置的IM→User证书连接/独立端口，严格SAN而非信任同CA所有服务；无新中间件或权限方案，属于用户A60确定方案内调用分解。[共同契约](trigger-team-auth-contract.md)，本轮只实现资格通道，下轮实现IM持久范围约束；不把User资格成功当消息授权。
 
 资格通道实际验证：业务1db0499、最终全量Go和Linux User/IM通过，[九步20文件及限制](trigger-team-auth-review.md)。Role证书两端exact SAN，不接受wildcard代替；独立User服务与普通JWT端口隔离，禁用/离队拒绝，client清空metadata/严格echo/2秒无RPC重试。初次关闭conn被误归Canceled，已改Shutdown为Unavailable且caller取消优先；生命周期不依赖zrpc.Stop关闭普通监听，实际grpc.Stop与模拟Linux shutdown-wait行为通过。真实进程/数据库/证书部署仍未验收；IM新client未接main，Agent→IM范围查验、群资格与后台执行尚后续。
+
+### A60 持久来源只读接口实施分解（2026-10-04）
+
+确认状态：沿用户已选A60，专用mTLS与每次当前资格检查不变。IMTrigger请求仅message_id，IM核对Outbox与原消息事实，从保存actor/team/group发起User资格检查并核对当前群；Agent不得传自报actor/team/group或Token。备选直接信Kafka身份/范围无法约束服务读权限，复用普通Bearer接口仍需长期Token，复用机器人写端口混合只读与写权限，因此均不采用。代价是独立IM只读端口与证书配置、每次IM/User查询；没有新增语言/中间件/数据归属。[共同契约](trigger-context-contract.md)，实现与本地集中验证已完成。
+
+范围实施细节：倒序最多20条、消息ID不超过来源ID，避免延迟触发读入未来讨论；使用原消息服务器保存时间解释相对日期。published=false可读，避免Kafka ACK后SQL标记前窗口误拒绝。成功回包客户端严格校验固定来源与范围。该上界不是完整历史快照，服务间资格不是分布式事务；每次重查、撤销时拒绝读，不声称绝对消除检查后的资格变化。Task确认及机器人回帖依旧本人显式；本批不赋予后台自动创建/发送权限。
+
+实际验证：业务0ef64fa，最终全量Go与Linux IM/Agent编译通过，[九步/17文件/验证边界](trigger-context-review.md)。首次两处测试字段编译错误已仅修测试后通过；31个新增测试函数含实际本机TCP/mTLS的Agent→IM→User组合、权限撤销、源事实不一致与故障退出。User为组合RPC替身、SQL为替身，真实DB/生产证书/模型/部署未验收；Agent客户端未接worker/main，负责人背景解析也不能伪造Token。A61队列、租约/最多两次生成仍下一批。

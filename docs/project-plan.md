@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-04）：main已合上批完整6ac032f。本轮业务1db0499在codex/trigger-team-auth-integration完成IM→User受限当前资格通道：独立UserTrigger/mTLS仅信任IM、当前成员/账户检查、仅双ID echo、独立User监听及IM客户端，Token不转发。三worktree交付由root整合，最终全量Go及Linux User/IM通过，[九步与20文件](trigger-team-auth-review.md)。IM客户端尚未接进程，Agent→IM持久来源/当前群资格、队列/租约与模型仍后续；Outbox开关false、022未执行，无真实DB/模型/云联调、push或同步，阶段6不标全完成。
+最新进展（2026-10-04）：main已合上批完整6592d28。本轮业务0ef64fa在codex/trigger-context-integration完成Agent→IM持久触发上下文只读链路：请求仅来源ID，IM核对Outbox/原消息、当前群及User资格，再读取固定上界最多20条历史；独立Agent mTLS监听/IM进程接线及Agent严格响应客户端完成。三worktree由root整合，最终全量Go与Linux IM/Agent通过，新增31个测试函数；首次两处测试字段编译错误已修复。[九步与17文件](trigger-context-review.md)。Agent客户端未接worker/main、队列/租约与模型仍后续；Outbox开关false、022未执行，无真实DB/模型/云联调、push或同步，阶段6不标全完成。
 
 ## 1. 项目目标与学习背景
 
@@ -446,7 +446,9 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] 原生多项页面（2026-10-04）：独立集合面板经新HTTP逐项读取/编辑/确认/跳过/回帖，严格版本、完整时间证据、当前上下文和大ID；各项输入/重读标记独立，生成key/reference/已知run固定；明确区分候选处理、Task创建和回复受理，全部跳过不声称创建。Node187含实际三脚本组合/DOM与HTTP替身、全量Go、LinuxGateway通过。[九步20文件审查](multi-draft-page-review.md)。原single140回归保持，无新增协议/迁移/依赖，真实浏览器及外部服务未验收。
 
-当前下一步（2026-10-04）：IM Outbox可靠通知与[IM→User当前资格通道](trigger-team-auth-review.md)均已有本地实现/验证；继续A60的Agent→IM专用mTLS来源读取，只按已保存触发派生actor/team/group、核对当前群并接本批User客户端，不信任Kafka自报范围。之后A61持久排队/租约最多两次生成和本人草稿入口；Task确认/回帖仍A41/A46本人显式。main6ac032f、本轮整合分支codex/trigger-team-auth-integration、三个worktree保留，不标阶段6全部完成。022及后续增量/生产证书/真实DB与模型验收留最终部署，方舟接入点/预算未定前不请求真实模型。
+- [x] A60持久来源读取（2026-10-04）：Agent请求只message_id，独立IMTrigger按Outbox/原消息派生actor/team/group/instruction/reference/key，核对当前群及User当前团队/有效账户；历史SQL再次限定成员，来源ID上界最多20条。IM进程接专用mTLS及User资格客户端，Agent读取清metadata/严格核对成功响应。三worktree交付与root实际TLS/SQL替身组合后，最终全量Go和Linux IM/Agent通过，业务0ef64fa；首次两处测试字段编译失败已修。没有更改旧Bearer/机器人/Task权限，没有开启Outbox、执行022或调用模型；这不是后台草稿生成完成。[架构记录](architecture-decisions.md) A60、[完整九步/17文件/验证限制](trigger-context-review.md)。
+
+当前下一步（2026-10-04）：Outbox、IM→User资格和[Agent→IM受限来源读取](trigger-context-review.md)已有本地实现/验证；继续A61的Agent持久接收/执行状态、租约及最多两次自动生成，再接本人草稿入口。后续背景负责人解析必须遵守A60受限服务身份，不能伪造Token复用旧Bearer入口。Task确认/回帖仍A41/A46本人显式。main6592d28、本轮整合分支codex/trigger-context-integration、三个worktree保留，不标阶段6全部完成。022及后续增量/生产证书/真实DB与模型验收留最终部署，方舟接入点/预算未定前不请求真实模型。
 
 ## 10. 决策记录与文档关系
 

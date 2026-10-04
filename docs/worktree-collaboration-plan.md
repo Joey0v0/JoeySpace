@@ -285,3 +285,20 @@ API与允许范围以[共同契约](agent-trigger-outbox-contract.md)为准；�
 共九步：共同1、handler2、listener2、client2、root组合1、审查1；子agent仅编辑/gofmt/diffcheck，不测试/build/审批、提交/合main/push。沿既定A60，不跨库或按用户metadata模拟身份；只建当前团队资格通道，不标Agent→IM来源或模型链完成。用户仍在主聊天审查，真实证书/数据库/迁移/云部署后续。
 
 实际完成：共同2c00b9c、资格c1fd2a4、监听b524afa、客户端0c21371，root无冲突整合并补exact服务器SAN/实际TLS组合为业务1db0499。集中包验证、最终全量Go与Linux User/IM通过；client初次conn关闭错误及监听退出行为均在审查内补齐后验证。[全部20文件/九步/未验收范围](trigger-team-auth-review.md)。main仍6ac032f，三个worktree干净保留，未push/迁移/模型调用/部署；没有单agent对照，不声称固定倍数效率。
+
+## 23. Agent→IM 持久来源上下文批次（2026-10-04）
+
+用户继续后，上批6592d28快进合入本地main。root发布共同7737896（新IMTrigger协议/生成文件、handler声明、[契约](trigger-context-contract.md)），从此共同提交复用三个干净worktree。主目录D:/zy/GoLang/go-im，整合分支codex/trigger-context-integration，不删除旧协议/文件/目录。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 来源与资格 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-context-handler | rpc/im/trigger_context.go/test.go |
+| 监听与进程 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-context-listener | rpc/im/main.go、新trigger_listener.go/test.go |
+| Agent客户端 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-context-client | rpc/agent/trigger_client.go/test.go |
+| root | D:/zy/GoLang/go-im | codex/trigger-context-integration | 共同协议/生成/声明/docs、实际TLS/SQL替身组合、集中测试/提交/整合 |
+
+九步：共同1、handler2、listener2、client2、组合1、审查1。执行agent仅编辑/gofmt/diffcheck，不tests/build/审批/Git提交或合main/push。沿已确认A60，只读持久触发固定范围与当前资格；不实现Agent队列/租约/模型，不执行迁移/开启Outbox，不将真实服务验收标为完成。
+
+实际交付：共同7737896、handler63f9668、listener5476476、client7b263e5；root无冲突整合并加实际Agent→IM→User TLS组合。首次Go检查两处测试旧UserId字段编译失败，listener在允许文件修复，root保存1013aa6并整合；最终全量Go及Linux IM/Agent通过，业务0ef64fa。[17个全文件/31测试函数/未验收范围](trigger-context-review.md)。三worktree干净保留，main仍6592d28，本轮整合分支供主聊天审查；没有push、迁移、模型或云部署。
+
+三角色各约8分46秒、8分1秒（另审查修复）、10分20秒，无单agent对照不声称固定倍数速度。持久触发只读完成，A61后台排队/租约与草稿生成继续后续。
