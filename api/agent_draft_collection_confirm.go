@@ -58,7 +58,7 @@ func confirmTaskDraftItemHandler(client agentDraftItemConfirmer) http.HandlerFun
 			}
 			return
 		}
-		if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || index >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), index) ||
+		if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || index >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), index, runID) ||
 			result.GetItem().GetStatus() != "succeeded" || result.GetItem().GetTaskId() <= 0 {
 			invalidDraftCollectionResult(w)
 			return

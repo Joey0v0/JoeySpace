@@ -36,7 +36,7 @@ func skipTaskDraftItemHandler(client agentDraftItemSkipper) http.HandlerFunc {
 			draftCollectionRPCError(w, err)
 			return
 		}
-		if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || index >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), index) ||
+		if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || index >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), index, runID) ||
 			result.GetItem().GetStatus() != "skipped" || result.GetItem().GetTaskId() != 0 || result.GetItem().GetReplyStatus() != "disabled" || result.GetItem().GetReplyMsgId() != "" || result.GetItem().GetDraft().GetRevision() != revision {
 			invalidDraftCollectionResult(w)
 			return
