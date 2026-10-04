@@ -27,26 +27,52 @@ func main() {
 	flag.Parse()
 	var c zrpc.RpcServerConf
 	conf.MustLoad(*configFile, &c)
+	if err := runAgent(c); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func runAgent(c zrpc.RpcServerConf) error {
+	triggerConfig, err := loadAgentTriggerInboxConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
 	dsn := os.Getenv("AGENT_MYSQL_DSN")
 	if strings.TrimSpace(dsn) == "" {
-		log.Fatal("AGENT_MYSQL_DSN is required")
+		return errors.New("AGENT_MYSQL_DSN is required")
 	}
 	db, err := openAgentDatabase(dsn)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 	impl, closeClients, err := newAgentServer(context.Background(), os.Getenv("IM_RPC_ADDR"), os.Getenv("TASK_RPC_ADDR"), os.Getenv("USER_RPC_ADDR"), db)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer closeClients()
-	s := zrpc.MustNewServer(c, func(server *grpc.Server) {
+	inbox, err := newAgentTriggerInbox(triggerConfig, db, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := inbox.Stop(); err != nil {
+			log.Print(err)
+		}
+	}()
+	s, err := zrpc.NewServer(c, func(server *grpc.Server) {
 		pb.RegisterAgentServer(server, impl)
 	})
+	if err != nil {
+		return errors.New("cannot prepare Agent RPC server")
+	}
 	defer s.Stop()
+	if err := inbox.Start(context.Background(), func(err error) { log.Print(err) }); err != nil {
+		return err
+	}
 	s.Start()
+	return nil
 }
 
 func newAgentServer(ctx context.Context, imAddr, taskAddr, userAddr string, db *gorm.DB) (*agent.Server, func(), error) {
