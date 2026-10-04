@@ -204,9 +204,11 @@ CREATE TABLE agent_task_trigger_inbox (
     lease_until DATETIME(6) NULL,
     model_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
     model_started TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    result_run_id BIGINT NULL,
     PRIMARY KEY (message_id),
     KEY idx_agent_trigger_inbox_pending (status, message_id),
-    KEY idx_agent_trigger_inbox_recovery (status, lease_until, message_id)
+    KEY idx_agent_trigger_inbox_recovery (status, lease_until, message_id),
+    UNIQUE KEY uk_agent_trigger_inbox_result (result_run_id)
 ) ENGINE=InnoDB;
 
 -- Agent 独立回帖意图；accepted 仅表示 IM 已受理，不表示群成员送达。

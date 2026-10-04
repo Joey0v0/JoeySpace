@@ -189,6 +189,10 @@ func TestTriggerInboxMigrationMatchesInitialization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	resultMigration, err := os.ReadFile("../../deploy/mysql/migrations/025_agent_trigger_result.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
 	table := regexp.MustCompile(`(?s)CREATE TABLE agent_task_trigger_inbox \(.*?\) ENGINE=InnoDB;`)
 	normalize := func(text []byte) string { return table.FindString(strings.ReplaceAll(string(text), "\r\n", "\n")) }
 	upgraded := normalize(migration)
@@ -212,6 +216,13 @@ func TestTriggerInboxMigrationMatchesInitialization(t *testing.T) {
 	for _, key := range addedKeys {
 		upgraded = strings.Replace(upgraded, "\n) ENGINE=InnoDB;", ",\n    "+key+"\n) ENGINE=InnoDB;", 1)
 	}
+	if !strings.Contains(string(resultMigration), "ALTER TABLE agent_task_trigger_inbox") ||
+		!strings.Contains(string(resultMigration), "ADD COLUMN result_run_id BIGINT NULL") ||
+		!strings.Contains(string(resultMigration), "ADD UNIQUE KEY uk_agent_trigger_inbox_result (result_run_id)") {
+		t.Fatal("missing completed result upgrade fields")
+	}
+	upgraded = strings.Replace(upgraded, "    PRIMARY KEY", "    result_run_id BIGINT NULL,\n    PRIMARY KEY", 1)
+	upgraded = strings.Replace(upgraded, "\n) ENGINE=InnoDB;", ",\n    UNIQUE KEY uk_agent_trigger_inbox_result (result_run_id)\n) ENGINE=InnoDB;", 1)
 	if fresh := normalize(initial); upgraded == "" || upgraded != fresh {
 		t.Fatalf("fresh/upgrade trigger inbox definitions differ: upgrade=%q fresh=%q", upgraded, fresh)
 	}
