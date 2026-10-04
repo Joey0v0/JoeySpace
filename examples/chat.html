@@ -277,6 +277,36 @@
     </div>
   </div>
 
+  <section class="step-panel" aria-labelledby="multiDraftHeading">
+    <h2 id="multiDraftHeading">Step 8 — Review multiple task candidates</h2>
+    <p>Generate up to five candidates from the current team group. Review, save, confirm or skip each item separately.</p>
+    <div class="config-row">
+      <label for="multiDraftInstruction">Instruction:</label>
+      <textarea id="multiDraftInstruction" maxlength="2000" rows="3" placeholder="Extract actionable tasks from this group"></textarea>
+    </div>
+    <div class="config-row">
+      <label for="multiDraftRequestKey">Request key:</label>
+      <input type="text" id="multiDraftRequestKey" placeholder="generated on first submit; retain for the same request">
+      <button type="button" id="btnMultiNewKey" disabled>New key</button>
+    </div>
+    <p>Keep the same key for a failed request. If you change the instruction, start a new key explicitly. After refresh, read by Run ID or use New key; an unknown old key cannot be resumed safely.</p>
+    <div id="multiDraftReference" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;"></div>
+    <div class="config-row">
+      <label for="multiDraftRunID">Run ID:</label>
+      <input type="text" inputmode="numeric" id="multiDraftRunID" placeholder="saved collection run ID">
+      <button type="button" id="btnMultiPrepare" disabled>Generate candidates</button>
+      <button type="button" id="btnMultiLoad" disabled>Load candidates</button>
+    </div>
+    <div class="config-row">
+      <button type="button" id="btnMultiMembers" disabled>Load team members</button>
+      <button type="button" id="btnMultiMoreMembers" disabled>Load more members</button>
+      <small>Load the directory explicitly to choose a real teammate; the first page may be incomplete.</small>
+    </div>
+    <div id="multiDraftMessage" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;"></div>
+    <div id="multiDraftSummary" role="status" aria-live="polite" style="white-space:pre-wrap;"></div>
+    <div id="multiDraftItems"></div>
+  </section>
+
   <!-- Log Panel -->
   <div style="margin-top:16px;">
     <h2 style="font-size:1em;color:#555;margin-bottom:8px;">Message Log</h2>
@@ -386,6 +416,7 @@ async function doAskAI() {
 }
 
 function clearTaskDraftResult() {
+  if (typeof globalThis.invalidateMultiDraftPage === 'function') globalThis.invalidateMultiDraftPage();
   document.getElementById('draftResult').textContent = '';
   loadedTaskDraft = null;
   draftMembers.clear();
@@ -2045,6 +2076,9 @@ function doSend() {
   document.getElementById('msgContent').value = '';
 }
 </script>
+<script src="/demo/multi-draft-core.js"></script>
+<script src="/demo/multi-draft-actions.js"></script>
+<script src="/demo/multi-draft-view.js"></script>
 
 </body>
 </html>
