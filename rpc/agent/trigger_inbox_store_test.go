@@ -234,3 +234,142 @@ func TestTriggerInboxStoreHonorsDeadlineDuringInsertAndDuplicateRead(t *testing.
 		}
 	}
 }
+
+func TestTriggerInboxReplayKeepsRunningAndExhaustedReceiptWithoutAnyUpdate(t *testing.T) {
+	for _, savedStatus := range []string{TriggerInboxRunning, TriggerInboxExhausted} {
+		t.Run(savedStatus, func(t *testing.T) {
+			drafts, mock := testDraftStore(t)
+			event := triggerInboxTestEvent()
+			oldReceipt := time.Date(2026, 9, 1, 1, 2, 3, 123456000, time.UTC)
+			store := NewTriggerInboxStore(drafts.db)
+			for n := 0; n < 3; n++ {
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(insertTriggerInbox)).WithArgs(event.MessageID, event.Action, int64(event.Version), TriggerInboxQueued).
+					WillReturnError(&mysql.MySQLError{Number: 1062, Message: "private duplicate key"})
+				mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).WithArgs(event.MessageID).
+					WillReturnRows(triggerInboxRows(event, savedStatus, oldReceipt))
+				// No UPDATE is expected: neither execution fields nor received_at
+				// may change, even after repeated notification acknowledgements.
+				mock.ExpectCommit()
+				if err := store.Accept(context.Background(), event); err != nil {
+					t.Fatalf("replay %d of %s: %v", n, savedStatus, err)
+				}
+				if err := mock.ExpectationsWereMet(); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func TestTriggerInboxReplayRejectsUnknownAndMalformedExecutionStatus(t *testing.T) {
+	for _, savedStatus := range []string{"succeeded", "failed", "completed", "Running", "running ", " exhausted", "running\x00", "exhausted\n", "\xff"} {
+		t.Run(savedStatus, func(t *testing.T) {
+			drafts, mock := testDraftStore(t)
+			event := triggerInboxTestEvent()
+			mock.ExpectBegin()
+			mock.ExpectExec(regexp.QuoteMeta(insertTriggerInbox)).WithArgs(event.MessageID, event.Action, int64(event.Version), TriggerInboxQueued).
+				WillReturnError(&mysql.MySQLError{Number: 1062})
+			mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).WithArgs(event.MessageID).
+				WillReturnRows(triggerInboxRows(event, savedStatus, time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)))
+			mock.ExpectRollback()
+			if err := NewTriggerInboxStore(drafts.db).Accept(context.Background(), event); status.Code(err) != codes.FailedPrecondition || strings.Contains(err.Error(), savedStatus) {
+				t.Fatalf("unsafe malformed-state result: %v", err)
+			}
+		})
+	}
+}
+
+func TestTriggerInboxReplayExecutionStatusStillRequiresImmutableFactsAndValidReceiptTime(t *testing.T) {
+	for _, savedStatus := range []string{TriggerInboxRunning, TriggerInboxExhausted} {
+		for _, changed := range []string{"message ID", "action", "version", "NULL time", "nonpositive time"} {
+			t.Run(savedStatus+"/"+changed, func(t *testing.T) {
+				drafts, mock := testDraftStore(t)
+				event, saved := triggerInboxTestEvent(), triggerInboxTestEvent()
+				var receivedAt any = time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+				switch changed {
+				case "message ID":
+					saved.MessageID++
+				case "action":
+					saved.Action = "private-other-action"
+				case "version":
+					saved.Version++
+				case "NULL time":
+					receivedAt = nil
+				case "nonpositive time":
+					receivedAt = time.Unix(0, 999999)
+				}
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(insertTriggerInbox)).WithArgs(event.MessageID, event.Action, int64(event.Version), TriggerInboxQueued).
+					WillReturnError(&mysql.MySQLError{Number: 1062})
+				mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).WithArgs(event.MessageID).
+					WillReturnRows(triggerInboxRows(saved, savedStatus, receivedAt))
+				mock.ExpectRollback()
+				if err := NewTriggerInboxStore(drafts.db).Accept(context.Background(), event); status.Code(err) != codes.FailedPrecondition || strings.Contains(err.Error(), "private") {
+					t.Fatalf("changed receipt accepted: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestTriggerInboxReplayExecutionStatusCommitFailureIsSafeAndSameFactsCanReplayAgain(t *testing.T) {
+	for _, savedStatus := range []string{TriggerInboxRunning, TriggerInboxExhausted} {
+		t.Run(savedStatus, func(t *testing.T) {
+			drafts, mock := testDraftStore(t)
+			event := triggerInboxTestEvent()
+			oldReceipt := time.Date(2026, 9, 1, 1, 2, 3, 0, time.UTC)
+			store := NewTriggerInboxStore(drafts.db)
+			for attempt := 0; attempt < 2; attempt++ {
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(insertTriggerInbox)).WithArgs(event.MessageID, event.Action, int64(event.Version), TriggerInboxQueued).
+					WillReturnError(&mysql.MySQLError{Number: 1062})
+				mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).WithArgs(event.MessageID).
+					WillReturnRows(triggerInboxRows(event, savedStatus, oldReceipt))
+				commit := mock.ExpectCommit()
+				want := codes.OK
+				if attempt == 0 {
+					commit.WillReturnError(errors.New("private uncertain commit"))
+					want = codes.Unavailable
+				}
+				err := store.Accept(context.Background(), event)
+				if status.Code(err) != want || strings.Contains(status.Convert(err).Message(), "private") {
+					t.Fatalf("attempt %d: %v want=%v", attempt, err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestTriggerInboxReplayExecutionReadCancellationWinsOverBadFacts(t *testing.T) {
+	for _, savedStatus := range []string{TriggerInboxRunning, TriggerInboxExhausted} {
+		for _, deadline := range []bool{false, true} {
+			t.Run(savedStatus+map[bool]string{false: "/cancel", true: "/deadline"}[deadline], func(t *testing.T) {
+				drafts, mock := testDraftStore(t)
+				event, bad := triggerInboxTestEvent(), triggerInboxTestEvent()
+				bad.Action = "private-corrupt-action"
+				mock.ExpectBegin()
+				mock.ExpectExec(regexp.QuoteMeta(insertTriggerInbox)).WithArgs(event.MessageID, event.Action, int64(event.Version), TriggerInboxQueued).
+					WillReturnError(&mysql.MySQLError{Number: 1062})
+				mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).WithArgs(event.MessageID).WillDelayFor(100 * time.Millisecond).
+					WillReturnRows(triggerInboxRows(bad, savedStatus, time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)))
+				mock.ExpectRollback()
+				ctx, cancel := context.WithCancel(context.Background())
+				want := codes.Canceled
+				var timer *time.Timer
+				if deadline {
+					cancel()
+					ctx, cancel = context.WithTimeout(context.Background(), 20*time.Millisecond)
+					want = codes.DeadlineExceeded
+				} else {
+					timer = time.AfterFunc(20*time.Millisecond, cancel)
+					defer timer.Stop()
+				}
+				defer cancel()
+				if err := NewTriggerInboxStore(drafts.db).Accept(ctx, event); status.Code(err) != want || strings.Contains(err.Error(), "private") {
+					t.Fatalf("cancellation lost priority: %v", err)
+				}
+			})
+		}
+	}
+}
