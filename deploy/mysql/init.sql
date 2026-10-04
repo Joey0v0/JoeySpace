@@ -177,7 +177,6 @@ CREATE TABLE agent_task_drafts (
     PRIMARY KEY (run_id, item_index)
 ) ENGINE=InnoDB;
 
--- Agent 独立回帖意图；accepted 仅表示 IM 已受理，不表示群成员送达。
 -- IM trigger intent; source timestamp is persisted epoch milliseconds, not worker time.
 CREATE TABLE im_agent_trigger_outbox (
     message_id BIGINT NOT NULL,
@@ -194,7 +193,7 @@ CREATE TABLE im_agent_trigger_outbox (
     KEY idx_im_agent_trigger_pending (published, message_id)
 ) ENGINE=InnoDB;
 
--- Agent independent reply intent; accepted is not delivery.
+-- Agent 独立回帖意图；accepted 仅表示 IM 已受理，不表示群成员送达。
 CREATE TABLE agent_task_replies (
     run_id       BIGINT NOT NULL,
     item_index   INT NOT NULL DEFAULT 0,
