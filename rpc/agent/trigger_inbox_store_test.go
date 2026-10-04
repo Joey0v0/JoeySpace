@@ -26,6 +26,21 @@ func triggerInboxRows(event model.AgentTriggerEvent, savedStatus string, receive
 	return sqlmock.NewRows(triggerInboxTestColumns).AddRow(event.MessageID, event.Action, int64(event.Version), savedStatus, receivedAt)
 }
 
+func waitTriggerInboxRollback(t *testing.T, mock sqlmock.Sqlmock) {
+	t.Helper()
+	// database/sql can finish rollback asynchronously after cancellation.
+	// Verify the expected rollback before test cleanup closes the database.
+	until := time.Now().Add(time.Second)
+	for {
+		if err := mock.ExpectationsWereMet(); err == nil {
+			return
+		} else if !time.Now().Before(until) {
+			t.Fatalf("cancelled transaction did not finish rollback: %v", err)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestTriggerInboxStoreCommitsOnlyImmutableQueuedNotification(t *testing.T) {
 	for _, messageID := range []int64{1, 9007199254740993, math.MaxInt64} {
 		drafts, mock := testDraftStore(t)
@@ -232,6 +247,7 @@ func TestTriggerInboxStoreHonorsDeadlineDuringInsertAndDuplicateRead(t *testing.
 		if status.Code(err) != codes.DeadlineExceeded {
 			t.Fatalf("SQL timeout=%v", err)
 		}
+		waitTriggerInboxRollback(t, mock)
 	}
 }
 
@@ -369,17 +385,7 @@ func TestTriggerInboxReplayExecutionReadCancellationWinsOverBadFacts(t *testing.
 				if err := NewTriggerInboxStore(drafts.db).Accept(ctx, event); status.Code(err) != want || strings.Contains(err.Error(), "private") {
 					t.Fatalf("cancellation lost priority: %v", err)
 				}
-				// database/sql can finish rollback asynchronously after cancellation.
-				// Wait for the actual expected rollback before test cleanup closes DB.
-				until := time.Now().Add(time.Second)
-				for {
-					if err := mock.ExpectationsWereMet(); err == nil {
-						break
-					} else if !time.Now().Before(until) {
-						t.Fatalf("cancelled transaction did not finish rollback: %v", err)
-					}
-					time.Sleep(time.Millisecond)
-				}
+				waitTriggerInboxRollback(t, mock)
 			})
 		}
 	}
