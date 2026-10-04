@@ -334,3 +334,18 @@ API与允许范围以[共同契约](agent-trigger-outbox-contract.md)为准；�
 最终业务613b441，全量Go、Linux Agent及取消/回滚三个场景10次通过；旧超时修正8addc78已由root保存无冲突整合。集中验证首次错误和修复记录见审查页；之后只改记录，无必要重复未变Linux构建。全部18文件均有定位，三个worktree干净保留。
 
 main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/执行024/部署/模型。领取约8分27秒、预算7分57秒、重放2分50秒，不含root集中审查/验证及后续测试修复；没有单agent对照，不声称固定效率倍数。
+
+## 26. 后台受限负责人解析批次（2026-10-04）
+
+用户继续后上批e6b561a快进合本地main。root共同af09925扩现有User/IM专用RPC及生成代码、字面候选形状、可选IM解析能力、原client测试声明和[契约](trigger-assignee-contract.md)，三个干净worktree从此提交建立分支，主目录D:/zy/GoLang/go-im，整合codex/trigger-assignee-integration。不删除pb/旧实现，不升级工具/依赖。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| User匹配 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-assignee-user | 新rpc/user/trigger_member.go/test.go |
+| IM范围与客户端 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-assignee-im | 新rpc/im/trigger_assignee.go/test.go、trigger_member_client.go/test.go |
+| Agent解析 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-assignee-agent | 新rpc/agent/trigger_assignee.go/test.go |
+| root | D:/zy/GoLang/go-im | codex/trigger-assignee-integration | 共同proto/生成/shape/docs、监听方法白名单、两段生产TLS/SQL替身组合、测试/Git整合 |
+
+九步：共同1、User2、IM2、Agent2、root组合1、审查1。子agent只编辑/gofmt/diffcheck，不测试/build/审批/Git提交/合main/push。root保存User2e81f56/取消断言修正d8b8089、IM67d0dbc、Agent580ce9f，无冲突整合；共同形状通过后，首次User测试暴露旧监听只认一个方法与新空字符串断言误报，分别由root/原子agent仅修测试。root保存完整组合业务adb0cb1，最终全量Go和Linux User/IM/Agent通过，[28文件41测试函数/范围](trigger-assignee-review.md)。
+
+三个worktree干净保留，main仍e6b561a，本轮整合分支供主聊天审查；没有push/部署/模型/迁移。User约7分26秒、IM约16分44秒、Agent约8分19秒，不含root共同/整合/验证/文档；无单agent对照，不声称固定效率倍数。
