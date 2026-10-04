@@ -17,12 +17,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var triggerResultColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id"}
+var triggerResultColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id", "retry_after", "retry_failures"}
 
 func triggerResultRows(rows ...triggerExecutionRow) *sqlmock.Rows {
 	result := sqlmock.NewRows(triggerResultColumns)
 	for _, row := range rows {
-		result.AddRow(row.Event.MessageID, row.Event.Action, row.Event.Version, row.Status, row.ReceivedAt, row.Token, row.Until, row.ModelAttempts, row.ModelStarted, row.ResultRunID)
+		result.AddRow(row.Event.MessageID, row.Event.Action, row.Event.Version, row.Status, row.ReceivedAt, row.Token, row.Until, row.ModelAttempts, row.ModelStarted, row.ResultRunID, nil, 0)
 	}
 	return result
 }

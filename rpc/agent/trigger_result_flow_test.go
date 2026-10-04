@@ -23,11 +23,11 @@ const resultFlowCompleteSQL = `UPDATE agent_task_trigger_inbox
     WHERE message_id = ? AND status = 'running' AND lease_token = ? AND lease_until > UTC_TIMESTAMP(6)
     AND model_started = 1 AND model_attempts = ? AND model_attempts BETWEEN 1 AND 2 AND result_run_id IS NULL`
 
-var resultFlowExecutionColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id"}
+var resultFlowExecutionColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id", "retry_after", "retry_failures"}
 
 func resultFlowLeaseRows(row triggerExecutionRow, resultID any) *sqlmock.Rows {
 	return sqlmock.NewRows(resultFlowExecutionColumns).AddRow(row.Event.MessageID, row.Event.Action, row.Event.Version, row.Status,
-		row.ReceivedAt, row.Token, row.Until, row.ModelAttempts, row.ModelStarted, resultID)
+		row.ReceivedAt, row.Token, row.Until, row.ModelAttempts, row.ModelStarted, resultID, nil, 0)
 }
 
 func resultFlowFixture() (triggerExecutionRow, int64, draftRunScope, []taskDraft, string, string) {
