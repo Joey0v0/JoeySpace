@@ -33,6 +33,15 @@ func (p *kafkaBotPublisher) Publish(ctx context.Context, intent botSendIntent) (
 	if err != nil {
 		return "", err
 	}
+	// Validate even accepted rows before the replay fast path. A store result
+	// must describe this exact item, never another item's accepted message.
+	if !record.sameIntent(intent) || record.BotID <= 0 || record.InitiatorID <= 0 || record.TeamID <= 0 ||
+		record.GroupID <= 0 || record.TimestampUnixMs <= 0 {
+		return "", status.Error(codes.Internal, "invalid stored bot send")
+	}
+	if _, err := model.DecodeTaskCreatedCard(record.Content); err != nil {
+		return "", status.Error(codes.Internal, "invalid stored bot send")
+	}
 	if record.Accepted {
 		return record.MsgID, nil
 	}
