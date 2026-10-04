@@ -242,6 +242,73 @@ func TestGetCollectionHTTPRejectsMalformedCollections(t *testing.T) {
 	}
 }
 
+func TestGetCollectionHTTPReturnsIndependentMixedCreationStates(t *testing.T) {
+	result := validHTTPCollection()
+	result.ItemCount = 3
+	result.Items[1].Status = "creating"
+	third := validHTTPCollection().Items[0]
+	index := int32(2)
+	third.ItemIndex, third.Status, third.TaskId = &index, "succeeded", 9007199254740997
+	result.Items = append(result.Items, third)
+	reader := collectionReaderFunc(func(context.Context, *pb.GetTaskDraftRequest) (*pb.GetTaskDraftCollectionResponse, error) {
+		return result, nil
+	})
+	w := httptest.NewRecorder()
+	getTaskDraftCollectionHandler(reader)(w, collectionHTTPRequest("9007199254740999", "", false))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"status":"creating"`) || !strings.Contains(w.Body.String(), `"status":"succeeded"`) || !strings.Contains(w.Body.String(), `"task_id":"9007199254740997"`) {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGetCollectionItemHTTPValidatesStateAndTaskIDTogether(t *testing.T) {
+	for _, tc := range []struct {
+		state string
+		id    int64
+		want  int
+	}{{"waiting_confirmation", 0, 200}, {"creating", 0, 200}, {"succeeded", 9007199254740997, 200}, {"waiting_confirmation", 1, 502}, {"creating", 1, 502}, {"succeeded", 0, 502}, {"succeeded", -1, 502}, {"skipped", 0, 502}} {
+		result := collectionEditResponse(0, 1)
+		result.Item.Status, result.Item.TaskId = tc.state, tc.id
+		reader := collectionItemReaderFunc(func(context.Context, *pb.GetTaskDraftItemRequest) (*pb.GetTaskDraftItemResponse, error) {
+			return result, nil
+		})
+		w := httptest.NewRecorder()
+		getTaskDraftItemHandler(reader)(w, collectionHTTPRequest("9007199254740999", "0", true))
+		if w.Code != tc.want {
+			t.Fatalf("%+v: %d %s", tc, w.Code, w.Body.String())
+		}
+	}
+}
+
+func TestGetCollectionItemHTTPRejectsUnreviewedFrozenFields(t *testing.T) {
+	for _, state := range []string{"waiting_confirmation", "creating", "succeeded"} {
+		for _, unresolved := range []string{"not_found", "ambiguous", "truncated", "needs_input"} {
+			result := collectionEditResponse(0, 1)
+			result.Item.Status = state
+			if state == "succeeded" {
+				result.Item.TaskId = 9007199254740997
+			}
+			if unresolved == "needs_input" {
+				result.Item.Draft.Deadline = &pb.TaskDraftDeadline{Text: "明天下午", Source: "instruction", ReferenceUnixMs: 1791097200123, InstructionReferenceUnixMs: 1791097200123, Timezone: "Asia/Shanghai", Resolution: "needs_input", Reason: "unsupported_expression"}
+			} else {
+				result.Item.Draft.AssigneeId = 0
+				result.Item.Draft.AssigneeResolution = unresolved
+			}
+			reader := collectionItemReaderFunc(func(context.Context, *pb.GetTaskDraftItemRequest) (*pb.GetTaskDraftItemResponse, error) {
+				return result, nil
+			})
+			w := httptest.NewRecorder()
+			getTaskDraftItemHandler(reader)(w, collectionHTTPRequest("9007199254740999", "0", true))
+			want := 502
+			if state == "waiting_confirmation" {
+				want = 200
+			}
+			if w.Code != want {
+				t.Fatalf("%s %s: %d %s", state, unresolved, w.Code, w.Body.String())
+			}
+		}
+	}
+}
+
 func TestGetCollectionItemHTTPPreservesExplicitZeroAndChecksIdentity(t *testing.T) {
 	for _, tc := range []struct {
 		index     string

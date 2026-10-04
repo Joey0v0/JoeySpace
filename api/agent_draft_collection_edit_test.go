@@ -348,3 +348,27 @@ func TestCollectionEditsHTTPMapRPCFailuresWithoutDetails(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectionEditsHTTPRejectValidFrozenOrCreatedResults(t *testing.T) {
+	for _, kind := range []string{"text", "assignee", "deadline"} {
+		for _, state := range []string{"creating", "succeeded"} {
+			result := collectionEditResponse(1, 2)
+			result.Item.Status = state
+			if state == "succeeded" {
+				result.Item.TaskId = 9007199254740997
+			}
+			if kind == "assignee" {
+				result.Item.Draft.AssigneeId = 0
+				result.Item.Draft.AssigneeResolution = "unassigned"
+			}
+			if kind == "deadline" {
+				result.Item.Draft.Deadline.Resolution = "unset"
+			}
+			w := httptest.NewRecorder()
+			collectionEditHandler(kind, collectionResultClient(result, nil))(w, collectionEditHTTPRequest("9007199254740999", "1", validCollectionEditBody(kind)))
+			if w.Code != 502 {
+				t.Fatalf("%s %s falsely edited: %d %s", kind, state, w.Code, w.Body.String())
+			}
+		}
+	}
+}
