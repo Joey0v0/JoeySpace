@@ -193,6 +193,10 @@ func TestTriggerInboxMigrationMatchesInitialization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	retryMigration, err := os.ReadFile("../../deploy/mysql/migrations/026_agent_trigger_retry.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
 	table := regexp.MustCompile(`(?s)CREATE TABLE agent_task_trigger_inbox \(.*?\) ENGINE=InnoDB;`)
 	normalize := func(text []byte) string { return table.FindString(strings.ReplaceAll(string(text), "\r\n", "\n")) }
 	upgraded := normalize(migration)
@@ -223,6 +227,14 @@ func TestTriggerInboxMigrationMatchesInitialization(t *testing.T) {
 	}
 	upgraded = strings.Replace(upgraded, "    PRIMARY KEY", "    result_run_id BIGINT NULL,\n    PRIMARY KEY", 1)
 	upgraded = strings.Replace(upgraded, "\n) ENGINE=InnoDB;", ",\n    UNIQUE KEY uk_agent_trigger_inbox_result (result_run_id)\n) ENGINE=InnoDB;", 1)
+	if !strings.Contains(string(retryMigration), "ALTER TABLE agent_task_trigger_inbox") ||
+		!strings.Contains(string(retryMigration), "ADD COLUMN retry_after DATETIME(6) NULL") ||
+		!strings.Contains(string(retryMigration), "ADD COLUMN retry_failures TINYINT UNSIGNED NOT NULL DEFAULT 0") ||
+		!strings.Contains(string(retryMigration), "ADD KEY idx_agent_trigger_inbox_retry (status, retry_after, message_id)") {
+		t.Fatal("missing durable retry upgrade fields")
+	}
+	upgraded = strings.Replace(upgraded, "    PRIMARY KEY", "    retry_after DATETIME(6) NULL,\n    retry_failures TINYINT UNSIGNED NOT NULL DEFAULT 0,\n    PRIMARY KEY", 1)
+	upgraded = strings.Replace(upgraded, "\n) ENGINE=InnoDB;", ",\n    KEY idx_agent_trigger_inbox_retry (status, retry_after, message_id)\n) ENGINE=InnoDB;", 1)
 	if fresh := normalize(initial); upgraded == "" || upgraded != fresh {
 		t.Fatalf("fresh/upgrade trigger inbox definitions differ: upgrade=%q fresh=%q", upgraded, fresh)
 	}

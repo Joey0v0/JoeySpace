@@ -11,7 +11,7 @@
 ## 调用与失败边界
 
 1. worker 先持有 live lease，且 `BeginModel` 已成功提交。模型/RPC、来源核对及负责人/时间解释都在 SQL 事务外完成；只有已核验的草稿进入保存方法。
-2. 后台保存方法预检 run ID、scope、draft 数量/每项完整元数据、fixed key/fingerprint；使用 `withTriggerLease` 锁 inbox 并用数据库 UTC 时间防旧 owner。草稿 run/项与 `completed + result_run_id` 更新在**同一事务**。更新行数必须为 1；末尾再做有效租约检查会与 completed 冲突，因此完成写的顺序应为：锁 live → 草稿 SQL → 再检查 live → 条件更新为 completed → commit。
+2. 后台保存方法预检 run ID、scope、draft 数量/每项完整元数据、fixed key/fingerprint；使用与 `withTriggerLease` 同样的有界事务及锁/数据库 UTC 校验，但完成写在专用事务方法中实现，因为通用方法的末尾 live 检查会与 completed 冲突。草稿 run/项与 `completed + result_run_id` 更新在**同一事务**。更新行数必须为 1；顺序为：锁 live → 草稿 SQL → 再检查 live → 条件更新为 completed → commit。
 3. 任一步失败回滚全部写；失去租约返回 `ErrTriggerLeaseLost`，数据库故障对外屏蔽细节为 Unavailable。提交不确定时，不能重新调用模型或换 key 插入；后续根据保存的 inbox 状态和固定 key 查证。已完成不再可领取，通知重放不重置。
 4. 原同步多项保存接口保持独立事务和既有冲突回放行为；后台接口不能直接调用它并在另一个事务标记完成。
 
