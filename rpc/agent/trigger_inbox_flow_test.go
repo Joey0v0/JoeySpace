@@ -185,9 +185,52 @@ func TestTriggerInboxMigrationMatchesInitialization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	leaseMigration, err := os.ReadFile("../../deploy/mysql/migrations/024_agent_trigger_lease.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
 	table := regexp.MustCompile(`(?s)CREATE TABLE agent_task_trigger_inbox \(.*?\) ENGINE=InnoDB;`)
 	normalize := func(text []byte) string { return table.FindString(strings.ReplaceAll(string(text), "\r\n", "\n")) }
-	if upgraded, fresh := normalize(migration), normalize(initial); upgraded == "" || upgraded != fresh {
+	upgraded := normalize(migration)
+	var addedColumns, addedKeys []string
+	for _, line := range strings.Split(strings.ReplaceAll(string(leaseMigration), "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "ADD COLUMN "):
+			addedColumns = append(addedColumns, strings.TrimRight(strings.TrimPrefix(line, "ADD COLUMN "), ",;"))
+		case strings.HasPrefix(line, "ADD KEY "):
+			addedKeys = append(addedKeys, strings.TrimRight(strings.TrimPrefix(line, "ADD "), ",;"))
+		}
+	}
+	if len(addedColumns) != 4 || len(addedKeys) != 1 ||
+		!strings.Contains(string(leaseMigration), "ALTER TABLE agent_task_trigger_inbox") {
+		t.Fatal("missing execution lease upgrade fields")
+	}
+	for _, column := range addedColumns {
+		upgraded = strings.Replace(upgraded, "    PRIMARY KEY", "    "+column+",\n    PRIMARY KEY", 1)
+	}
+	for _, key := range addedKeys {
+		upgraded = strings.Replace(upgraded, "\n) ENGINE=InnoDB;", ",\n    "+key+"\n) ENGINE=InnoDB;", 1)
+	}
+	if fresh := normalize(initial); upgraded == "" || upgraded != fresh {
 		t.Fatalf("fresh/upgrade trigger inbox definitions differ: upgrade=%q fresh=%q", upgraded, fresh)
+	}
+}
+
+func TestTriggerInboxFlowRunningAndExhaustedReplayAcknowledgesWithoutReset(t *testing.T) {
+	for _, savedStatus := range []string{TriggerInboxRunning, TriggerInboxExhausted} {
+		t.Run(savedStatus, func(t *testing.T) {
+			drafts, mock := testDraftStore(t)
+			b := publishedInboxFlowNotification(t)
+			expectInboxFlowInsert(mock).WillReturnError(&driver.MySQLError{Number: 1062})
+			mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).
+				WithArgs(int64(9007199254740993)).
+				WillReturnRows(triggerInboxRows(triggerInboxTestEvent(), savedStatus, time.Date(2026, 10, 4, 3, 0, 0, 0, time.UTC)))
+			mock.ExpectCommit()
+			runInboxFlowConsumer(t, NewTriggerInboxStore(drafts.db), b, mock)
+			if b.fetches != 1 || b.commits != 1 {
+				t.Fatalf("executed source replay did not acknowledge exactly once: fetch=%d commit=%d", b.fetches, b.commits)
+			}
+		})
 	}
 }
