@@ -26,7 +26,14 @@ func NewServiceClientCredentials(files CertificateFiles, serverDNSName string) (
 	if err != nil {
 		return nil, err
 	}
-	return credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}, RootCAs: roots, ServerName: serverDNSName}), nil
+	return credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{cert}, RootCAs: roots, ServerName: serverDNSName,
+		VerifyConnection: func(s tls.ConnectionState) error {
+			if !verifiedService(s, serverDNSName) {
+				return errors.New("RPC server certificate is not the allowed service identity")
+			}
+			return nil
+		},
+	}), nil
 }
 
 // NewServiceServerCredentials trusts only the named service, never every certificate of the CA.
