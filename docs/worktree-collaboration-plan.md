@@ -376,6 +376,6 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 | worker与进程接线 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-worker-runtime | 新rpc/agent/trigger_worker.go/test.go、cmd/agent/main.go、新cmd/agent/trigger_worker.go/test.go |
 | 主 agent | D:/zy/GoLang/go-im | codex/trigger-worker-integration | 共同迁移/接口/决策/计划、旧结果夹具适配、跨分支审查/提交/合入/验证 |
 
-九步按整批计数；执行 agent 只改各自范围并做格式/差异检查，未测试/build、提交、合 main 或推送。主 agent 保存 A `f69d89e`、B `99e63b7`、C `aae8fb5`，先补两份结果夹具再无冲突合入本批整合分支。全仓 Go 测试、worker 场景5次及 Linux/amd64 全仓编译通过；race 因本机无 CGO/gcc 未执行。实际改动的28个文件、每步目的和真实环境限制见[本批审查](trigger-worker-review.md)。main仍`ef78ba8`，本批待用户审查；三个worktree干净保留，不推送、迁移、部署或调用真实模型。
+九步按整批计数；执行 agent 只改各自范围并做格式/差异检查，未测试/build、提交、合 main 或推送。主 agent 保存 A `f69d89e`、B `99e63b7`、C `aae8fb5`，先补两份结果夹具再无冲突合入本批整合分支。全仓 Go 测试、worker 场景5次及 Linux/amd64 全仓编译通过；race 因本机无 CGO/gcc 未执行。实际改动的28个文件、每步目的和真实环境限制见[本批审查](trigger-worker-review.md)。用户随后要求合入，本地 main 已从 `ef78ba8` 快进包含本批；三个worktree干净保留，不推送、迁移、部署或调用真实模型。
 
 三个子 agent 各约13分53秒、8分02秒、15分28秒；包含不同任务复杂度，不含主 agent 协调/集成时间，无法据此推断固定效率倍数。

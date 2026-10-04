@@ -1,6 +1,6 @@
 # 后台 @AI 草稿 worker：本批审查
 
-日期：2026-10-04。本批沿 A60/A61 与用户本轮选定的 A63 持久退避，在 `codex/trigger-worker-integration` 完成。批次开始时，上批已快进到本地 main `ef78ba8`；三个独立执行分支已由主 agent 合入本批集成分支，尚未合 main、推送或部署。[共同契约](trigger-worker-contract.md)、[A63取舍](architecture-decisions.md#a63后台-worker-的前置失败调度用户选择-a2026-10-04)。
+日期：2026-10-04。本批沿 A60/A61 与用户本轮选定的 A63 持久退避，在 `codex/trigger-worker-integration` 完成。批次开始时，上批已快进到本地 main `ef78ba8`；三个独立执行分支由主 agent 合入本批集成分支。用户随后要求合入，本地 main 已快进包含本批；未推送或部署。[共同契约](trigger-worker-contract.md)、[A63取舍](architecture-decisions.md#a63后台-worker-的前置失败调度用户选择-a2026-10-04)。
 
 业务目的：此前群内 `@AI 整理任务` 已能可靠保存通知、受限读来源、领取租约、原子写草稿，但尚没有进程把它们连续执行。本批接通可显式开启的后台执行：通知进入 Agent inbox 后，即使浏览器关闭，worker 也可以生成**待本人审查**的草稿；不自动创建 Task 或发送群卡片。默认开关仍关闭，所以仅更新本地代码不会改变现有部署行为。
 
