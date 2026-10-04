@@ -266,3 +266,9 @@ A51/A52/A53 确认来源：用户对三项方案问题分别明确选择 A，并
 新解析响应限32KiB以容纳20个UTF8候选，单次RPC覆盖该限值，原资格Check仍4KiB；备选扩大整条连接限值会顺带放宽旧接口，故不采用。来源上下文原2MiB/20条限制不变，未提及称呼拒绝。上述是既定方案内协议/验证实施，不新增权限。没有迁移、模型调用、草稿保存或worker接线，[共同契约](trigger-assignee-contract.md)，[九步完整审查](trigger-assignee-review.md)。
 
 实际验证：业务adb0cb1，最终全量Go、Linux User/IM/Agent编译通过；[28文件与41个新测试函数](trigger-assignee-review.md)。User生产TLS＋handler/GORM由SQL替身验证；Agent→IM→User用生产Agent/IM链和User TLS RPC替身，未声称整链真实MySQL/User生产进程。旧监听方法数量和新取消断言的测试误报仅修测试，未改普通授权。真实MySQL匹配/跨服务撤权并发、生产证书/云/模型/worker仍未验收。
+
+### A61 后台草稿与执行结果原子保存（2026-10-04）
+
+确认状态：用户已确认 A61 持久状态＋租约和固定来源键。本批在这一既定方案内选择给 Agent inbox 增加 `completed` 终态及唯一的 `result_run_id` 关联，并在同一短事务中插入 Agent run/多项草稿、更新 inbox 结果。备选一是只靠固定请求键事后扫描 run，难以准确从 inbox 提供本人后台运行入口；备选二是沿用独立的同步草稿事务，再另行标记 inbox，崩溃或失租约时会出现半完成数据。因此选同事务结果关联，代价是 025 增量迁移、结果列和事务行锁；这不更改业务数据归属、权限模型或跨服务通信。
+
+结果写入前后都按数据库 UTC 时钟和随机 token 核对当前租约，最终条件更新完成状态；模型/RPC 调用不进入 SQL 事务，已记模型尝试预算才能保存。提交不确定时不得重新调用模型或改用新键插入。后续 worker 必须从受限 IM 来源取得 actor/team/group/原消息时间并在保存前复核权限，本批存储接口只接收已核验内容，不把字段预检冒充来源授权。Task 创建和机器人回帖仍由本人逐项显式确认。共同契约及范围见[后台结果事务](trigger-result-contract.md)。实际全仓Go及Linux Agent编译通过，[21文件审查和验证边界](trigger-result-review.md)；真实MySQL、worker/模型及部署未验收。

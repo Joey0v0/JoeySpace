@@ -89,8 +89,8 @@ func expectInboxFlowInsert(mock sqlmock.Sqlmock) *sqlmock.ExpectedExec {
 func expectInboxFlowReplay(mock sqlmock.Sqlmock) {
 	expectInboxFlowInsert(mock).WillReturnError(&driver.MySQLError{Number: 1062, Message: "same source already saved"})
 	mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).WithArgs(int64(9007199254740993)).WillReturnRows(sqlmock.NewRows([]string{
-		"message_id", "action", "event_version", "status", "received_at",
-	}).AddRow(int64(9007199254740993), model.AgentTriggerAction, model.AgentTriggerVersion, TriggerInboxQueued, time.Date(2026, 10, 4, 3, 0, 0, 0, time.UTC)))
+		"message_id", "action", "event_version", "status", "received_at", "result_run_id",
+	}).AddRow(int64(9007199254740993), model.AgentTriggerAction, model.AgentTriggerVersion, TriggerInboxQueued, time.Date(2026, 10, 4, 3, 0, 0, 0, time.UTC), nil))
 	mock.ExpectCommit()
 }
 
@@ -161,8 +161,8 @@ func TestTriggerInboxFlowInvalidSavedFactStopsWithoutAcknowledging(t *testing.T)
 	b := publishedInboxFlowNotification(t)
 	expectInboxFlowInsert(mock).WillReturnError(&driver.MySQLError{Number: 1062})
 	mock.ExpectQuery(regexp.QuoteMeta(selectTriggerInboxForUpdate)).WithArgs(int64(9007199254740993)).WillReturnRows(sqlmock.NewRows([]string{
-		"message_id", "action", "event_version", "status", "received_at",
-	}).AddRow(int64(9007199254740993), model.AgentTriggerAction, 2, TriggerInboxQueued, time.Now()))
+		"message_id", "action", "event_version", "status", "received_at", "result_run_id",
+	}).AddRow(int64(9007199254740993), model.AgentTriggerAction, 2, TriggerInboxQueued, time.Now(), nil))
 	mock.ExpectRollback()
 	consumer, err := NewTriggerConsumer(b, NewTriggerInboxStore(drafts.db))
 	if err != nil {

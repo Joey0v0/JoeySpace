@@ -16,14 +16,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var triggerInboxTestColumns = []string{"message_id", "action", "event_version", "status", "received_at"}
+var triggerInboxTestColumns = []string{"message_id", "action", "event_version", "status", "received_at", "result_run_id"}
 
 func triggerInboxTestEvent() model.AgentTriggerEvent {
 	return model.AgentTriggerEvent{MessageID: 9007199254740993, Action: model.AgentTriggerAction, Version: model.AgentTriggerVersion}
 }
 
 func triggerInboxRows(event model.AgentTriggerEvent, savedStatus string, receivedAt any) *sqlmock.Rows {
-	return sqlmock.NewRows(triggerInboxTestColumns).AddRow(event.MessageID, event.Action, int64(event.Version), savedStatus, receivedAt)
+	return sqlmock.NewRows(triggerInboxTestColumns).AddRow(event.MessageID, event.Action, int64(event.Version), savedStatus, receivedAt, nil)
 }
 
 func waitTriggerInboxRollback(t *testing.T, mock sqlmock.Sqlmock) {
@@ -104,17 +104,17 @@ func TestTriggerInboxStoreRejectsBadPersistedFactsWithoutResettingRow(t *testing
 			case "missing":
 				rows = sqlmock.NewRows(triggerInboxTestColumns)
 			case "multiple":
-				rows.AddRow(event.MessageID, event.Action, int64(event.Version), TriggerInboxQueued, at)
+				rows.AddRow(event.MessageID, event.Action, int64(event.Version), TriggerInboxQueued, at, nil)
 			case "NULL time":
 				rows = triggerInboxRows(saved, state, nil)
 			case "NULL status":
-				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(saved.MessageID, saved.Action, int64(saved.Version), nil, at)
+				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(saved.MessageID, saved.Action, int64(saved.Version), nil, at, nil)
 			case "NULL ID":
-				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(nil, saved.Action, int64(saved.Version), state, at)
+				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(nil, saved.Action, int64(saved.Version), state, at, nil)
 			case "NULL action":
-				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(saved.MessageID, nil, int64(saved.Version), state, at)
+				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(saved.MessageID, nil, int64(saved.Version), state, at, nil)
 			case "NULL version":
-				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(saved.MessageID, saved.Action, nil, state, at)
+				rows = sqlmock.NewRows(triggerInboxTestColumns).AddRow(saved.MessageID, saved.Action, nil, state, at, nil)
 			case "bad timestamp":
 				rows = triggerInboxRows(saved, state, "private invalid timestamp")
 			}

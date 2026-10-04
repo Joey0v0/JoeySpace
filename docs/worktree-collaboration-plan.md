@@ -349,3 +349,18 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 九步：共同1、User2、IM2、Agent2、root组合1、审查1。子agent只编辑/gofmt/diffcheck，不测试/build/审批/Git提交/合main/push。root保存User2e81f56/取消断言修正d8b8089、IM67d0dbc、Agent580ce9f，无冲突整合；共同形状通过后，首次User测试暴露旧监听只认一个方法与新空字符串断言误报，分别由root/原子agent仅修测试。root保存完整组合业务adb0cb1，最终全量Go和Linux User/IM/Agent通过，[28文件41测试函数/范围](trigger-assignee-review.md)。
 
 三个worktree干净保留，main仍e6b561a，本轮整合分支供主聊天审查；没有push/部署/模型/迁移。User约7分26秒、IM约16分44秒、Agent约8分19秒，不含root共同/整合/验证/文档；无单agent对照，不声称固定效率倍数。
+
+## 27. 后台草稿结果原子保存批次（2026-10-04）
+
+用户继续后上批79ab797快进合本地main。root在codex/trigger-result-integration提交共同d55e0ee：025/init、同步迁移检查与[事务契约](trigger-result-contract.md)。三个保留的干净worktree从同一提交开本批分支；不复用旧分支上的代码，也不删除旧分支。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 草稿SQL复用 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-result-draft | rpc/agent/draft_collection_store.go、新trigger_result_draft_test.go |
+| 完成状态/事务 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-result-state | trigger_lease_contract.go、trigger_lease_store.go、trigger_inbox_store.go、新trigger_result_store.go/test.go（均rpc/agent下） |
+| 跨流程/迁移测试 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-result-flow | 新rpc/agent/trigger_result_flow_test.go、trigger_result_schema_test.go |
+| root | D:/zy/GoLang/go-im | codex/trigger-result-integration | 共同迁移/契约/计划/ADR/审查、原有SQL测试fixture适配、Git整合/集中验证 |
+
+九步内完成共同契约/表、草稿预检/事务插入、状态/完成更新、旧fixture适配、组合测试、集中验收和文档。执行agent只编辑指定文件、gofmt/diffcheck，不自行测试/build/审批/Git提交/合main/push；root分别保存5f22be3、59f97be、a291e47并无冲突整合。草稿部分定向测试通过；三支整合后的Agent测试初次因root漏补一处旧sqlmock列而失败，仅改测试列后Agent全包通过；最终全仓Go与Linux Agent编译通过。[完整文件及边界](trigger-result-review.md)。
+
+三个worktree干净保留；main仍79ab797，本批整合分支供主聊天审查，未推送/部署/执行025/请求模型。各执行agent报告约5分28秒、8分19秒、11分37秒；不含root调度/集中验证时间，没有单agent对照，不声称固定效率倍数。

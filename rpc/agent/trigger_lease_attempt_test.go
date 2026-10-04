@@ -21,12 +21,12 @@ func triggerAttemptTestLease() TriggerLease {
 
 func triggerAttemptTestValues(lease TriggerLease, attempts, started int) []driver.Value {
 	return []driver.Value{lease.MessageID, model.AgentTriggerAction, model.AgentTriggerVersion, TriggerInboxRunning,
-		time.Date(2026, 10, 4, 1, 0, 0, 0, time.UTC), lease.Token, lease.Until, attempts, started}
+		time.Date(2026, 10, 4, 1, 0, 0, 0, time.UTC), lease.Token, lease.Until, attempts, started, nil}
 }
 
 func triggerAttemptTestRows(values ...driver.Value) *sqlmock.Rows {
 	rows := sqlmock.NewRows([]string{"message_id", "action", "event_version", "status", "received_at",
-		"lease_token", "lease_until", "model_attempts", "model_started"})
+		"lease_token", "lease_until", "model_attempts", "model_started", "result_run_id"})
 	if len(values) != 0 {
 		rows.AddRow(values...)
 	}

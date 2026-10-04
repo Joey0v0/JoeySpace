@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var triggerClaimColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started"}
+var triggerClaimColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id"}
 
 type triggerClaimTokenCapture struct{ capture func(string) }
 
@@ -51,7 +51,7 @@ func triggerClaimValues(row triggerExecutionRow) []driver.Value {
 	if row.Until.Valid {
 		until = row.Until.Time
 	}
-	return []driver.Value{row.Event.MessageID, row.Event.Action, int64(row.Event.Version), row.Status, row.ReceivedAt, token, until, int64(row.ModelAttempts), int64(row.ModelStarted)}
+	return []driver.Value{row.Event.MessageID, row.Event.Action, int64(row.Event.Version), row.Status, row.ReceivedAt, token, until, int64(row.ModelAttempts), int64(row.ModelStarted), nil}
 }
 
 func triggerClaimRows(rows ...triggerExecutionRow) *sqlmock.Rows {

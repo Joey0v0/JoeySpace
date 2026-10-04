@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-04）：main已合上批e6b561a。本轮业务adb0cb1在codex/trigger-assignee-integration完成A60后台受限负责人解析通道：Agent仅传保存来源ID和字面称呼，IM重读范围/资格，User核对当前团队成员并严格匹配最多20名候选；Agent保留待本人审查的负责人状态。全量Go、Linux User/IM/Agent编译通过，新增41个测试函数，[九步28文件](trigger-assignee-review.md)。三个worktree整合留供审查，未接worker/模型/草稿保存，真实DB/证书/云待最终验收，未push或同步。
+最新进展（2026-10-04）：main已合上批79ab797。本轮在codex/trigger-result-integration完成A61后台草稿结果的原子保存：复用多项草稿插入，数据库租约在同一事务中保护 run/项/完成关联，成功留 `completed + result_run_id`；失败回滚，重复通知不清结果。全量Go及Linux Agent编译通过，[本批全部文件和限制](trigger-result-review.md)。三个执行worktree已合入本批整合分支，尚未合main/推送；worker、受限来源到模型核验及本人后台入口尚未接线，真实DB/模型/证书/云待最终验收。
 
 ## 1. 项目目标与学习背景
 
@@ -454,7 +454,9 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] A60后台负责人受限解析（2026-10-04）：复用既有专用mTLS端口/连接，User前后核对启用作者团队资格并严格完整姓名候选，IM从保存来源派生范围且最终复查群，Agent据原文证据取得五类本人审查状态；没有伪造JWT或自动指定。生产User监听/TLS/SQL替身和Agent→IM→User服务TLS替身组合、全量Go及Linux三服务编译通过；[九步28文件与未验收范围](trigger-assignee-review.md)。没有后台worker或草稿完成。
 
-当前下一步（2026-10-04）：[受限负责人解析](trigger-assignee-review.md)本地验证完成；接既有租约与受限来源读取、已实现的多项生成核验，将固定来源键的草稿和执行结果在同一受保护事务中保存，再接有界worker和本人后台运行入口/整链恢复验收。不得伪造Token复用旧Bearer入口；原消息参考不用inbox.received_at，模型/RPC不可放在租约SQL事务内，草稿/执行结果必须同事务防旧持有者。Task确认/回帖仍A41/A46本人显式。maine6b561a、本轮整合分支codex/trigger-assignee-integration、三个worktree保留，不标阶段6全部完成。022/023/024及后续增量/生产证书/真实DB/Kafka与模型验收留最终部署，方舟接入点/预算未定前不请求真实模型。
+- [x] A61后台草稿结果原子保存（2026-10-04）：沿已选持久租约/两次模型预算，固定来源请求键，复用现有草稿字段预检与1—5项插入；同一短事务锁当前租约、插入run/项、二次验证数据库期限，条件更新`completed + result_run_id`，失败整笔回滚。旧同步多项入口与本人Task/回帖规则不变；025仅准备、未执行。SQL替身验证成功、过期/旧持有者、项失败、提交不确定及通知重放，迁移一致性、全量Go和Linux Agent通过；[共同契约](trigger-result-contract.md)、[架构记录](architecture-decisions.md#a61-后台草稿与执行结果原子保存2026-10-04)、[全部文件及未验收范围](trigger-result-review.md)。本批尚无worker/模型调用/后台可见入口，不能称群内@AI已完成。
+
+当前下一步（2026-10-04）：在[原子结果保存](trigger-result-review.md)之上接有界后台worker：领取租约→A60受限来源/当前资格→沿既有Eino多项生成及本人审查规则核验→模型预算→事务保存。设计时区分模型调用与SQL/通知重试，不在事务中做RPC/模型；相对时间用原消息时间，不用inbox.received_at；负责人不伪造JWT，使用A60专用服务链。随后提供仅本人可见的后台运行入口和崩溃恢复组合验收。Task确认/回帖仍A41/A46本人显式。main79ab797，本轮整合分支codex/trigger-result-integration，三个worktree保留，不标阶段6全部完成。022/023/024/025、生产证书、真实DB/Kafka/容器/浏览器/模型及云端留最终统一验收，方舟接入点/预算未定前不请求真实模型。
 
 ## 10. 决策记录与文档关系
 
