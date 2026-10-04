@@ -6,6 +6,8 @@ option go_package = "github.com/yjydist/go-im/rpc/im/pb";
 // Registered only on IM's dedicated mutual-TLS listener, never the ordinary IM port.
 service IMBot {
   rpc PostTaskCreatedCard(PostTaskCreatedCardRequest) returns (PostTaskCreatedCardResponse);
+  // Separate method prevents older IM servers silently treating every item as item 0.
+  rpc PostTaskCreatedCardItem(PostTaskCreatedCardItemRequest) returns (PostTaskCreatedCardResponse);
 }
 
 message PostTaskCreatedCardRequest {
@@ -23,4 +25,14 @@ message PostTaskCreatedCardResponse {
   // True only after Kafka acknowledgement and persistence of that acknowledgement.
   // This is not a history-persistence or member-delivery receipt.
   bool accepted = 2;
+}
+
+message PostTaskCreatedCardItemRequest {
+  int64 run_id = 1;
+  // Required presence; stable zero-based index in the persisted Agent collection (0..4).
+  optional int32 item_index = 2;
+  int64 team_id = 3;
+  int64 group_id = 4;
+  // Same version-1 card as the original single-item method.
+  string content = 5;
 }

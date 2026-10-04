@@ -64,6 +64,7 @@ CREATE TABLE im_bots (
 CREATE TABLE im_bot_sends (
     msg_id VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
     run_id BIGINT NOT NULL,
+    item_index INT NOT NULL DEFAULT 0, -- 固定草稿项序号；旧单项记录为 0
     bot_id BIGINT NOT NULL,
     initiator_id BIGINT NOT NULL,
     team_id BIGINT NOT NULL,
