@@ -33,6 +33,7 @@ const (
 	Agent_EditTaskDraftItemText_FullMethodName       = "/agent.Agent/EditTaskDraftItemText"
 	Agent_SelectTaskDraftItemAssignee_FullMethodName = "/agent.Agent/SelectTaskDraftItemAssignee"
 	Agent_EditTaskDraftItemDeadline_FullMethodName   = "/agent.Agent/EditTaskDraftItemDeadline"
+	Agent_ConfirmTaskDraftItem_FullMethodName        = "/agent.Agent/ConfirmTaskDraftItem"
 )
 
 // AgentClient is the client API for Agent service.
@@ -67,6 +68,8 @@ type AgentClient interface {
 	SelectTaskDraftItemAssignee(ctx context.Context, in *SelectTaskDraftItemAssigneeRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
 	// 本人设置/清除该项截止时间；保留原始解释依据。
 	EditTaskDraftItemDeadline(ctx context.Context, in *EditTaskDraftItemDeadlineRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
+	// 本人逐项审查并创建；先持久冻结，再以固定项请求键调用 Task。
+	ConfirmTaskDraftItem(ctx context.Context, in *ConfirmTaskDraftItemRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
 }
 
 type agentClient struct {
@@ -217,6 +220,16 @@ func (c *agentClient) EditTaskDraftItemDeadline(ctx context.Context, in *EditTas
 	return out, nil
 }
 
+func (c *agentClient) ConfirmTaskDraftItem(ctx context.Context, in *ConfirmTaskDraftItemRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskDraftItemResponse)
+	err := c.cc.Invoke(ctx, Agent_ConfirmTaskDraftItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility.
@@ -249,6 +262,8 @@ type AgentServer interface {
 	SelectTaskDraftItemAssignee(context.Context, *SelectTaskDraftItemAssigneeRequest) (*GetTaskDraftItemResponse, error)
 	// 本人设置/清除该项截止时间；保留原始解释依据。
 	EditTaskDraftItemDeadline(context.Context, *EditTaskDraftItemDeadlineRequest) (*GetTaskDraftItemResponse, error)
+	// 本人逐项审查并创建；先持久冻结，再以固定项请求键调用 Task。
+	ConfirmTaskDraftItem(context.Context, *ConfirmTaskDraftItemRequest) (*GetTaskDraftItemResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -300,6 +315,9 @@ func (UnimplementedAgentServer) SelectTaskDraftItemAssignee(context.Context, *Se
 }
 func (UnimplementedAgentServer) EditTaskDraftItemDeadline(context.Context, *EditTaskDraftItemDeadlineRequest) (*GetTaskDraftItemResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditTaskDraftItemDeadline not implemented")
+}
+func (UnimplementedAgentServer) ConfirmTaskDraftItem(context.Context, *ConfirmTaskDraftItemRequest) (*GetTaskDraftItemResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfirmTaskDraftItem not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 func (UnimplementedAgentServer) testEmbeddedByValue()               {}
@@ -574,6 +592,24 @@ func _Agent_EditTaskDraftItemDeadline_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_ConfirmTaskDraftItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmTaskDraftItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ConfirmTaskDraftItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_ConfirmTaskDraftItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ConfirmTaskDraftItem(ctx, req.(*ConfirmTaskDraftItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -636,6 +672,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "EditTaskDraftItemDeadline",
 			Handler:    _Agent_EditTaskDraftItemDeadline_Handler,
+		},
+		{
+			MethodName: "ConfirmTaskDraftItem",
+			Handler:    _Agent_ConfirmTaskDraftItem_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -33,6 +33,19 @@ service Agent {
   rpc SelectTaskDraftItemAssignee(SelectTaskDraftItemAssigneeRequest) returns (GetTaskDraftItemResponse);
   // 本人设置/清除该项截止时间；保留原始解释依据。
   rpc EditTaskDraftItemDeadline(EditTaskDraftItemDeadlineRequest) returns (GetTaskDraftItemResponse);
+  // 本人逐项审查并创建；先持久冻结，再以固定项请求键调用 Task。
+  rpc ConfirmTaskDraftItem(ConfirmTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
+}
+
+message ConfirmTaskDraftItemRequest {
+  int64 run_id = 1;
+  optional int32 item_index = 2;
+  string expected_title = 3;
+  string expected_description = 4;
+  int64 expected_revision = 5;
+  optional int64 expected_assignee_id = 6;
+  optional int64 expected_due_at_unix_ms = 7;
+  string expected_deadline_resolution = 8;
 }
 
 message EditTaskDraftItemTextRequest {
