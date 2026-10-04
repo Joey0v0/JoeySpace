@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"strconv"
 	"time"
 
 	"github.com/yjydist/go-im/internal/model"
@@ -23,16 +22,40 @@ type botReplyServer struct {
 }
 
 func (s *botReplyServer) PostTaskCreatedCard(ctx context.Context, req *pb.PostTaskCreatedCardRequest) (*pb.PostTaskCreatedCardResponse, error) {
+	index := int32(0)
+	return s.postTaskCreatedCard(ctx, req.GetRunId(), &index, req.GetTeamId(), req.GetGroupId(), req.GetContent())
+}
+
+func (s *botReplyServer) PostTaskCreatedCardItem(ctx context.Context, req *pb.PostTaskCreatedCardItemRequest) (*pb.PostTaskCreatedCardResponse, error) {
+	var index *int32
+	if req != nil {
+		index = req.ItemIndex
+	}
+	return s.postTaskCreatedCard(ctx, req.GetRunId(), index, req.GetTeamId(), req.GetGroupId(), req.GetContent())
+}
+
+// Both entry points authorize before publishing, including accepted replays.
+// Only the legacy entry point supplies a default index.
+func (s *botReplyServer) postTaskCreatedCard(ctx context.Context, runID int64, index *int32, teamID, groupID int64, content string) (*pb.PostTaskCreatedCardResponse, error) {
+	if s == nil {
+		return nil, status.Error(codes.Unauthenticated, "verified Agent TLS identity required")
+	}
+
 	if err := requireBotAgent(ctx, s.agentDNSName); err != nil {
 		return nil, err
 	}
 	if s.im == nil || s.im.db == nil || s.im.jwtSecret == "" || s.publisher == nil {
 		return nil, status.Error(codes.Unavailable, "bot sending is not enabled")
 	}
-	if req.GetRunId() <= 0 || req.GetTeamId() <= 0 || req.GetGroupId() <= 0 {
+	if index == nil || teamID <= 0 || groupID <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid bot send scope")
 	}
-	if _, err := model.DecodeTaskCreatedCard(req.GetContent()); err != nil {
+	expectedMsgID, err := model.BotTaskItemMsgID(runID, *index)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid bot send item identity")
+	}
+	itemIndex := *index
+	if _, err := model.DecodeTaskCreatedCard(content); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task creation card")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
@@ -41,19 +64,19 @@ func (s *botReplyServer) PostTaskCreatedCard(ctx context.Context, req *pb.PostTa
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.im.CheckTeamGroupAccess(ctx, &pb.CheckTeamGroupAccessRequest{TeamId: req.GetTeamId(), GroupId: req.GetGroupId()}); err != nil {
+	if _, err := s.im.CheckTeamGroupAccess(ctx, &pb.CheckTeamGroupAccessRequest{TeamId: teamID, GroupId: groupID}); err != nil {
 		return nil, err
 	}
 	bot, err := lookupEnabledBot(ctx, s.im.db, s.botCode)
 	if err != nil {
 		return nil, err
 	}
-	msgID, err := s.publisher.Publish(ctx, botSendIntent{RunID: req.GetRunId(), BotID: bot.ID, InitiatorID: actorID,
-		TeamID: req.GetTeamId(), GroupID: req.GetGroupId(), Content: req.GetContent()})
+	msgID, err := s.publisher.Publish(ctx, botSendIntent{RunID: runID, ItemIndex: itemIndex, BotID: bot.ID, InitiatorID: actorID,
+		TeamID: teamID, GroupID: groupID, Content: content})
 	if err != nil {
 		return nil, err
 	}
-	if msgID != model.BotTaskMsgIDPrefix+strconv.FormatInt(req.GetRunId(), 10) {
+	if msgID != expectedMsgID {
 		return nil, status.Error(codes.Internal, "invalid bot message result")
 	}
 	return &pb.PostTaskCreatedCardResponse{MsgId: msgID, Accepted: true}, nil
