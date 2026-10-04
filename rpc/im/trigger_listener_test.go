@@ -214,7 +214,7 @@ func TestIMTriggerListenerOnlyExposesDedicatedServiceToAgent(t *testing.T) {
 	conn := imTriggerListenerConn(t, r.listener.Addr().String(), creds)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	_, err = pb.NewIMClient(conn).CheckGroupMember(ctx, &pb.CheckGroupMemberRequest{GroupId: 300, UserId: 42})
+	_, err = pb.NewIMClient(conn).CheckGroupMember(ctx, &pb.CheckGroupMemberRequest{GroupId: 300})
 	if status.Code(err) != codes.Unimplemented {
 		t.Fatalf("ordinary IM exposed or trusted Agent handshake failed: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestIMTriggerListenerRejectsOtherRoleAndPlaintext(t *testing.T) {
 			conn := imTriggerListenerConn(t, r.listener.Addr().String(), creds)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			_, err := pb.NewIMClient(conn).CheckGroupMember(ctx, &pb.CheckGroupMemberRequest{GroupId: 300, UserId: 42})
+			_, err := pb.NewIMClient(conn).CheckGroupMember(ctx, &pb.CheckGroupMemberRequest{GroupId: 300})
 			if status.Code(err) != codes.Unavailable && status.Code(err) != codes.DeadlineExceeded {
 				t.Fatalf("untrusted connection passed TLS: %v", err)
 			}
