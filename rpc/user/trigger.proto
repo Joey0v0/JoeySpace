@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package user;
+option go_package = "github.com/yjydist/go-im/rpc/user/pb";
+
+// Only on User's dedicated mTLS port, allowing the exact trusted IM service.
+// Never grants a user login or exposes profile/password/role information.
+service UserTrigger {
+  rpc CheckTriggerTeamMember(CheckTriggerTeamMemberRequest) returns (CheckTriggerTeamMemberResponse);
+}
+
+message CheckTriggerTeamMemberRequest {
+  // IM derives both IDs from its persisted trigger, not Kafka or user metadata.
+  int64 actor_id = 1;
+  int64 team_id = 2;
+}
+
+message CheckTriggerTeamMemberResponse {
+  // Echo only the checked scope. An empty or different result is not success.
+  int64 actor_id = 1;
+  int64 team_id = 2;
+}

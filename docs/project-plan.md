@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-04）：main保持上轮f7abfd5。本轮业务bd945fe已在codex/agent-trigger-outbox-integration实现IM可靠通知：命令过滤、消息/Outbox同事务、原消息时间与稳定事件、独立同步Kafka发布/重发及Push两态接入/退出。用户A57—A61均明确确认；三原worktree交付后root统一整合，全量Go和Linux Push通过，[九步与全部22文件](agent-trigger-outbox-review.md)。默认开关false，022仅准备未执行，Agent消费/专用mTLS当前权限/持久状态及两次租约尝试仍后续，不标群内@AI或阶段6全完成。没有真实模型/DB/Kafka/云联调、push或云同步。
+最新进展（2026-10-04）：用户继续后，完整IM Outbox批次6ac032f已快进合本地main（全量Go/Linux Push通过，[九步22文件](agent-trigger-outbox-review.md)）。当前codex/trigger-team-auth-integration先按用户A60准备[IM→User受限资格核对契约](trigger-team-auth-contract.md)：专用mTLS仅允许IM、核对当前成员/有效用户、仅echo已查范围；三worktree分别资格逻辑、User监听、IM客户端。Agent→IM持久来源/群权限、队列/租约及模型仍后续。Outbox开关false、022未执行，没有真实模型/DB/Kafka/云联调、push或云同步，阶段6不标全完成。
 
 ## 1. 项目目标与学习背景
 

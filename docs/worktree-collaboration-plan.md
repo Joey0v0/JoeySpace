@@ -270,3 +270,16 @@ core自记约9分9秒，view约14分钟；actions未记录精确起止。以分�
 API与允许范围以[共同契约](agent-trigger-outbox-contract.md)为准；执行agent只编辑/gofmt/diffcheck，不自行测试/build、提交/合并/push或请求审批。Agent受限RPC与异步执行后续，默认开关关闭；022尚未执行，不调用真实模型/MySQL/Kafka，不将IM发布基础标为群内@AI已完成。
 
 实际完成：共同a303006、事务6c01a46、发布38c2e2f、接入4bf8a33；root无冲突整合，补真实Pusher/GORM/publisher+SQL/Kafka替身组合为业务bd945fe。事务/发布包定向、最终全量Go和Linux Push编译通过；root组合曾因fixture的GORM字段顺序失败，仅修测试后完整通过。[全部22文件/九步/验证限制](agent-trigger-outbox-review.md)。三个worktree干净保留，main仍f7abfd5，本轮整合分支供审查，未push/迁移/部署。三角色分别约6分35秒、9分20秒、7分28秒，只记录并行交付，不声称固定倍数效率。
+
+## 22. IM→User 受限资格核对批次（2026-10-04）
+
+用户继续后，上轮6ac032f快进合本地main。root统一trigger.proto/generated、角色化TLS helper、User实现声明、临时测试证书fixture和[共同契约](trigger-team-auth-contract.md)，三个原worktree从共同提交复用；不删除原文件或目录。主分支codex/trigger-team-auth-integration。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 资格逻辑 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-team-handler | rpc/user/trigger_team.go/test.go |
+| User监听 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-team-listener | rpc/user/main.go、trigger_listener.go/test.go |
+| IM客户端 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-team-client | rpc/im/trigger_team_client.go/test.go |
+| root | D:/zy/GoLang/go-im | codex/trigger-team-auth-integration | 共同协议/生成/TLS/declarations/fixture/docs、User实际TLS/SQL组合、提交/整合/集中验证 |
+
+共九步：共同1、handler2、listener2、client2、root组合1、审查1；子agent仅编辑/gofmt/diffcheck，不测试/build/审批、提交/合main/push。沿既定A60，不跨库或按用户metadata模拟身份；只建当前团队资格通道，不标Agent→IM来源或模型链完成。用户仍在主聊天审查，真实证书/数据库/迁移/云部署后续。
