@@ -1,6 +1,6 @@
 # Worktree 多 Agent 协作方案
 
-日期：2026-10-03，进展更新2026-10-04。状态：**负责人、自动时间、多项保存/读取、逐项编辑已通过本地验证并逐批合入main；当前逐项确认批次见末尾记录**。
+日期：2026-10-03，进展更新2026-10-04。状态：**负责人、自动时间、多项保存/读取、逐项编辑和确认已通过本地验证并逐批合入main；当前本人跳过批次见末尾记录**。
 
 本方案中的 Agent 指参与项目开发的 Codex agent，与项目运行时的 Eino Agent 服务不同。依据 [项目计划](project-plan.md)、[负责人方案](agent-assignee-design.md)和现行 [AGENTS.md](../AGENTS.md)。方案讨论时仅新增本文；用户随后明确要求按方案执行，已将协作要求加入 AGENTS.md，准备共同契约。实际进展另见本文第 9 节。
 
@@ -195,3 +195,18 @@ OpenAI 官方资料说明 worktree 用于并行分支开发，子 agent 工作�
 本批八步按整体计算。执行agent只编辑/gofmt/diffcheck，不自行提交/合并/push或测试审批；主agent检查允许文件、集中运行定向/全量验证并后端→Gateway→组合整合。单项已有流程保持，逐项回帖/跳过/页面留后续。实际结果和全部文件以[本轮审查](multi-draft-confirm-review.md)为准；真实数据库、迁移、模型、容器/浏览器、云同步仍留最终统一验收，不声称固定倍数效率。
 
 实际整合：root提交后端1b043b1（7文件）、Gateway3fca606（7文件）、组合5268223（1文件）；后端快进，Gateway/组合无冲突合并，业务代码00bc208。主agent定向和整合全量Go、Node140、LinuxAgent/Gateway编译通过，实际验证范围见审查记录。当前整合分支供用户审查，main仍4700612；三个执行worktree干净保留，没有push或云同步。
+
+## 17. 本人跳过批次（2026-10-04）
+
+用户继续后，完整91ff7ef快进合本地main。本批共同协议/generated/docs提交8c07f7e，Agent/Gateway共同准备测试通过。三个原worktree干净复用，从同一提交创建新分支；主工作区codex/multi-draft-skip-integration，没有删除目录或协议文件。
+
+| 角色 | 绝对目录 | 分支 | 允许范围 |
+| --- | --- | --- | --- |
+| 后端 | `D:/zy/GoLang/go-im/.worktrees/assignee-backend` | `codex/multi-draft-skip-backend` | Agent非生成skip实现/测试，必要集合状态/确认/响应保护 |
+| Gateway | `D:/zy/GoLang/go-im/.worktrees/assignee-gateway` | `codex/multi-draft-skip-gateway` | api新skip handler/test，集合读取/旧操作结果回归与main路由 |
+| 组合 | `D:/zy/GoLang/go-im/.worktrees/assignee-ui` | `codex/multi-draft-skip-flow` | 仅新增api/multi_draft_skip_flow_test.go，不改页面 |
+| 主agent | `D:/zy/GoLang/go-im` | `codex/multi-draft-skip-integration` | 协议/generated/docs、统一提交/集成、集中验证与审查 |
+
+共同1、后端2、Gateway2、组合1、集中审查1，共七步；执行agent只编辑/gofmt/diffcheck，不自行commit/merge/push或go测试审批。root按后端→Gateway→组合整合与集中验证，实际提交/检查/全部文件见[审查记录](multi-draft-skip-review.md)。沿A50/A56既定身份与未提交边界，普通状态/版本/重放取舍已记录；新架构选择仍及时讨论。真实迁移/模型/数据库/浏览器/容器及云同步仍留最终验收。
+
+实际提交：root保存后端20bf871（9文件）、Gatewaybbb3fcf（7文件）、组合ba0e33c（1文件）。后端快进、Gateway/组合无冲突整合，业务代码e4163fd；定向及全量Go、Node140、LinuxAgent/Gateway编译通过。整合分支供用户审查，main仍91ff7ef；三个执行worktree干净保留，未push、执行迁移或云同步。

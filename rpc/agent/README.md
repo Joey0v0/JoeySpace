@@ -134,3 +134,11 @@ Confirm的`expected_deadline_resolution`与due/版本在编排和freeze事务二
 短事务完整锁读，核对目标版本/完整草稿/范围，只更新目标status与稳定键`agent-task-{run_id}-{item_index}`；Task调用在事务提交后，旧single键不变。Task成功第二短事务保存该项succeeded/正TaskID，只有exact1行更新才成功，同ID结果重放幂等。Task超时、空响应或结果保存失败保留creating，本人GET后显式同键重试；已成功确认不再调用Task。冻结和结果保存不增加内容版本。
 
 集合草稿项状态独立权威，run头保持waiting，不承诺整轮全成功；读取严格核对waiting空键0、creating固定键0、succeeded固定键正，未知/损坏拒绝。其他waiting项可继续编辑，冻结目标拒改。本轮不调用旧run级replier，回复disabled/not_started不代表IM受理；逐项回帖/跳过/页面待后续。不新增迁移，019及真实环境仍待验收。[共同契约](../../docs/multi-draft-confirm-contract.md)、[审查](../../docs/multi-draft-confirm-review.md)。
+
+## 多项草稿本人跳过（2026-10-04）
+
+`SkipTaskDraftItem`沿原ConfigureDraftAccess和12秒预算；仅发起人且当前IM群资格有效，run正、optional index必有0..4、内容版本正。待确认项空Task键/ID0才首次跳过；同内容同版本skipped重放幂等，creating/succeeded禁止，不调用模型/目标成员/Task/机器人。未处理歧义可以跳过，不要求补成可创建状态。
+
+短事务复用完整集合FOR UPDATE，核对范围/项数、完整目标和版本，只更新该项status；条件含run/index/revision/waiting/空Task键/ID0，必须恰好1行。原内容/证据/内容版本保持，MaxInt64亦可跳过；其他项变化不冲突。skipped只允许空Task键/ID0和完整合法依据，回复disabled空msg，GET可读而编辑/确认终态拒绝。确认/跳过锁竞争只有一方推进，不取消已经提交的Task。原single保持。
+
+没有新迁移、依赖或恢复入口，019未真实执行；页面按钮/汇总进度及逐项群回帖后续接线。[共同契约](../../docs/multi-draft-skip-contract.md)、[完整审查](../../docs/multi-draft-skip-review.md)。

@@ -282,3 +282,11 @@ POST `/api/v1/agent/runs/{run_id}/drafts/{item_index}/confirm`，20秒路由预�
 所有字段必填；负责人/版本是规范十进制字符串，时间是整数，说明可空。已读取文字精确转发，不替用户trim快照；拒绝null、额外字段、第二JSON、缺索引和非法值。Agent仍核对本人/当前群资格及waiting正负责人，逐项冻结后调用Task；失败或超时先GET重读，再由本人明确重试同一项，不解冻或换生成键。
 
 GET集合与项允许waiting_confirmation（TaskID0）、creating（0）、succeeded（正ID）混合，各项版本独立。成功确认只有该项succeeded且保存了TaskID，版本/文字/负责人/时间/处理状态须与快照完全一致，否则502；旧版本/冻结修改409。其他waiting项仍可编辑，冻结/结果保存不增内容版本。当前回复仅disabled/not_started，空消息ID，未接逐项群回帖，也未接多项页面或跳过。[共同契约](../docs/multi-draft-confirm-contract.md)、[本轮审查](../docs/multi-draft-confirm-review.md)。
+
+### 多项草稿本人显式跳过（2026-10-04）
+
+POST `/api/v1/agent/runs/{run_id}/drafts/{item_index}/skip`，15秒路由预算，正文仅 `{"expected_revision":"3"}`，规范正十进制字符串必填；拒绝null、额外字段、第二JSON、非法run/index。仍须本人且当前群资格有效。
+
+未提交项可跳过，包括未处理的重名或needs_input。成功返回完整skipped项、TaskID字符串0、原内容版本、disabled/空回帖消息，草稿原文和时间依据完整保留。重复同版本跳过幂等；旧版本、creating/succeeded或跳过后再编辑/确认均409。跳过不递增内容版本，不调用Task、模型或回帖，不提供恢复入口。
+
+GET集合/指定项包含合法skipped，其他waiting继续独立编辑/创建；不能以跳过取消已开始创建的项。集合头不承诺整轮成功，全部跳过没有任务创建结果。页面按钮/进度汇总及逐项回帖后续接入。[共同契约](../docs/multi-draft-skip-contract.md)、[七步审查](../docs/multi-draft-skip-review.md)。
