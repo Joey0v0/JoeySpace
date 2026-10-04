@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"strconv"
 	"time"
 
 	driver "github.com/go-sql-driver/mysql"
@@ -15,6 +14,7 @@ import (
 
 type botSendIntent struct {
 	RunID       int64
+	ItemIndex   int32
 	BotID       int64
 	InitiatorID int64
 	TeamID      int64
@@ -25,6 +25,7 @@ type botSendIntent struct {
 type botSendRecord struct {
 	MsgID           string `gorm:"primaryKey;size:64"`
 	RunID           int64
+	ItemIndex       int32
 	BotID           int64
 	InitiatorID     int64
 	TeamID          int64
@@ -39,7 +40,9 @@ type botSendRecord struct {
 func (botSendRecord) TableName() string { return "im_bot_sends" }
 
 func (r botSendRecord) sameIntent(i botSendIntent) bool {
-	return r.RunID == i.RunID && r.BotID == i.BotID && r.InitiatorID == i.InitiatorID &&
+	msgID, err := model.BotTaskItemMsgID(i.RunID, i.ItemIndex)
+	return err == nil && r.MsgID == msgID && r.RunID == i.RunID && r.ItemIndex == i.ItemIndex &&
+		r.BotID == i.BotID && r.InitiatorID == i.InitiatorID &&
 		r.TeamID == i.TeamID && r.GroupID == i.GroupID && r.Content == i.Content
 }
 
@@ -56,17 +59,18 @@ func (s *mysqlBotSendStore) Prepare(ctx context.Context, intent botSendIntent) (
 	if s.db == nil {
 		return botSendRecord{}, status.Error(codes.Unavailable, "IM send store is unavailable")
 	}
-	if intent.RunID <= 0 || intent.BotID <= 0 || intent.InitiatorID <= 0 || intent.TeamID <= 0 || intent.GroupID <= 0 {
+	msgID, err := model.BotTaskItemMsgID(intent.RunID, intent.ItemIndex)
+	if err != nil || intent.BotID <= 0 || intent.InitiatorID <= 0 || intent.TeamID <= 0 || intent.GroupID <= 0 {
 		return botSendRecord{}, status.Error(codes.InvalidArgument, "invalid bot send scope")
 	}
 	if _, err := model.DecodeTaskCreatedCard(intent.Content); err != nil {
 		return botSendRecord{}, status.Error(codes.InvalidArgument, "invalid task card")
 	}
-	record := botSendRecord{MsgID: model.BotTaskMsgIDPrefix + strconv.FormatInt(intent.RunID, 10),
-		RunID: intent.RunID, BotID: intent.BotID, InitiatorID: intent.InitiatorID, TeamID: intent.TeamID,
+	record := botSendRecord{MsgID: msgID,
+		RunID: intent.RunID, ItemIndex: intent.ItemIndex, BotID: intent.BotID, InitiatorID: intent.InitiatorID, TeamID: intent.TeamID,
 		GroupID: intent.GroupID, Content: intent.Content, TimestampUnixMs: time.Now().UnixMilli()}
 	// One INSERT is atomic; no second write must be committed with it.
-	err := s.db.WithContext(ctx).Session(&gorm.Session{SkipDefaultTransaction: true}).Create(&record).Error
+	err = s.db.WithContext(ctx).Session(&gorm.Session{SkipDefaultTransaction: true}).Create(&record).Error
 	if err == nil {
 		return record, nil
 	}

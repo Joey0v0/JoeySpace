@@ -23,20 +23,21 @@ func validBotIntent(t *testing.T) botSendIntent {
 }
 
 func storedBotRecord(i botSendIntent) botSendRecord {
-	return botSendRecord{MsgID: "bot-task:9", RunID: i.RunID, BotID: i.BotID, InitiatorID: i.InitiatorID,
+	msgID, _ := model.BotTaskItemMsgID(i.RunID, i.ItemIndex)
+	return botSendRecord{MsgID: msgID, RunID: i.RunID, ItemIndex: i.ItemIndex, BotID: i.BotID, InitiatorID: i.InitiatorID,
 		TeamID: i.TeamID, GroupID: i.GroupID, Content: i.Content, TimestampUnixMs: 1790000000000}
 }
 
 func botSendRows(r botSendRecord) *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"msg_id", "run_id", "bot_id", "initiator_id", "team_id", "group_id", "content", "timestamp_unix_ms", "accepted"}).
-		AddRow(r.MsgID, r.RunID, r.BotID, r.InitiatorID, r.TeamID, r.GroupID, r.Content, r.TimestampUnixMs, r.Accepted)
+	return sqlmock.NewRows([]string{"msg_id", "run_id", "item_index", "bot_id", "initiator_id", "team_id", "group_id", "content", "timestamp_unix_ms", "accepted"}).
+		AddRow(r.MsgID, r.RunID, r.ItemIndex, r.BotID, r.InitiatorID, r.TeamID, r.GroupID, r.Content, r.TimestampUnixMs, r.Accepted)
 }
 
 func TestBotSendStoreCommitsIntentBeforePublishing(t *testing.T) {
 	im, mock := testIMServer(t)
 	i := validBotIntent(t)
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `im_bot_sends`")).WithArgs(
-		"bot-task:9", i.RunID, i.BotID, i.InitiatorID, i.TeamID, i.GroupID, i.Content,
+		"bot-task:9", i.RunID, i.ItemIndex, i.BotID, i.InitiatorID, i.TeamID, i.GroupID, i.Content,
 		sqlmock.AnyArg(), false, sqlmock.AnyArg(), sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
 	r, err := (&mysqlBotSendStore{db: im.db}).Prepare(context.Background(), i)
 	if err != nil || r.MsgID != "bot-task:9" || !r.sameIntent(i) || r.TimestampUnixMs <= 0 || r.Accepted {
