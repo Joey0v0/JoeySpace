@@ -364,3 +364,18 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 九步内完成共同契约/表、草稿预检/事务插入、状态/完成更新、旧fixture适配、组合测试、集中验收和文档。执行agent只编辑指定文件、gofmt/diffcheck，不自行测试/build/审批/Git提交/合main/push；root分别保存5f22be3、59f97be、a291e47并无冲突整合。草稿部分定向测试通过；三支整合后的Agent测试初次因root漏补一处旧sqlmock列而失败，仅改测试列后Agent全包通过；最终全仓Go与Linux Agent编译通过。[完整文件及边界](trigger-result-review.md)。
 
 三个worktree干净保留；main仍79ab797，本批整合分支供主聊天审查，未推送/部署/执行025/请求模型。各执行agent报告约5分28秒、8分19秒、11分37秒；不含root调度/集中验证时间，没有单agent对照，不声称固定效率倍数。
+
+## 28. 后台草稿 worker 批次（2026-10-04）
+
+用户继续后上批 `ef78ba8` 快进合入本地 main。用户对前置失败明确选择 A63 持久退避；主 agent 固定[共同契约](trigger-worker-contract.md)、026/init、接口与权限/文件边界，起点 `6da910b`。主目录 D:/zy/GoLang/go-im，整合分支 `codex/trigger-worker-integration`，三个保留的 worktree 均从共同提交开独立分支。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 后台草稿处理器 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-worker-processor | rpc/agent/draft_preparer.go、新trigger_processor.go/test.go |
+| 持久退避 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-worker-retry | rpc/agent/trigger_lease_claim.go、trigger_lease_attempt.go、trigger_lease_store.go及对应四份测试、新trigger_retry_test.go |
+| worker与进程接线 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-worker-runtime | 新rpc/agent/trigger_worker.go/test.go、cmd/agent/main.go、新cmd/agent/trigger_worker.go/test.go |
+| 主 agent | D:/zy/GoLang/go-im | codex/trigger-worker-integration | 共同迁移/接口/决策/计划、旧结果夹具适配、跨分支审查/提交/合入/验证 |
+
+九步按整批计数；执行 agent 只改各自范围并做格式/差异检查，未测试/build、提交、合 main 或推送。主 agent 保存 A `f69d89e`、B `99e63b7`、C `aae8fb5`，先补两份结果夹具再无冲突合入本批整合分支。全仓 Go 测试、worker 场景5次及 Linux/amd64 全仓编译通过；race 因本机无 CGO/gcc 未执行。实际改动的28个文件、每步目的和真实环境限制见[本批审查](trigger-worker-review.md)。main仍`ef78ba8`，本批待用户审查；三个worktree干净保留，不推送、迁移、部署或调用真实模型。
+
+三个子 agent 各约13分53秒、8分02秒、15分28秒；包含不同任务复杂度，不含主 agent 协调/集成时间，无法据此推断固定效率倍数。
