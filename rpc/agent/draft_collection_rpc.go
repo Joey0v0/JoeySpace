@@ -9,11 +9,15 @@ import (
 )
 
 func (s *Server) GetTaskDraftCollection(ctx context.Context, req *pb.GetTaskDraftRequest) (*pb.GetTaskDraftCollectionResponse, error) {
+	return s.readTaskDraftCollection(ctx, req.GetRunId(), nil)
+}
+
+func (s *Server) readTaskDraftCollection(ctx context.Context, runID int64, target *int32) (*pb.GetTaskDraftCollectionResponse, error) {
 	token, err := loginToken(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if req.GetRunId() <= 0 {
+	if runID <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "invalid run ID")
 	}
 	if s == nil || s.draftReader == nil {
@@ -21,28 +25,28 @@ func (s *Server) GetTaskDraftCollection(ctx context.Context, req *pb.GetTaskDraf
 	}
 	readCtx, cancel := context.WithTimeout(ctx, draftReadTimeout)
 	defer cancel()
-	collection, err := s.draftReader.loadCollection(readCtx, token, req.GetRunId())
+	collection, err := s.draftReader.loadCollection(readCtx, token, runID)
 	if readCtx.Err() != nil {
 		return nil, status.FromContextError(readCtx.Err()).Err()
 	}
 	if err != nil {
 		return nil, err
 	}
-	return s.taskDraftCollectionResponse(collection), nil
+	if target != nil && int(*target) >= len(collection.Items) {
+		return nil, status.Error(codes.NotFound, "draft item not found")
+	}
+	return s.taskDraftCollectionResponseWithReplies(readCtx, collection, target)
 }
 
 func (s *Server) GetTaskDraftItem(ctx context.Context, req *pb.GetTaskDraftItemRequest) (*pb.GetTaskDraftItemResponse, error) {
 	if req == nil || req.ItemIndex == nil || req.GetItemIndex() < 0 || req.GetItemIndex() >= maxGeneratedTaskDrafts {
 		return nil, status.Error(codes.InvalidArgument, "draft item index is required and must be 0..4")
 	}
-	collection, err := s.GetTaskDraftCollection(ctx, &pb.GetTaskDraftRequest{RunId: req.GetRunId()})
+	collection, err := s.readTaskDraftCollection(ctx, req.GetRunId(), req.ItemIndex)
 	if err != nil {
 		return nil, err
 	}
-	if req.GetItemIndex() >= collection.GetItemCount() {
-		return nil, status.Error(codes.NotFound, "draft item not found")
-	}
-	return &pb.GetTaskDraftItemResponse{RunId: collection.RunId, TeamId: collection.TeamId, GroupId: collection.GroupId, ItemCount: collection.ItemCount, Item: collection.Items[req.GetItemIndex()]}, nil
+	return taskDraftCollectionItemResponse(collection, req.GetItemIndex()), nil
 }
 
 func (s *Server) taskDraftCollectionResponse(collection taskDraftCollection) *pb.GetTaskDraftCollectionResponse {

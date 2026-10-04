@@ -34,8 +34,12 @@ func (s *Server) ConfirmTaskDraftItem(ctx context.Context, req *pb.ConfirmTaskDr
 	defer stopCreate()
 	collection, err := s.draftReader.loadCollection(createCtx, token, req.GetRunId())
 	index := req.GetItemIndex()
+	alreadySucceeded := false
 	if err == nil && int(index) >= len(collection.Items) {
 		err = status.Error(codes.NotFound, "draft item not found")
+	}
+	if err == nil {
+		alreadySucceeded = collection.Items[index].Status == draftSucceeded
 	}
 	if err == nil && collection.Items[index].Status == draftSkipped {
 		err = status.Error(codes.FailedPrecondition, "skipped draft item cannot be confirmed")
@@ -49,15 +53,34 @@ func (s *Server) ConfirmTaskDraftItem(ctx context.Context, req *pb.ConfirmTaskDr
 	if err == nil {
 		collection, err = s.confirmer.confirmCollectionItem(createCtx, token, collection, index, review)
 	}
+	stopCreate()
 	if confirmCtx.Err() != nil {
 		return nil, status.FromContextError(confirmCtx.Err()).Err()
 	}
 	if err != nil {
 		return nil, err
 	}
-	// Collection items never invoke the old run-level reply implementation.
 	response := s.taskDraftCollectionResponse(collection)
-	return &pb.GetTaskDraftItemResponse{RunId: response.RunId, TeamId: response.TeamId, GroupId: response.GroupId, ItemCount: response.ItemCount, Item: response.Items[index]}, nil
+	if s.replier.collectionEnabled() {
+		if alreadySucceeded {
+			// Confirmation replay only reads this item's reply. Even a read
+			// failure must not obscure the already committed Task success.
+			loaded, replyErr := s.taskDraftCollectionResponseWithReplies(confirmCtx, collection, &index)
+			if replyErr == nil {
+				response = loaded
+			} else {
+				response.Items[index].ReplyStatus, response.Items[index].ReplyMsgId = "unknown", ""
+			}
+		} else {
+			record, replyErr := s.replier.attemptCollection(confirmCtx, token, collection, index)
+			if record.matchesCollection(collection, index) {
+				applyDraftCollectionReply(response.Items[index], record, true)
+			} else if replyErr != nil {
+				response.Items[index].ReplyStatus, response.Items[index].ReplyMsgId = "unknown", ""
+			}
+		}
+	}
+	return taskDraftCollectionItemResponse(response, index), nil
 }
 
 func (c *draftConfirmer) confirmCollectionItem(ctx context.Context, token string, authorized taskDraftCollection, index int32, review draftCollectionConfirmationReview) (taskDraftCollection, error) {

@@ -24,13 +24,16 @@ type draftBotClient interface {
 }
 
 type draftReplier struct {
-	store draftReplyStore
-	bot   draftBotClient
+	store           draftReplyStore
+	bot             draftBotClient
+	collectionStore draftCollectionReplyStore
+	itemBot         draftItemBotClient
 }
 
 func (s *Server) ConfigureDraftReplies(db *gorm.DB, bot impb.IMBotClient) {
 	if bot != nil {
-		s.replier = &draftReplier{store: &draftStore{db: db}, bot: bot}
+		store := &draftStore{db: db}
+		s.replier = &draftReplier{store: store, bot: bot, collectionStore: store, itemBot: bot}
 	}
 }
 
