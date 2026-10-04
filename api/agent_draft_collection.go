@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/internal/pkg/errcode"
 	"github.com/yjydist/go-im/rpc/agent/pb"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -79,9 +80,9 @@ func validDraftCollectionScope(runID, resultRunID, teamID, groupID int64, count 
 	return runID == resultRunID && teamID > 0 && groupID > 0 && count >= 1 && count <= 5
 }
 
-func validDraftCollectionItem(item *pb.TaskDraftCollectionItem, index int32) bool {
-	if item == nil || item.ItemIndex == nil || item.GetItemIndex() != index ||
-		(item.GetReplyStatus() != "disabled" && item.GetReplyStatus() != "not_started") || item.GetReplyMsgId() != "" {
+func validDraftCollectionItem(item *pb.TaskDraftCollectionItem, index int32, runID int64) bool {
+	expectedMsgID, err := model.BotTaskItemMsgID(runID, index)
+	if err != nil || item == nil || item.ItemIndex == nil || item.GetItemIndex() != index {
 		return false
 	}
 	switch item.GetStatus() {
@@ -94,6 +95,22 @@ func validDraftCollectionItem(item *pb.TaskDraftCollectionItem, index int32) boo
 		}
 	case "succeeded":
 		if item.GetTaskId() <= 0 {
+			return false
+		}
+	default:
+		return false
+	}
+	switch item.GetReplyStatus() {
+	case "disabled", "not_started":
+		if item.GetReplyMsgId() != "" {
+			return false
+		}
+	case "pending", "accepted":
+		if item.GetStatus() != "succeeded" || item.GetReplyMsgId() != expectedMsgID {
+			return false
+		}
+	case "unknown":
+		if item.GetStatus() != "succeeded" || item.GetReplyMsgId() != "" {
 			return false
 		}
 	default:
@@ -146,7 +163,7 @@ func getTaskDraftCollectionHandler(client agentDraftCollectionReader) http.Handl
 		}
 		items := make([]*agentDraftCollectionItem, 0, len(result.GetItems()))
 		for i, item := range result.GetItems() {
-			if !validDraftCollectionItem(item, int32(i)) {
+			if !validDraftCollectionItem(item, int32(i), runID) {
 				invalidDraftCollectionResult(w)
 				return
 			}
@@ -177,7 +194,7 @@ func getTaskDraftItemHandler(client agentDraftItemReader) http.HandlerFunc {
 			draftCollectionRPCError(w, err)
 			return
 		}
-		if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || itemIndex >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), itemIndex) {
+		if result == nil || !validDraftCollectionScope(runID, result.GetRunId(), result.GetTeamId(), result.GetGroupId(), result.GetItemCount()) || itemIndex >= result.GetItemCount() || !validDraftCollectionItem(result.GetItem(), itemIndex, runID) {
 			invalidDraftCollectionResult(w)
 			return
 		}

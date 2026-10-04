@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -455,5 +456,125 @@ func TestCollectionHTTPMapsRPCFailuresAndRejectsBadRunOrToken(t *testing.T) {
 	getTaskDraftItemHandler(itemReader)(w, r)
 	if w.Code != 401 {
 		t.Fatal(w.Code)
+	}
+}
+
+func TestCollectionGETReturnsIndependentReplyStatesWithExactItemMessages(t *testing.T) {
+	result := validHTTPCollection()
+	result.ItemCount = 5
+	result.Items = make([]*pb.TaskDraftCollectionItem, 5)
+	for i := range result.Items {
+		result.Items[i] = acceptedItemReplyHTTPResult(int32(i)).Item
+	}
+	result.Items[0].ReplyStatus = "pending"
+	result.Items[2].ReplyStatus, result.Items[2].ReplyMsgId = "unknown", ""
+	result.Items[3].Status, result.Items[3].TaskId, result.Items[3].ReplyStatus, result.Items[3].ReplyMsgId = "creating", 0, "not_started", ""
+	result.Items[4].Status, result.Items[4].TaskId, result.Items[4].ReplyStatus, result.Items[4].ReplyMsgId = "skipped", 0, "disabled", ""
+	result.Items[4].Draft.AssigneeId, result.Items[4].Draft.AssigneeResolution = 0, "ambiguous"
+	result.Items[4].Draft.DueAtUnixMs = 0
+	result.Items[4].Draft.Deadline = &pb.TaskDraftDeadline{Text: "明天下午", Source: "instruction", ReferenceUnixMs: 1791097200123, InstructionReferenceUnixMs: 1791097200123, Timezone: "Asia/Shanghai", Resolution: "needs_input", Reason: "unsupported_expression"}
+	reader := collectionReaderFunc(func(context.Context, *pb.GetTaskDraftRequest) (*pb.GetTaskDraftCollectionResponse, error) {
+		return result, nil
+	})
+	w := httptest.NewRecorder()
+	getTaskDraftCollectionHandler(reader)(w, collectionHTTPRequest("9007199254740999", "", false))
+	var body agentDraftCollectionResponse
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &body) != nil || body.Data == nil || len(body.Data.Items) != 5 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	for i, item := range body.Data.Items {
+		expected := result.Items[i]
+		if item.ItemIndex != int32(i) || item.Status != expected.Status || item.TaskID != expected.TaskId || item.ReplyStatus != expected.ReplyStatus || item.ReplyMsgID != expected.ReplyMsgId {
+			t.Fatalf("item %d: %+v", i, item)
+		}
+		itemReader := collectionItemReaderFunc(func(context.Context, *pb.GetTaskDraftItemRequest) (*pb.GetTaskDraftItemResponse, error) {
+			return &pb.GetTaskDraftItemResponse{RunId: result.RunId, TeamId: result.TeamId, GroupId: result.GroupId, ItemCount: result.ItemCount, Item: expected}, nil
+		})
+		itemW := httptest.NewRecorder()
+		getTaskDraftItemHandler(itemReader)(itemW, collectionHTTPRequest("9007199254740999", strconv.Itoa(i), true))
+		var itemBody agentDraftCollectionResponse
+		if itemW.Code != 200 || json.Unmarshal(itemW.Body.Bytes(), &itemBody) != nil || itemBody.Data == nil || itemBody.Data.Item == nil ||
+			itemBody.Data.Item.ReplyStatus != item.ReplyStatus || itemBody.Data.Item.ReplyMsgID != item.ReplyMsgID {
+			t.Fatalf("item %d: %d %s", i, itemW.Code, itemW.Body.String())
+		}
+	}
+	if body.Data.Items[0].ReplyMsgID != "bot-task:9007199254740999" || body.Data.Items[1].ReplyMsgID != "bot-task:9007199254740999:1" ||
+		body.Data.Items[2].ReplyMsgID != "" || body.Data.Items[4].Draft.Deadline.Resolution != "needs_input" {
+		t.Fatal(w.Body.String())
+	}
+}
+
+func TestCollectionGETRejectsReplyEvidenceFromOtherRunsItemsOrInvalidStates(t *testing.T) {
+	for name, mutate := range map[string]func(*pb.TaskDraftCollectionItem){
+		"accepted wrong run":   func(i *pb.TaskDraftCollectionItem) { i.ReplyMsgId = "bot-task:9007199254740998:1" },
+		"accepted other item":  func(i *pb.TaskDraftCollectionItem) { i.ReplyMsgId = "bot-task:9007199254740999:4" },
+		"accepted legacy zero": func(i *pb.TaskDraftCollectionItem) { i.ReplyMsgId = "bot-task:9007199254740999" },
+		"accepted missing":     func(i *pb.TaskDraftCollectionItem) { i.ReplyMsgId = "" },
+		"pending wrong item": func(i *pb.TaskDraftCollectionItem) {
+			i.ReplyStatus, i.ReplyMsgId = "pending", "bot-task:9007199254740999:0"
+		},
+		"unknown has message":     func(i *pb.TaskDraftCollectionItem) { i.ReplyStatus = "unknown" },
+		"disabled has message":    func(i *pb.TaskDraftCollectionItem) { i.ReplyStatus = "disabled" },
+		"not started has message": func(i *pb.TaskDraftCollectionItem) { i.ReplyStatus = "not_started" },
+		"missing reply state":     func(i *pb.TaskDraftCollectionItem) { i.ReplyStatus, i.ReplyMsgId = "", "" },
+		"unknown reply state":     func(i *pb.TaskDraftCollectionItem) { i.ReplyStatus = "delivered" },
+		"waiting accepted":        func(i *pb.TaskDraftCollectionItem) { i.Status, i.TaskId = "waiting_confirmation", 0 },
+		"waiting pending": func(i *pb.TaskDraftCollectionItem) {
+			i.Status, i.TaskId, i.ReplyStatus = "waiting_confirmation", 0, "pending"
+		},
+		"waiting unknown": func(i *pb.TaskDraftCollectionItem) {
+			i.Status, i.TaskId, i.ReplyStatus, i.ReplyMsgId = "waiting_confirmation", 0, "unknown", ""
+		},
+		"creating pending": func(i *pb.TaskDraftCollectionItem) { i.Status, i.TaskId, i.ReplyStatus = "creating", 0, "pending" },
+		"creating unknown": func(i *pb.TaskDraftCollectionItem) {
+			i.Status, i.TaskId, i.ReplyStatus, i.ReplyMsgId = "creating", 0, "unknown", ""
+		},
+		"skipped accepted": func(i *pb.TaskDraftCollectionItem) { i.Status, i.TaskId = "skipped", 0 },
+		"skipped unknown": func(i *pb.TaskDraftCollectionItem) {
+			i.Status, i.TaskId, i.ReplyStatus, i.ReplyMsgId = "skipped", 0, "unknown", ""
+		},
+		"skipped not started": func(i *pb.TaskDraftCollectionItem) {
+			i.Status, i.TaskId, i.ReplyStatus, i.ReplyMsgId = "skipped", 0, "not_started", ""
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := validHTTPCollection()
+			result.Items[1] = acceptedItemReplyHTTPResult(1).Item
+			mutate(result.Items[1])
+			reader := collectionReaderFunc(func(context.Context, *pb.GetTaskDraftRequest) (*pb.GetTaskDraftCollectionResponse, error) {
+				return result, nil
+			})
+			itemReader := collectionItemReaderFunc(func(context.Context, *pb.GetTaskDraftItemRequest) (*pb.GetTaskDraftItemResponse, error) {
+				return &pb.GetTaskDraftItemResponse{RunId: result.RunId, TeamId: result.TeamId, GroupId: result.GroupId, ItemCount: result.ItemCount, Item: result.Items[1]}, nil
+			})
+			for _, handler := range []http.HandlerFunc{getTaskDraftCollectionHandler(reader), getTaskDraftItemHandler(itemReader)} {
+				w := httptest.NewRecorder()
+				handler(w, collectionHTTPRequest("9007199254740999", "1", true))
+				if w.Code != 502 || strings.Contains(w.Body.String(), `"data"`) {
+					t.Fatalf("%d %s", w.Code, w.Body.String())
+				}
+			}
+		})
+	}
+}
+
+func TestCollectionGETRejectsZeroItemIDSuffixButAcceptsLegacyZeroID(t *testing.T) {
+	for _, reply := range []string{"pending", "accepted"} {
+		for _, suffix := range []string{"", ":0"} {
+			result := acceptedItemReplyHTTPResult(0)
+			result.Item.ReplyStatus, result.Item.ReplyMsgId = reply, "bot-task:9007199254740999"+suffix
+			reader := collectionItemReaderFunc(func(context.Context, *pb.GetTaskDraftItemRequest) (*pb.GetTaskDraftItemResponse, error) {
+				return result, nil
+			})
+			w := httptest.NewRecorder()
+			getTaskDraftItemHandler(reader)(w, collectionHTTPRequest("9007199254740999", "0", true))
+			want := 200
+			if suffix != "" {
+				want = 502
+			}
+			if w.Code != want {
+				t.Fatalf("%s %q: %d %s", reply, suffix, w.Code, w.Body.String())
+			}
+		}
 	}
 }
