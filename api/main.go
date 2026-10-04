@@ -92,6 +92,11 @@ func main() {
 		Handler: confirmTaskDraftItemHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
 	}, rest.WithTimeout(20*time.Second))
 	server.AddRoute(rest.Route{
+		Method:  http.MethodPost,
+		Path:    "/api/v1/agent/runs/:run_id/drafts/:item_index/skip",
+		Handler: skipTaskDraftItemHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
 		Path:    "/api/v1/agent/runs/:run_id/draft",
 		Handler: getTaskDraftHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),

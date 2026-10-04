@@ -85,8 +85,11 @@ func validDraftCollectionItem(item *pb.TaskDraftCollectionItem, index int32) boo
 		return false
 	}
 	switch item.GetStatus() {
-	case "waiting_confirmation", "creating":
+	case "waiting_confirmation", "creating", "skipped":
 		if item.GetTaskId() != 0 {
+			return false
+		}
+		if item.GetStatus() == "skipped" && item.GetReplyStatus() != "disabled" {
 			return false
 		}
 	case "succeeded":
@@ -101,7 +104,7 @@ func validDraftCollectionItem(item *pb.TaskDraftCollectionItem, index int32) boo
 		!validDraftAssignee(draft) || !validDraftDeadlineMetadata(draft) {
 		return false
 	}
-	if item.GetStatus() != "waiting_confirmation" {
+	if item.GetStatus() == "creating" || item.GetStatus() == "succeeded" {
 		switch draft.GetAssigneeResolution() {
 		case "not_found", "ambiguous", "truncated":
 			return false
