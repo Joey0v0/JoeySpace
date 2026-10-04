@@ -10,17 +10,18 @@ import (
 )
 
 const selectClaimableTriggerLease = `SELECT ` + triggerExecutionColumns + ` FROM agent_task_trigger_inbox
-    WHERE status = 'queued' OR (status = 'running' AND lease_until <= UTC_TIMESTAMP(6))
+    WHERE (status = 'queued' AND (retry_after IS NULL OR retry_after <= UTC_TIMESTAMP(6)))
+       OR (status = 'running' AND lease_until <= UTC_TIMESTAMP(6))
     ORDER BY message_id LIMIT 1 FOR UPDATE SKIP LOCKED`
 
 const claimTriggerLeaseSQL = `UPDATE agent_task_trigger_inbox
-    SET status = 'running', lease_token = ?, lease_until = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 30 SECOND), model_started = 0
+    SET status = 'running', lease_token = ?, lease_until = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 30 SECOND), model_started = 0, retry_after = NULL
     WHERE message_id = ? AND status = ? AND model_attempts = ? AND model_started = ?
-    AND ((status = 'queued' AND lease_token IS NULL AND lease_until IS NULL)
+    AND ((status = 'queued' AND lease_token IS NULL AND lease_until IS NULL AND (retry_after IS NULL OR retry_after <= UTC_TIMESTAMP(6)))
          OR (status = 'running' AND lease_token = ? AND lease_until <= UTC_TIMESTAMP(6)))`
 
 const retireExpiredTriggerLeaseSQL = `UPDATE agent_task_trigger_inbox
-    SET status = 'exhausted', lease_token = NULL, lease_until = NULL, model_started = 0
+    SET status = 'exhausted', lease_token = NULL, lease_until = NULL, model_started = 0, retry_after = NULL
     WHERE message_id = ? AND status = 'running' AND lease_token = ? AND model_attempts = 2 AND lease_until <= UTC_TIMESTAMP(6)`
 
 const renewTriggerLeaseSQL = `UPDATE agent_task_trigger_inbox
@@ -84,7 +85,7 @@ func (s *TriggerInboxStore) claimWithToken(ctx context.Context, token func() (st
 		if err != nil {
 			return err
 		}
-		if live.ModelAttempts != row.ModelAttempts || live.ModelStarted != 0 {
+		if live.ModelAttempts != row.ModelAttempts || live.ModelStarted != 0 || live.RetryFailures != row.RetryFailures {
 			return ErrInvalidTriggerState
 		}
 		claimed = live.lease()
@@ -113,7 +114,7 @@ func (s *TriggerInboxStore) Renew(ctx context.Context, lease TriggerLease) (*Tri
 		if err != nil {
 			return err
 		}
-		if live.ModelAttempts != row.ModelAttempts || live.ModelStarted != row.ModelStarted {
+		if live.ModelAttempts != row.ModelAttempts || live.ModelStarted != row.ModelStarted || live.RetryFailures != row.RetryFailures {
 			return ErrInvalidTriggerState
 		}
 		renewed = live.lease()

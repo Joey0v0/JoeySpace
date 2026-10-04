@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var executionFixtureColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id"}
+var executionFixtureColumns = []string{"message_id", "action", "event_version", "status", "received_at", "lease_token", "lease_until", "model_attempts", "model_started", "result_run_id", "retry_after", "retry_failures"}
 
 func executionFixtureRow() triggerExecutionRow {
 	return triggerExecutionRow{Event: triggerInboxTestEvent(), Status: TriggerInboxRunning,
@@ -25,7 +25,7 @@ func executionFixtureRow() triggerExecutionRow {
 }
 
 func executionFixtureRows(row triggerExecutionRow) *sqlmock.Rows {
-	return sqlmock.NewRows(executionFixtureColumns).AddRow(row.Event.MessageID, row.Event.Action, row.Event.Version, row.Status, row.ReceivedAt, row.Token, row.Until, row.ModelAttempts, row.ModelStarted, nil)
+	return sqlmock.NewRows(executionFixtureColumns).AddRow(row.Event.MessageID, row.Event.Action, row.Event.Version, row.Status, row.ReceivedAt, row.Token, row.Until, row.ModelAttempts, row.ModelStarted, row.ResultRunID, row.RetryAfter, row.RetryFailures)
 }
 
 func TestTriggerExecutionStateRejectsInvalidCombinations(t *testing.T) {
@@ -90,13 +90,13 @@ func TestTriggerExecutionRowReadRejectsNullDuplicateAndLateIteratorFailure(t *te
 			rows := executionFixtureRows(row)
 			switch name {
 			case "NULL budget":
-				rows = sqlmock.NewRows(executionFixtureColumns).AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, nil, 1, nil)
+				rows = sqlmock.NewRows(executionFixtureColumns).AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, nil, 1, nil, nil, 0)
 			case "NULL started":
-				rows = sqlmock.NewRows(executionFixtureColumns).AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, 1, nil, nil)
+				rows = sqlmock.NewRows(executionFixtureColumns).AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, 1, nil, nil, nil, 0)
 			case "duplicate":
-				rows.AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, 1, 1, nil)
+				rows.AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, 1, 1, nil, nil, 0)
 			case "iterator failure":
-				rows.AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, 1, 1, nil).RowError(1, errors.New("private driver detail"))
+				rows.AddRow(row.Event.MessageID, row.Event.Action, 1, row.Status, row.ReceivedAt, row.Token, row.Until, 1, 1, nil, nil, 0).RowError(1, errors.New("private driver detail"))
 			}
 			mock.ExpectQuery(regexp.QuoteMeta(selectLiveTriggerLease)).WithArgs(row.Event.MessageID, row.Token.String).WillReturnRows(rows)
 			got, err := readTriggerExecutionRow(context.Background(), drafts.db, selectLiveTriggerLease, row.Event.MessageID, row.Token.String)

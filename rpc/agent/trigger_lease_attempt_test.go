@@ -21,12 +21,12 @@ func triggerAttemptTestLease() TriggerLease {
 
 func triggerAttemptTestValues(lease TriggerLease, attempts, started int) []driver.Value {
 	return []driver.Value{lease.MessageID, model.AgentTriggerAction, model.AgentTriggerVersion, TriggerInboxRunning,
-		time.Date(2026, 10, 4, 1, 0, 0, 0, time.UTC), lease.Token, lease.Until, attempts, started, nil}
+		time.Date(2026, 10, 4, 1, 0, 0, 0, time.UTC), lease.Token, lease.Until, attempts, started, nil, nil, 0}
 }
 
 func triggerAttemptTestRows(values ...driver.Value) *sqlmock.Rows {
 	rows := sqlmock.NewRows([]string{"message_id", "action", "event_version", "status", "received_at",
-		"lease_token", "lease_until", "model_attempts", "model_started", "result_run_id"})
+		"lease_token", "lease_until", "model_attempts", "model_started", "result_run_id", "retry_after", "retry_failures"})
 	if len(values) != 0 {
 		rows.AddRow(values...)
 	}
@@ -125,7 +125,11 @@ func TestTriggerReleaseUsesSavedBudgetAndDoesNotResetAttempts(t *testing.T) {
 			caller.ModelAttempts, caller.ModelStarted = 999, false
 			mock.ExpectBegin()
 			expectTriggerAttemptLock(mock, caller, triggerAttemptTestRows(triggerAttemptTestValues(saved, tc.attempts, tc.started)...))
-			mock.ExpectExec(regexp.QuoteMeta(releaseTriggerLease)).WithArgs(tc.next, saved.MessageID, saved.Token).
+			seconds, failures := 30, 1
+			if tc.next == TriggerInboxExhausted {
+				seconds, failures = 0, 0
+			}
+			mock.ExpectExec(regexp.QuoteMeta(releaseTriggerLease)).WithArgs(tc.next, tc.next, seconds, failures, saved.MessageID, saved.Token, 0, tc.attempts).
 				WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectCommit()
 			if err := s.Release(context.Background(), caller); err != nil {
@@ -154,7 +158,7 @@ func TestTriggerAttemptLostLeaseAndInvalidAffectedRows(t *testing.T) {
 					mock.ExpectExec(regexp.QuoteMeta(beginTriggerModel)).WithArgs(lease.MessageID, lease.Token, TriggerModelAttemptLimit).
 						WillReturnResult(sqlmock.NewResult(0, affected))
 				} else {
-					mock.ExpectExec(regexp.QuoteMeta(releaseTriggerLease)).WithArgs(TriggerInboxQueued, lease.MessageID, lease.Token).
+					mock.ExpectExec(regexp.QuoteMeta(releaseTriggerLease)).WithArgs(TriggerInboxQueued, TriggerInboxQueued, 30, 1, lease.MessageID, lease.Token, 0, 0).
 						WillReturnResult(sqlmock.NewResult(0, affected))
 				}
 				mock.ExpectRollback()
