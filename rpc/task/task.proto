@@ -13,6 +13,8 @@ service Task {
   rpc SetTaskStatus(SetTaskStatusRequest) returns (SetTaskStatusResponse);
   // authorization 经 gRPC metadata 传入；只列当前团队中自己的通知。
   rpc ListTaskNotifications(ListTaskNotificationsRequest) returns (ListTaskNotificationsResponse);
+  // 本人显式确认；只更新当前团队中自己的通知，重复确认保留首次时间。
+  rpc MarkTaskNotificationRead(MarkTaskNotificationReadRequest) returns (MarkTaskNotificationReadResponse);
 }
 
 message CreateTaskRequest {
@@ -73,9 +75,20 @@ message TaskNotificationItem {
   int32 from_status = 4;
   int32 to_status = 5;
   int64 created_at_unix_ms = 6; // UTC Unix 毫秒。
+  int64 read_at_unix_ms = 7; // 0 为未读；正数为首次确认的 UTC Unix 毫秒。
 }
 
 message ListTaskNotificationsResponse {
   repeated TaskNotificationItem notifications = 1;
   int64 next_before_notification_id = 2; // 0 表示没有下一页。
+}
+
+message MarkTaskNotificationReadRequest {
+  int64 team_id = 1;
+  int64 notification_id = 2;
+}
+
+message MarkTaskNotificationReadResponse {
+  int64 notification_id = 1;
+  int64 read_at_unix_ms = 2;
 }

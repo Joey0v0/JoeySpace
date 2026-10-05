@@ -541,6 +541,7 @@ type TaskNotificationItem struct {
 	FromStatus      int32                  `protobuf:"varint,4,opt,name=from_status,json=fromStatus,proto3" json:"from_status,omitempty"`
 	ToStatus        int32                  `protobuf:"varint,5,opt,name=to_status,json=toStatus,proto3" json:"to_status,omitempty"`
 	CreatedAtUnixMs int64                  `protobuf:"varint,6,opt,name=created_at_unix_ms,json=createdAtUnixMs,proto3" json:"created_at_unix_ms,omitempty"` // UTC Unix 毫秒。
+	ReadAtUnixMs    int64                  `protobuf:"varint,7,opt,name=read_at_unix_ms,json=readAtUnixMs,proto3" json:"read_at_unix_ms,omitempty"`          // 0 为未读；正数为首次确认的 UTC Unix 毫秒。
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -617,6 +618,13 @@ func (x *TaskNotificationItem) GetCreatedAtUnixMs() int64 {
 	return 0
 }
 
+func (x *TaskNotificationItem) GetReadAtUnixMs() int64 {
+	if x != nil {
+		return x.ReadAtUnixMs
+	}
+	return 0
+}
+
 type ListTaskNotificationsResponse struct {
 	state                    protoimpl.MessageState  `protogen:"open.v1"`
 	Notifications            []*TaskNotificationItem `protobuf:"bytes,1,rep,name=notifications,proto3" json:"notifications,omitempty"`
@@ -669,6 +677,110 @@ func (x *ListTaskNotificationsResponse) GetNextBeforeNotificationId() int64 {
 	return 0
 }
 
+type MarkTaskNotificationReadRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TeamId         int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	NotificationId int64                  `protobuf:"varint,2,opt,name=notification_id,json=notificationId,proto3" json:"notification_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *MarkTaskNotificationReadRequest) Reset() {
+	*x = MarkTaskNotificationReadRequest{}
+	mi := &file_task_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkTaskNotificationReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkTaskNotificationReadRequest) ProtoMessage() {}
+
+func (x *MarkTaskNotificationReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_task_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkTaskNotificationReadRequest.ProtoReflect.Descriptor instead.
+func (*MarkTaskNotificationReadRequest) Descriptor() ([]byte, []int) {
+	return file_task_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *MarkTaskNotificationReadRequest) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *MarkTaskNotificationReadRequest) GetNotificationId() int64 {
+	if x != nil {
+		return x.NotificationId
+	}
+	return 0
+}
+
+type MarkTaskNotificationReadResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	NotificationId int64                  `protobuf:"varint,1,opt,name=notification_id,json=notificationId,proto3" json:"notification_id,omitempty"`
+	ReadAtUnixMs   int64                  `protobuf:"varint,2,opt,name=read_at_unix_ms,json=readAtUnixMs,proto3" json:"read_at_unix_ms,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *MarkTaskNotificationReadResponse) Reset() {
+	*x = MarkTaskNotificationReadResponse{}
+	mi := &file_task_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkTaskNotificationReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkTaskNotificationReadResponse) ProtoMessage() {}
+
+func (x *MarkTaskNotificationReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_task_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkTaskNotificationReadResponse.ProtoReflect.Descriptor instead.
+func (*MarkTaskNotificationReadResponse) Descriptor() ([]byte, []int) {
+	return file_task_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *MarkTaskNotificationReadResponse) GetNotificationId() int64 {
+	if x != nil {
+		return x.NotificationId
+	}
+	return 0
+}
+
+func (x *MarkTaskNotificationReadResponse) GetReadAtUnixMs() int64 {
+	if x != nil {
+		return x.ReadAtUnixMs
+	}
+	return 0
+}
+
 var File_task_proto protoreflect.FileDescriptor
 
 const file_task_proto_rawDesc = "" +
@@ -713,7 +825,7 @@ const file_task_proto_rawDesc = "" +
 	"\x1cListTaskNotificationsRequest\x12\x17\n" +
 	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x124\n" +
 	"\x16before_notification_id\x18\x02 \x01(\x03R\x14beforeNotificationId\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xde\x01\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x85\x02\n" +
 	"\x14TaskNotificationItem\x12'\n" +
 	"\x0fnotification_id\x18\x01 \x01(\x03R\x0enotificationId\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\x03R\x06taskId\x12\x19\n" +
@@ -721,16 +833,24 @@ const file_task_proto_rawDesc = "" +
 	"\vfrom_status\x18\x04 \x01(\x05R\n" +
 	"fromStatus\x12\x1b\n" +
 	"\tto_status\x18\x05 \x01(\x05R\btoStatus\x12+\n" +
-	"\x12created_at_unix_ms\x18\x06 \x01(\x03R\x0fcreatedAtUnixMs\"\xa0\x01\n" +
+	"\x12created_at_unix_ms\x18\x06 \x01(\x03R\x0fcreatedAtUnixMs\x12%\n" +
+	"\x0fread_at_unix_ms\x18\a \x01(\x03R\freadAtUnixMs\"\xa0\x01\n" +
 	"\x1dListTaskNotificationsResponse\x12@\n" +
 	"\rnotifications\x18\x01 \x03(\v2\x1a.task.TaskNotificationItemR\rnotifications\x12=\n" +
-	"\x1bnext_before_notification_id\x18\x02 \x01(\x03R\x18nextBeforeNotificationId2\xbd\x02\n" +
+	"\x1bnext_before_notification_id\x18\x02 \x01(\x03R\x18nextBeforeNotificationId\"c\n" +
+	"\x1fMarkTaskNotificationReadRequest\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12'\n" +
+	"\x0fnotification_id\x18\x02 \x01(\x03R\x0enotificationId\"r\n" +
+	" MarkTaskNotificationReadResponse\x12'\n" +
+	"\x0fnotification_id\x18\x01 \x01(\x03R\x0enotificationId\x12%\n" +
+	"\x0fread_at_unix_ms\x18\x02 \x01(\x03R\freadAtUnixMs2\xa8\x03\n" +
 	"\x04Task\x12?\n" +
 	"\n" +
 	"CreateTask\x12\x17.task.CreateTaskRequest\x1a\x18.task.CreateTaskResponse\x12H\n" +
 	"\rListTeamTasks\x12\x1a.task.ListTeamTasksRequest\x1a\x1b.task.ListTeamTasksResponse\x12H\n" +
 	"\rSetTaskStatus\x12\x1a.task.SetTaskStatusRequest\x1a\x1b.task.SetTaskStatusResponse\x12`\n" +
-	"\x15ListTaskNotifications\x12\".task.ListTaskNotificationsRequest\x1a#.task.ListTaskNotificationsResponseB&Z$github.com/yjydist/go-im/rpc/task/pbb\x06proto3"
+	"\x15ListTaskNotifications\x12\".task.ListTaskNotificationsRequest\x1a#.task.ListTaskNotificationsResponse\x12i\n" +
+	"\x18MarkTaskNotificationRead\x12%.task.MarkTaskNotificationReadRequest\x1a&.task.MarkTaskNotificationReadResponseB&Z$github.com/yjydist/go-im/rpc/task/pbb\x06proto3"
 
 var (
 	file_task_proto_rawDescOnce sync.Once
@@ -744,35 +864,39 @@ func file_task_proto_rawDescGZIP() []byte {
 	return file_task_proto_rawDescData
 }
 
-var file_task_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_task_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_task_proto_goTypes = []any{
-	(*CreateTaskRequest)(nil),             // 0: task.CreateTaskRequest
-	(*CreateTaskResponse)(nil),            // 1: task.CreateTaskResponse
-	(*ListTeamTasksRequest)(nil),          // 2: task.ListTeamTasksRequest
-	(*TaskItem)(nil),                      // 3: task.TaskItem
-	(*ListTeamTasksResponse)(nil),         // 4: task.ListTeamTasksResponse
-	(*SetTaskStatusRequest)(nil),          // 5: task.SetTaskStatusRequest
-	(*SetTaskStatusResponse)(nil),         // 6: task.SetTaskStatusResponse
-	(*ListTaskNotificationsRequest)(nil),  // 7: task.ListTaskNotificationsRequest
-	(*TaskNotificationItem)(nil),          // 8: task.TaskNotificationItem
-	(*ListTaskNotificationsResponse)(nil), // 9: task.ListTaskNotificationsResponse
+	(*CreateTaskRequest)(nil),                // 0: task.CreateTaskRequest
+	(*CreateTaskResponse)(nil),               // 1: task.CreateTaskResponse
+	(*ListTeamTasksRequest)(nil),             // 2: task.ListTeamTasksRequest
+	(*TaskItem)(nil),                         // 3: task.TaskItem
+	(*ListTeamTasksResponse)(nil),            // 4: task.ListTeamTasksResponse
+	(*SetTaskStatusRequest)(nil),             // 5: task.SetTaskStatusRequest
+	(*SetTaskStatusResponse)(nil),            // 6: task.SetTaskStatusResponse
+	(*ListTaskNotificationsRequest)(nil),     // 7: task.ListTaskNotificationsRequest
+	(*TaskNotificationItem)(nil),             // 8: task.TaskNotificationItem
+	(*ListTaskNotificationsResponse)(nil),    // 9: task.ListTaskNotificationsResponse
+	(*MarkTaskNotificationReadRequest)(nil),  // 10: task.MarkTaskNotificationReadRequest
+	(*MarkTaskNotificationReadResponse)(nil), // 11: task.MarkTaskNotificationReadResponse
 }
 var file_task_proto_depIdxs = []int32{
-	3, // 0: task.ListTeamTasksResponse.tasks:type_name -> task.TaskItem
-	8, // 1: task.ListTaskNotificationsResponse.notifications:type_name -> task.TaskNotificationItem
-	0, // 2: task.Task.CreateTask:input_type -> task.CreateTaskRequest
-	2, // 3: task.Task.ListTeamTasks:input_type -> task.ListTeamTasksRequest
-	5, // 4: task.Task.SetTaskStatus:input_type -> task.SetTaskStatusRequest
-	7, // 5: task.Task.ListTaskNotifications:input_type -> task.ListTaskNotificationsRequest
-	1, // 6: task.Task.CreateTask:output_type -> task.CreateTaskResponse
-	4, // 7: task.Task.ListTeamTasks:output_type -> task.ListTeamTasksResponse
-	6, // 8: task.Task.SetTaskStatus:output_type -> task.SetTaskStatusResponse
-	9, // 9: task.Task.ListTaskNotifications:output_type -> task.ListTaskNotificationsResponse
-	6, // [6:10] is the sub-list for method output_type
-	2, // [2:6] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3,  // 0: task.ListTeamTasksResponse.tasks:type_name -> task.TaskItem
+	8,  // 1: task.ListTaskNotificationsResponse.notifications:type_name -> task.TaskNotificationItem
+	0,  // 2: task.Task.CreateTask:input_type -> task.CreateTaskRequest
+	2,  // 3: task.Task.ListTeamTasks:input_type -> task.ListTeamTasksRequest
+	5,  // 4: task.Task.SetTaskStatus:input_type -> task.SetTaskStatusRequest
+	7,  // 5: task.Task.ListTaskNotifications:input_type -> task.ListTaskNotificationsRequest
+	10, // 6: task.Task.MarkTaskNotificationRead:input_type -> task.MarkTaskNotificationReadRequest
+	1,  // 7: task.Task.CreateTask:output_type -> task.CreateTaskResponse
+	4,  // 8: task.Task.ListTeamTasks:output_type -> task.ListTeamTasksResponse
+	6,  // 9: task.Task.SetTaskStatus:output_type -> task.SetTaskStatusResponse
+	9,  // 10: task.Task.ListTaskNotifications:output_type -> task.ListTaskNotificationsResponse
+	11, // 11: task.Task.MarkTaskNotificationRead:output_type -> task.MarkTaskNotificationReadResponse
+	7,  // [7:12] is the sub-list for method output_type
+	2,  // [2:7] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_task_proto_init() }
@@ -786,7 +910,7 @@ func file_task_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_task_proto_rawDesc), len(file_task_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

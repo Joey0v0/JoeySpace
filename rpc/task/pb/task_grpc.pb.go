@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Task_CreateTask_FullMethodName            = "/task.Task/CreateTask"
-	Task_ListTeamTasks_FullMethodName         = "/task.Task/ListTeamTasks"
-	Task_SetTaskStatus_FullMethodName         = "/task.Task/SetTaskStatus"
-	Task_ListTaskNotifications_FullMethodName = "/task.Task/ListTaskNotifications"
+	Task_CreateTask_FullMethodName               = "/task.Task/CreateTask"
+	Task_ListTeamTasks_FullMethodName            = "/task.Task/ListTeamTasks"
+	Task_SetTaskStatus_FullMethodName            = "/task.Task/SetTaskStatus"
+	Task_ListTaskNotifications_FullMethodName    = "/task.Task/ListTaskNotifications"
+	Task_MarkTaskNotificationRead_FullMethodName = "/task.Task/MarkTaskNotificationRead"
 )
 
 // TaskClient is the client API for Task service.
@@ -37,6 +38,8 @@ type TaskClient interface {
 	SetTaskStatus(ctx context.Context, in *SetTaskStatusRequest, opts ...grpc.CallOption) (*SetTaskStatusResponse, error)
 	// authorization 经 gRPC metadata 传入；只列当前团队中自己的通知。
 	ListTaskNotifications(ctx context.Context, in *ListTaskNotificationsRequest, opts ...grpc.CallOption) (*ListTaskNotificationsResponse, error)
+	// 本人显式确认；只更新当前团队中自己的通知，重复确认保留首次时间。
+	MarkTaskNotificationRead(ctx context.Context, in *MarkTaskNotificationReadRequest, opts ...grpc.CallOption) (*MarkTaskNotificationReadResponse, error)
 }
 
 type taskClient struct {
@@ -87,6 +90,16 @@ func (c *taskClient) ListTaskNotifications(ctx context.Context, in *ListTaskNoti
 	return out, nil
 }
 
+func (c *taskClient) MarkTaskNotificationRead(ctx context.Context, in *MarkTaskNotificationReadRequest, opts ...grpc.CallOption) (*MarkTaskNotificationReadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MarkTaskNotificationReadResponse)
+	err := c.cc.Invoke(ctx, Task_MarkTaskNotificationRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TaskServer is the server API for Task service.
 // All implementations must embed UnimplementedTaskServer
 // for forward compatibility.
@@ -99,6 +112,8 @@ type TaskServer interface {
 	SetTaskStatus(context.Context, *SetTaskStatusRequest) (*SetTaskStatusResponse, error)
 	// authorization 经 gRPC metadata 传入；只列当前团队中自己的通知。
 	ListTaskNotifications(context.Context, *ListTaskNotificationsRequest) (*ListTaskNotificationsResponse, error)
+	// 本人显式确认；只更新当前团队中自己的通知，重复确认保留首次时间。
+	MarkTaskNotificationRead(context.Context, *MarkTaskNotificationReadRequest) (*MarkTaskNotificationReadResponse, error)
 	mustEmbedUnimplementedTaskServer()
 }
 
@@ -120,6 +135,9 @@ func (UnimplementedTaskServer) SetTaskStatus(context.Context, *SetTaskStatusRequ
 }
 func (UnimplementedTaskServer) ListTaskNotifications(context.Context, *ListTaskNotificationsRequest) (*ListTaskNotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTaskNotifications not implemented")
+}
+func (UnimplementedTaskServer) MarkTaskNotificationRead(context.Context, *MarkTaskNotificationReadRequest) (*MarkTaskNotificationReadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MarkTaskNotificationRead not implemented")
 }
 func (UnimplementedTaskServer) mustEmbedUnimplementedTaskServer() {}
 func (UnimplementedTaskServer) testEmbeddedByValue()              {}
@@ -214,6 +232,24 @@ func _Task_ListTaskNotifications_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Task_MarkTaskNotificationRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MarkTaskNotificationReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskServer).MarkTaskNotificationRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Task_MarkTaskNotificationRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskServer).MarkTaskNotificationRead(ctx, req.(*MarkTaskNotificationReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Task_ServiceDesc is the grpc.ServiceDesc for Task service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -236,6 +272,10 @@ var Task_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTaskNotifications",
 			Handler:    _Task_ListTaskNotifications_Handler,
+		},
+		{
+			MethodName: "MarkTaskNotificationRead",
+			Handler:    _Task_MarkTaskNotificationRead_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -141,6 +141,7 @@ CREATE TABLE task_status_notifications (
     task_id      BIGINT NOT NULL,
     recipient_id BIGINT NOT NULL,
     created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at      TIMESTAMP NULL DEFAULT NULL,
     UNIQUE KEY uk_task_status_notice_operation_recipient (operation_id, recipient_id),
     KEY idx_task_status_notice_recipient (recipient_id, id)
 ) ENGINE=InnoDB;
