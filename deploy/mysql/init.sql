@@ -133,6 +133,18 @@ CREATE TABLE task_operations (
     INDEX idx_task_operations_task (task_id, id)
 ) ENGINE=InnoDB;
 
+-- Task 服务的个人状态通知；只对应真实状态变更的操作记录。
+CREATE TABLE task_status_notifications (
+    id           BIGINT PRIMARY KEY AUTO_INCREMENT,
+    operation_id BIGINT NOT NULL,
+    team_id      BIGINT NOT NULL,
+    task_id      BIGINT NOT NULL,
+    recipient_id BIGINT NOT NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_task_status_notice_operation_recipient (operation_id, recipient_id),
+    KEY idx_task_status_notice_recipient (recipient_id, id)
+) ENGINE=InnoDB;
+
 -- Agent 服务拥有运行及任务草稿；先存一项，item_index 为后续多项保留。
 CREATE TABLE agent_runs (
     id           BIGINT PRIMARY KEY,

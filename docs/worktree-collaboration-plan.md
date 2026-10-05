@@ -423,4 +423,4 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 
 ## 32. 阶段7任务变更通知设计起步（2026-10-05）
 
-主 agent 从干净 main `27aec67` 建立 `codex/stage7-notification-design`。当前仅审查既有 Task 状态事务、操作记录与 IM Push 边界，更新[项目进度](project-plan.md)和[选型记录](architecture-decisions.md) A65；不让执行 agent 在通知归属未确定前改业务代码。用户已选择个人通知给任务创建者和负责人；通知记录归属（Task 服务或新服务）待讨论，确定后再给三个独立 worktree 分配互不重叠的实现文件。现有三个 worktree 保留，不自行合并 main、推送或部署。
+主 agent 从干净 main `27aec67` 建立 `codex/stage7-notification-design`。先审查既有 Task 状态事务、操作记录与 IM Push 边界，更新[项目进度](project-plan.md)和[选型记录](architecture-decisions.md) A65；当时不让执行 agent 在通知归属未确定前改业务代码。用户已选择个人通知给任务创建者和负责人，随后在 A/B 归属说明后要求继续，按推荐 A66 由 Task 服务持有。主 agent 统一准备[共同契约](stage7-task-notification-contract.md)、027/init 和决策文件；本批只让 Task 状态更新同事务保存通知依据，执行 worktree 只允许改 `rpc/task/status.go`、`rpc/task/status_test.go`。其他 worktree 保留干净，不自行合并 main、推送或部署。
