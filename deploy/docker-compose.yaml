@@ -54,6 +54,8 @@ services:
   # Go 微服务
   # ============================================
   im-api:
+    environment:
+      IM_RPC_ADDR: "im-rpc:9002"
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -65,6 +67,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      im-rpc:
+        condition: service_started
     volumes:
       - ./docker-config.local.yaml:/app/config/go-im.yaml:ro
 

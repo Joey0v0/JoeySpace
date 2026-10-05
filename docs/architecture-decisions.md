@@ -394,3 +394,11 @@ root为socket捕获连接对象、Token和独立身份世代；备选只比当�
 确认状态：既有开发授权内修复已验证的go-zero默认统计正文输出，无新框架/权限/业务接口选择。选择在User/IM/Task/Agent构造zrpc服务前，由生成ServiceDesc枚举业务方法加入现有StatConf.IgnoreContentMethods，保留原忽略项、Stat开关及耗时阈值；私有旧YAML也生效。备选仅改模板会漏私有配置/新方法，关闭Stat会丢统计，运行时字符串替换不能保证正文安全，故不选。代价是正常逐调用正文日志减少，定位需后续白名单业务ID日志；仅保护框架统计请求正文，不宣称SQL/HTTP或其他日志全面脱敏。不清旧日志，不扩A64本人状态的错误/预算字段，完整工具审计或新运行列表仍另行讨论。[方案及验证](stage7-experience-gap-design.md)。
 
 实施结果：共享策略及四个启动点已接线，真实go-zero本机RPC在普通/慢调用下对照未保护与保护配置，模拟密码/群名/标题/问题在保护后均不输出，慢调用记录仍存在；定向与全仓Go通过。测试处理器和请求均为替身，不是实际服务部署验收。[八步与全部文件](stage7-experience-gap-design.md#本批实现与审查)。
+
+### A22/A74：旧离线HTTP兼容转发（2026-10-05）
+
+确认状态：沿用户已确认统一Gateway方向及当前群/团队资格过滤，普通实现收口旧出口，不新增服务边界或权限选型。选择保留旧Gin读/ACK路径、HTTP200业务code和字符串ID格式，注入两方法IM客户端，转发原Token、继承取消并设3秒总上限；群/团队核权和本人ACK继续由IM持有，不以本地user_id授权。备选直接删除旧入口会中断旧客户端；在旧MessageService另查User团队数据会重复权限逻辑、扩大跨数据访问；失败时回落本地库会绕过A74，均未采用。代价是旧离线入口增加IM可用性依赖；本地默认localhost:9002，Compose以既有IM_RPC_ADDR设置im-rpc:9002，客户端惰性建连不代表服务就绪。不扩本批为旧API优雅停机、A16离队清理、未读表或新mTLS内部入口。[共同契约与审查](stage7-legacy-offline-contract.md)。
+
+实施更新：旧Gin已转发读取及ACK，两条公开离线路径与Gateway均使用IM权限规则，IM异常时无旧库回落。root保存A f634c31/B a1df2a1/C da7f9b6并无冲突整合，定向Handler/工厂及四项真实本机HTTP→TCP gRPC→生产IM组合通过（SQL/User替身）；Compose静态解析通过，Docker运行未验收。ACK增加32KiB和单个JSON限制，超长/尾随JSON拒绝，正常ID合同保持；非法回包整页拒绝。上一批A74记录中的旧出口缺口本地已收口，A16清理和真实部署仍未完成。[八步与全部16文件](stage7-legacy-offline-contract.md#本批实现与审查)。
+
+最终整合后全仓`go test ./... -count=1`通过；没有新协议/迁移/依赖或页面变更，没有Docker/云端/真实模型验收。

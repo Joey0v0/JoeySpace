@@ -28,7 +28,9 @@ docker compose --env-file .env -f docker-compose.yaml -f docker-compose.notifica
 
 2026-10-05日志修复：User、IM、Task、Agent在构造go-zero RPC时自动抑制统计日志的业务请求正文，旧私有YAML无需新增字段；保留原统计配置及慢调用耗时记录。最终须升级这四个服务的镜像才生效，本批未部署、不清理旧日志，也不代表HTTP/SQL等其他日志全面脱敏。真实框架本机对照及全仓Go通过，[八步与全部文件](../docs/stage7-experience-gap-design.md#本批实现与审查)。
 
-A74离线核权本批只接IM RPC：Gateway原离线入口随IM升级按当前群/团队资格过滤；明确拒绝群保留投递，临时核权故障读取失败，不自动删除或标已读，其他有权聊天保留。旧Gin `/api/v1/message/offline` 仍直查本人投递，尚未收口，不得把此次局部修复作为全部出口已撤权的验收结论；最终部署前须完成其迁移/限制和兼容检查。
+上一批c6394e8的A74离线核权只接IM RPC：Gateway原离线入口随IM升级按当前群/团队资格过滤；明确拒绝群保留投递，临时核权故障读取失败，不自动删除或标已读，其他有权聊天保留。当时旧Gin `/api/v1/message/offline` 仍直查本人投递；后续收口结果见下一段，不能将本地修复视为真实部署已验收。
+
+后续旧离线转发批次已沿A22/A74收口并通过本机组合测试：`cmd/api`复用IM业务RPC连接，GET离线/POST ACK转发原Token，不回落旧库；旧路径、HTTP200业务code、字符串ID/机器人格式保持。ACK增加32KiB/单JSON限制，超长或尾随JSON拒绝。直接运行API默认连接`localhost:9002`，可由`IM_RPC_ADDR`覆盖；基础Compose已给im-api配置`im-rpc:9002`并按service_started安排启动。仅此依赖不保证IM就绪，IM不可用时旧离线入口失败，注册登录等旧功能不因RPC惰性建连就被判不可用。最终需同时升级旧API与IM并使其JWT配置一致，不将仅更新旧API镜像称为已核权。读取/ACK每次3秒上限继承请求取消，不新增应用重试循环；不扩旧API为完整优雅停机。[本批契约和验证边界](../docs/stage7-legacy-offline-contract.md)。静态YAML检查通过，实际Compose启动/挂载及云端联调仍待最终统一验收。
 
 2026-09-20 根据用户提供的云端 Compose、Dockerfile 和服务配置同步，并在本地补入阶段 1 的 API Gateway 与用户 RPC 容器配置。阶段 3 又补入 IM RPC 的容器接线；阶段 4 增加 Task RPC；阶段 5 准备 Agent RPC 的可选容器配置。这里只表示本地配置和程序构建检查，未连接云服务器、未重新部署、未完成真实数据库或模型联调。
 

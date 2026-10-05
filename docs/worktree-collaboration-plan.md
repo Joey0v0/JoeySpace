@@ -488,3 +488,9 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 从8114155建立codex/stage7-experience-audit，main仍89e2a1e。本批三个子agent仅只读审查：audit_chat_unread核对IM阅读/离线/资格，audit_agent_records核对Agent持久记录和本人状态，audit_failure_observability核对失败定位与日志。三者读取root同一快照，不是执行worktree实现任务；没有允许编辑文件，不测试/build/Git写入或自行合并。既有三个执行worktree保持不变，后续选型确认后的实现再固定共同契约及精确允许文件。
 
 root核实发现、提出A73/A74候选并提问，用户明确选择团队群规则、逐消息已读凭据及离线当前资格过滤。root修复go-zero默认统计正文，统一共享策略、四个服务启动及真实框架对照测试；最初慢调用假处理器被计时为零，仅修正测试延时场景后通过。随后root完成A74 IM离线读取小步，audit_chat_unread继续只读审查权限/兼容边界；定向IM/API及最终全仓Go通过。整批八步，[全部15文件与验证边界](stage7-experience-gap-design.md#本批实现与审查)。未读表/RPC/页面及旧Gin收口后续，无生成代码删除、迁移、依赖或页面变更，没有main合并/push、云端部署或真实环境/模型验收。
+
+## 42. A22/A74旧离线HTTP转发IM批次（2026-10-05）
+
+从c6394e8建立codex/stage7-legacy-offline-bridge；root共同a953968准备接口、构造器/路由签名及[契约、三个精确目录/分支和允许文件](stage7-legacy-offline-contract.md)。共八步，三个执行worktree分别负责Handler、启动、生产IM组合，不固定按旧worktree名称分服务边界；root拥有共同文档/接口/router/Compose、全部测试和Git动作。执行agent只编辑/gofmt/diffcheck，不test/build/commit/合main/push/部署。
+
+实际交付：root定向验证保存A f634c31、B a1df2a1（最终IPv6目标补项后重测）、C da7f9b6。root先快进A到C，让组合测试执行实际转发Handler；三分支无冲突整合，四项真实本机HTTP→Gin认证→TCP gRPC→生产IM及最终全仓Go通过。SQL/User仍替身，PyYAML解析实际Compose的地址/依赖通过；三个worktree干净保留，主目录保存最终共同文档/Compose。[八步及全部16文件](stage7-legacy-offline-contract.md#本批实现与审查)。ACK新增32KiB/单JSON边界明确记录；没有页面/协议/迁移/依赖/生成文件删除，没有Docker/云/真实模型验收、main合并或push。A73未读及A16退出清理仍需后续小步。
