@@ -476,3 +476,9 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 从30e90ee建立codex/stage7-notification-realtime-page，main仍89e2a1e。root共同提交bbc99fc固定[契约、三个绝对目录与允许文件](stage7-notification-realtime-page-contract.md)，沿A27/A69/A72推进七步：共同提示DOM、状态、展示、组合测试、root WS接线、集中验证、记录。执行agent仅编辑允许文件，不test/build/Git写/合main/push/部署；root拥有chat.html/旧聊天测试、共同文档与集成验证。
 
 实际交付：状态a9f2413、展示bc1ea5c、完整页面测试8464d04均由root定向验证后提交、无冲突合入本批分支。root先把状态快进提供展示worktree，再把已整合生产接线快进提供测试worktree，确保测试实际生产组合；不是由执行agent自行合main。root接线d328ad8捕获当前局部socket、Token与身份世代，保留原聊天离线/ACK入口。全部303项Node和Gateway go test ./api -count=1通过；[七步、全部12文件及边界](stage7-notification-realtime-page-contract.md#本批实现与审查)。三个worktree干净保留，本批最终HTML/文档在整合分支。没有后端Go/迁移/协议/依赖或新框架变更，未合main/push、运行真实浏览器/云端链或请求模型。
+
+## 40. 任务通知组合与恢复验证批次（2026-10-05）
+
+从3de7a1a建立codex/stage7-notification-flow-verification，main仍89e2a1e。共同41fcfe2固定[三目录、分支及唯一允许测试文件](stage7-notification-flow-contract.md)：backend的Task发布→Push消费、gateway的mTLS→实际WS帧、ui的生产Task TCP RPC查询/已读恢复；只是任务划分，worktree名称不代表数据归属。root拥有共同文档、审查、测试及所有Git动作；执行agent仅编辑/gofmt/diffcheck，不test/build/commit/合main/push/部署。
+
+实际交付：eea031f、9232549、828f098由root验证对应包后提交，无冲突整合；完整`go test ./... -count=1`通过，未发现生产缺陷，没有生产代码修改。root新增阶段7验收清单和缺口记录，整批六步，[全部9文件及分段验证边界](stage7-notification-flow-contract.md#本批实现与审查)。三个执行worktree干净保留，共同最终文档在整合分支。页面本批不变，不重复先前303项Node；实际MySQL/Kafka/User/Redis/浏览器/Compose/迁移/云/模型未验收，未合main或push。

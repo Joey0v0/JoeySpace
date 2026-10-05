@@ -370,3 +370,11 @@ User资格调用继续使用现有普通User gRPC与当前连接Bearer，备选�
 root为socket捕获连接对象、Token和独立身份世代；备选只比当前Token不能发现输入A→B→A或同Token重新登录，旧close也可能清掉新socket。Token input及成功login失效旧身份，换团队不关闭同账号socket；识别到任务提醒即返回，不落入原raw聊天日志。页面并不自动连WS/自动重连，也不声称后端撤权瞬间就清屏；权威详情仍由Gateway→Task当前核权。[共同契约](stage7-notification-realtime-page-contract.md)。实际浏览器/服务链与部署待最终统一验收。
 
 实际验证：三个执行worktree的状态/展示/完整页面测试已由root审查、定向验证后保存并无冲突整合；完整页面18项加载生产脚本，全部页面303项Node及Gateway `go test ./api -count=1`通过。浏览器、HTTP、WS及后端依赖在页面测试中为替身，本批不改后端Go，也未重复上一批全仓Go/Linux编译；[七步、全部12文件与未验证部分](stage7-notification-realtime-page-contract.md#本批实现与审查)。这组是已确认A27/A69/A72内的实现取舍，不新增权限、语言或通信方式。
+
+### A68—A72：相邻组件组合验证取舍（2026-10-05）
+
+确认状态：用户要求继续，沿既定权限、持久发布、专用mTLS和消费语义补验证，不新增业务或架构选择。选择三段生产组件组合：Task发布器的实际Key/Value交生产Push消费者、专用TLS处理器经生产writePump到本机实际WebSocket帧、生产Task TCP gRPC查询与成功提交后丢响应的已读重试。备选只增加单元参数矩阵不能发现相邻组件契约不一致；立刻运行完整云端/真实模型链需要用户尚未配置的部署与模型条件，也违背最终统一同步的约定。因此现在补有界本机组合，同时保留真实环境验收，代价是SQL/Kafka/User等仍用替身，不能把分段通过说成全项目上线完成。
+
+已读故障通过测试拦截器在生产Mark成功后改返回Unavailable，备选停RPC服务只能证明不可用，不能证明已提交却丢响应。WS测试直接受锁注册测试Client并仅运行writePump，备选启动现有无停止入口Hub.Run/完整Client.Start会引入长期goroutine和无关Redis，故不采用；不修改生产Hub生命周期。当前不引入容器测试框架、依赖或新的故障注入接口。[共同契约](stage7-notification-flow-contract.md)，[真实验收与缺口清单](stage7-acceptance.md)。
+
+实际结果：eea031f/9232549/828f098三份测试由root定向或包级验证后保存/无冲突整合，随后全仓`go test ./... -count=1`通过。没有生产代码变更，临时TLS、实际本机WS帧及Task TCP gRPC已运行，SQL/Kafka/User等仍替身；[六步、9文件及未验证部分](stage7-notification-flow-contract.md#本批实现与审查)。未引入新语言/框架/中间件或改变数据归属，整体真实验收仍待执行。

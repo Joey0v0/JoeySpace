@@ -24,6 +24,8 @@ docker compose --env-file .env -f docker-compose.yaml -f docker-compose.notifica
 
 页面已接入任务提醒：先登录并填有效团队，点击连接；每次成功连接会独立查询本人最新通知，忙时排队一次。新WS提示只显示固定“请刷新通知”，最多128项内存去重；详情和逐条已读仍经Gateway→Task核对当前权限，不自动标已读。后来填写团队可手动刷新或重新连接，页面没有自动连WS、重连或轮询。全部303项Node页面测试及Gateway API测试通过，使用VM/DOM/HTTP/WS替身；真实浏览器与部署链仍待最终验收。[七步、全部文件及使用边界](../docs/stage7-notification-realtime-page-contract.md#本批实现与审查)。
 
+2026-10-05收尾验证新增生产发布器→Push消费、专用mTLS→实际本机WS帧及生产Task TCP gRPC已读丢响应/权限恢复组合，全仓Go通过；SQL/Kafka/User等仍为替身，没有生产配置或代码变更。[六步审查](../docs/stage7-notification-flow-contract.md#本批实现与审查)。最终按[阶段7验收清单](../docs/stage7-acceptance.md)核对全部覆盖文件、迁移、证书与真实业务/故障证据，不能将本机分段测试作为部署成功。
+
 2026-09-20 根据用户提供的云端 Compose、Dockerfile 和服务配置同步，并在本地补入阶段 1 的 API Gateway 与用户 RPC 容器配置。阶段 3 又补入 IM RPC 的容器接线；阶段 4 增加 Task RPC；阶段 5 准备 Agent RPC 的可选容器配置。这里只表示本地配置和程序构建检查，未连接云服务器、未重新部署、未完成真实数据库或模型联调。
 
 2026-09-25 用户决定先完成本地开发与自动化测试，项目整体完成后统一同步云端；以下联调顺序留待届时执行。
