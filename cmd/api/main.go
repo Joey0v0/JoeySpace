@@ -70,7 +70,7 @@ func main() {
 	r.Use(middleware.Logger(logger.L))
 
 	// 注册路由
-	handler.RegisterRoutes(r, logger.L)
+	handler.RegisterRoutes(r, logger.L, nil) // Replaced by the IM client in this batch's startup task.
 
 	// 挂载 Swagger 文档
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

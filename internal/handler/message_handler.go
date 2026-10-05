@@ -14,8 +14,9 @@ import (
 
 // MessageHandler 消息 Handler
 type MessageHandler struct {
-	msgService service.MessageService
-	logger     *zap.Logger
+	msgService    service.MessageService
+	logger        *zap.Logger
+	offlineClient OfflineMessagesClient
 }
 
 type offlineMessageResponse struct {
@@ -36,10 +37,11 @@ type offlineAckRequest struct {
 }
 
 // NewMessageHandler 创建消息 Handler
-func NewMessageHandler(logger *zap.Logger) *MessageHandler {
+func NewMessageHandler(logger *zap.Logger, offlineClient OfflineMessagesClient) *MessageHandler {
 	return &MessageHandler{
-		msgService: service.NewMessageService(logger),
-		logger:     logger,
+		msgService:    service.NewMessageService(logger),
+		logger:        logger,
+		offlineClient: offlineClient,
 	}
 }
 

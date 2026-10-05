@@ -7,11 +7,11 @@ import (
 )
 
 // RegisterRoutes 注册所有路由
-func RegisterRoutes(r *gin.Engine, logger *zap.Logger) {
+func RegisterRoutes(r *gin.Engine, logger *zap.Logger, offlineClient OfflineMessagesClient) {
 	userHandler := NewUserHandler(logger)
 	friendHandler := NewFriendHandler(logger)
 	groupHandler := NewGroupHandler(logger)
-	msgHandler := NewMessageHandler(logger)
+	msgHandler := NewMessageHandler(logger, offlineClient)
 
 	// 公开接口
 	v1 := r.Group("/api/v1")
