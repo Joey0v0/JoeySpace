@@ -5,6 +5,8 @@
   const sameScope = (a, b) => a === b || !!a && !!b && a.token === b.token && a.teamID === b.teamID;
   const emptyState = () => ({ items: [], cursor: '0', loaded: false, loading: false, error: '' });
   const validTime = value => Number.isSafeInteger(value) && value > 0 && value <= 253402300799999;
+  const exactKeys = (value, keys) => !!value && typeof value === 'object' && !Array.isArray(value) &&
+    Reflect.ownKeys(value).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
 
   function validatePage(body, before) {
     if (!body || body.code !== 0 || !body.data || !Array.isArray(body.data.notifications)) return null;
@@ -34,10 +36,51 @@
       this._onChange = onChange;
       this._generation = 0;
       this._scope = this._readScope();
+      this._clearRealtime();
       this.state = emptyState();
     }
 
     get epoch() { return this._generation; }
+    get realtime() { return { hasUpdate: this._hasUpdate, recoveryPending: this._recoveryPending }; }
+
+    _clearRealtime(blockHints = false) {
+      this._hasUpdate = false;
+      this._recoveryPending = false;
+      this._hintSequence = 0;
+      this._hintIDs = new Set();
+      this._hintsBlocked = blockHints;
+    }
+
+    receiveHint(message, connectionToken) {
+      this.syncScope();
+      if (!this._scope || this._hintsBlocked || connectionToken !== this._scope.token ||
+          !exactKeys(message, ['type', 'data']) || message.type !== 'task_notification_changed' ||
+          !exactKeys(message.data, ['version', 'notification_id', 'team_id']) || message.data.version !== 1 ||
+          !validID(message.data.notification_id) || !validID(message.data.team_id) || message.data.team_id !== this._scope.teamID) return false;
+      const id = message.data.notification_id;
+      if (this._hintIDs.has(id)) return true;
+      this._hintIDs.add(id);
+      if (this._hintIDs.size > 128) this._hintIDs.delete(this._hintIDs.values().next().value);
+      if (this.state.items.some(item => item.notification_id === id)) return true;
+      this._hintSequence++;
+      const changed = !this._hasUpdate;
+      this._hasUpdate = true;
+      if (changed) this._notify();
+      return true;
+    }
+
+    async recover(connectionToken) {
+      this.syncScope();
+      if (!this._scope || connectionToken !== this._scope.token) return;
+      if (this.state.loading) {
+        if (!this._recoveryPending) {
+          this._recoveryPending = true;
+          this._notify();
+        }
+        return;
+      }
+      return this._load(true);
+    }
 
     _readScope() {
       try {
@@ -56,6 +99,7 @@
       if (sameScope(scope, this._scope)) return;
       this._scope = scope;
       this._generation++;
+      this._clearRealtime();
       this.state = emptyState();
       this._notify();
     }
@@ -63,6 +107,7 @@
     reset() {
       this._scope = this._readScope();
       this._generation++;
+      this._clearRealtime();
       this.state = emptyState();
       this._notify();
     }
@@ -70,6 +115,16 @@
     _current(generation) {
       this.syncScope();
       return generation === this._generation;
+    }
+
+    async _finish(generation) {
+      if (!this._current(generation)) return;
+      this.state.loading = false;
+      if (this._recoveryPending) {
+        this._recoveryPending = false;
+        // The queued first-page read owns the next busy period before any callback.
+        await this._load(true);
+      } else this._notify();
     }
 
     async refresh() {
@@ -99,6 +154,7 @@
           { method: 'PUT', headers: { Authorization: 'Bearer ' + scope.token } });
         if (!this._current(generation)) return;
         if (response && (response.status === 401 || response.status === 403)) {
+          this._clearRealtime(true);
           this.state = emptyState();
           this.state.error = response.status === 401 ? '登录已失效，请重新登录后刷新通知' : '当前无团队访问权限，请检查资格后刷新通知';
           return;
@@ -114,10 +170,7 @@
       } catch (_) {
         if (this._current(generation)) this.state.error = '未能确认，请刷新或重试';
       } finally {
-        if (this._current(generation)) {
-          this.state.loading = false;
-          this._notify();
-        }
+        await this._finish(generation);
       }
     }
 
@@ -128,6 +181,7 @@
         return;
       }
       const scope = this._scope, generation = this._generation;
+      const hintSequence = this._hintSequence;
       const before = replace ? '0' : this.state.cursor;
       if (replace) this.state = emptyState();
       this.state.loading = true;
@@ -140,6 +194,7 @@
           { method: 'GET', headers: { Authorization: 'Bearer ' + scope.token } });
         if (!this._current(generation)) return;
         if (response && (response.status === 401 || response.status === 403)) {
+          this._clearRealtime(true);
           this.state = emptyState();
           this.state.error = response.status === 401 ? '登录已失效，请重新登录后刷新通知' : '当前无团队访问权限，请检查资格后刷新通知';
           return;
@@ -152,13 +207,12 @@
         this.state.items = replace ? page.items : this.state.items.concat(page.items);
         this.state.cursor = page.cursor;
         this.state.loaded = true;
+        this._hintsBlocked = false;
+        if (replace && hintSequence === this._hintSequence) this._hasUpdate = false;
       } catch (_) {
         if (this._current(generation)) this.state.error = '通知读取失败，请重试';
       } finally {
-        if (this._current(generation)) {
-          this.state.loading = false;
-          this._notify();
-        }
+        await this._finish(generation);
       }
     }
   }
