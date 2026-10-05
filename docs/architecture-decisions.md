@@ -358,3 +358,15 @@ A70—A72既定方案内的实现取舍：在线地址使用构造时复制的�
 Reader选择独立GroupID、同步CommitInterval0；新组FirstOffset防止消费者晚于Task发布启动时跳过已有保留事件，备选LastOffset改动同样少但会漏掉首次启动前已发布提示。既有组仍沿已提交offset；代价是首次开启可能处理较多保留事件，坏事件按A71停消费而不静默略过。事件只作在线刷新信号，不回填历史Task通知，也不声明Kafka永久保留。关闭时先取消并等待worker再释放资源；WS选择专用有超时HTTP Server、同步bind及异常通道，备选裸ListenAndServe后台fatal会绕过defer清理，故由主流程返回错误后统一关闭。Shutdown超时必要时强制Close且等待serve退出后关User，活动提醒取消/失败不能冒充queued。
 
 User资格调用继续使用现有普通User gRPC与当前连接Bearer，备选把它改为无用户Token的受限后台RPC会改变权限模型，未采用；Push→WS始终是专用mTLS，不把User普通RPC描述成已加密。现有聊天Hub/hijacked WebSocket停机不在本批扩大重构，只管理新通知HTTP与原HTTP监听的退出；HTTP服务关闭不承诺聊天已排空。[共同契约](stage7-notification-runtime-contract.md)。本批不引入新迁移/框架/语言/依赖，真实证书/容器/信号与页面验收待最终统一完成。
+
+### A27/A69/A72：浏览器通知提示与重连读取实施取舍（2026-10-05）
+
+确认状态：用户继续，沿已选原生页面、最小WS提醒/本人刷新及重连查询，不新增权限/框架/服务。选择保留原分页/已读state，另加只读布尔realtime视图；备选将提示字段塞入原state增加旧读写契约变化，新增独立脚本则要多路由/嵌入，当前无需。提示只表示“可能有更新”，备选用WS事件拼接通知/未读计数会把异步信号误当Task权威数据，未采用；代价是本人仍需GET通知内容，收到提醒不等于已读。
+
+去重选择每本人/团队范围最多128项内存FIFO，加单一布尔提示；备选无界Set会长期增长，本地持久化则增加身份/数据清理成本。被移出窗口的旧重复可能再次提示，不承诺永久去重；不得按最大ID忽略所有较小ID，因为事务可晚提交。第一页请求捕获提示修订，成功仅清理请求前已知且期间未变的提示；分页/PUT不清，401403清旧资料/提示并暂停迟到hint，授权GET/reset/换范围后恢复。
+
+恢复选择有效Team及当前socket Token的首次/每次手动重连成功时GET最新页；busy时只排队一次，当前操作结束后串行读，不自动重试网络失败。备选立即并行GET会让旧分页或确认结果覆盖新页，timer/poll增加重复请求，均未选。没有填写Team时不读，后来选Team手动刷新或重连，避免每键输入自动请求。代价是忙时需等待、恢复会回到最新页；显式通知仍可正常分页/逐条已读。
+
+root为socket捕获连接对象、Token和独立身份世代；备选只比当前Token不能发现输入A→B→A或同Token重新登录，旧close也可能清掉新socket。Token input及成功login失效旧身份，换团队不关闭同账号socket；识别到任务提醒即返回，不落入原raw聊天日志。页面并不自动连WS/自动重连，也不声称后端撤权瞬间就清屏；权威详情仍由Gateway→Task当前核权。[共同契约](stage7-notification-realtime-page-contract.md)。实际浏览器/服务链与部署待最终统一验收。
+
+实际验证：三个执行worktree的状态/展示/完整页面测试已由root审查、定向验证后保存并无冲突整合；完整页面18项加载生产脚本，全部页面303项Node及Gateway `go test ./api -count=1`通过。浏览器、HTTP、WS及后端依赖在页面测试中为替身，本批不改后端Go，也未重复上一批全仓Go/Linux编译；[七步、全部12文件与未验证部分](stage7-notification-realtime-page-contract.md#本批实现与审查)。这组是已确认A27/A69/A72内的实现取舍，不新增权限、语言或通信方式。

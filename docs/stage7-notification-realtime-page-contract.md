@@ -29,3 +29,38 @@
 doConnect捕获局部connection/token以及单独ws身份世代，替换旧socket使其失效；原回调仍供chat.test.cjs使用。globalThis.invalidateTaskNotificationConnection仅递增世代，token input与成功login调用；团队input不改变连接世代。当前连接判定ws===connection、身份世代相同、当前Token原值相同，onopen/onmessage不处理旧socket。onopen独立启动page.recover(token)，不等待离线chat pull才能恢复通知；不在提醒里带本人Token或增PUT。onmessage遇task_notification_changed类型时page.receiveHint(message,token)后return，即便无效也不进原raw RECV日志，避免展示伪造提醒详情。onclose只当前socket可清ws/setWsStatus，旧close不能断开新的连接；error同样限制当前socket。doDisconnect先使当前ws失效再close，保持原手动断开体验。页面没有自动建立WS或自动重连；用户点击连接的每次成功握手才触发恢复，未填写有效Team时不读，后来选Team仍可手动刷新。权限/连接世代是客户端范围隔离，真实内容仍由Gateway→Task当前核权，不声称实时撤权即自动清屏。
 
 普通实现取舍：realtime单独于原state以保留旧分页/已读契约；128内存去重与布尔提示替代无界通知计数；请求修订与世代防并发旧结果；忙时串行排队一次替代并行抢列表。记录方案/备选/代价于architecture-decisions，未引入新的权限或跨服务方式。
+
+## 本批实现与审查
+
+实际完成七个小步骤，由三个独立worktree实现状态、展示和完整页面测试，root统一接线、验证及整合：
+
+1. **共同契约与提示位置**：共同提交`bbc99fc`固定接口、文件边界及七步范围；chat.html增加独立提示节点，说明需要有效团队和手动连接，不改已有通知列表、分页或已读入口。
+2. **状态和请求协调**：`a9f2413`增加只读realtime、严格范围校验、最多128项内存去重和提示修订。收到提醒只改变提示，不拼入详情、不请求已读；第一页读取期间的新提醒仍保留。401/403清旧列表并暂停迟到提醒，换账号/团队及reset让旧响应失效。状态测试46项通过。
+3. **固定提示展示**：`bc1ea5c`用textContent展示“有新的任务通知，请刷新通知”及等待恢复查询提示；保留原列表与按钮，Token输入调用身份失效钩子。root先把状态分支快进提供给展示worktree，再测试实际两模块；展示测试32项通过。
+4. **完整页面组合测试**：`8464d04`新增18项测试，真实加载chat.html内联和五份生产脚本，用VM/DOM/HTTP/WebSocket替身验证首次/重连查询、忙时排队、提示合并、权限拒绝、换范围及旧连接隔离。root先把已整合的生产代码快进提供给测试worktree，测试未替换生产controller。
+5. **WebSocket实际页面接线**：root提交`d328ad8`，onopen独立启动通知恢复查询，原聊天离线拉取保持可运行；用连接对象、Token及身份世代限制旧回调，Token A→B→A或同Token重新登录也能失效旧socket，旧close不能清新连接。识别出的任务提醒不落入聊天原文日志；旧聊天测试及新增连接回归共155项通过。
+6. **集中回归**：全部页面`node --test`共303项通过；`go test ./api -count=1`通过，确认Gateway原有固定嵌入和路由无需新增脚本或Go改动。该批没有后端Go实现变更，没有重复上一批全仓Go及Linux编译，也不把本次API测试说成全仓测试。
+7. **审查和进度记录**：更新本契约、项目计划、架构取舍、协作记录及部署说明。三个执行分支已无冲突整合到`codex/stage7-notification-realtime-page`，三个worktree干净保留；root集中执行测试和Git写入，执行agent未提交、合main或部署。
+
+当前调用链为：WS最小提醒→当前连接/本人/团队校验→固定更新提示→本人刷新→Gateway→Task当前权限查询。首次或手动重连成功且已填写有效团队时，页面直接查询最新一页；若正在分页、刷新或标已读，只排队一次恢复GET，当前操作结束后串行读取。恢复会回到最新页，不自动标已读；普通新提示不自动刷新，后续填写团队仍需本人刷新或重连。提醒不是通知详情、未读计数或浏览器送达凭证。
+
+内存去重只有128项窗口，被移出的旧重复可能再次亮提示。收到权限拒绝后会清理与阻断旧提示，但不承诺后端撤权瞬间自动清屏，权限仍以Gateway→Task查询为准。没有自动建立WebSocket、自动重连、轮询或失败自动重试；网络失败留给本人刷新。原聊天实时消息去重、离线拉取和显式ACK在组合测试中通过。
+
+**未验证部分**：测试使用浏览器相关替身，未运行真实浏览器、真实MySQL/Redis/Kafka/User部署链或证书挂载，也未执行027—029迁移、Compose、云端部署或真实模型调用。Task/Push/WS开关仍需最终按部署说明显式开启。本批未合入main、未push；main仍`89e2a1e`。下一批围绕通知全链路组合与故障恢复、阶段7验收清单推进，真实环境按用户决定留最终统一验收。
+
+全部实际修改文件（相对基线`30e90ee`共12份）：
+
+| 文件 | 本批用途 |
+| --- | --- |
+| [chat.html](D:/zy/GoLang/go-im/examples/chat.html) | 提示位置、局部连接回调与恢复入口 |
+| [chat.test.cjs](D:/zy/GoLang/go-im/examples/chat.test.cjs) | 原聊天及连接隔离回归 |
+| [task-notifications.js](D:/zy/GoLang/go-im/examples/task-notifications.js) | 提醒状态、范围校验与串行恢复 |
+| [task-notifications.test.cjs](D:/zy/GoLang/go-im/examples/task-notifications.test.cjs) | 状态和并发回归 |
+| [task-notifications-view.js](D:/zy/GoLang/go-im/examples/task-notifications-view.js) | 固定提示展示与Token输入钩子 |
+| [task-notifications-view.test.cjs](D:/zy/GoLang/go-im/examples/task-notifications-view.test.cjs) | 提示展示和输入回归 |
+| [task-notifications-realtime.test.cjs](D:/zy/GoLang/go-im/examples/task-notifications-realtime.test.cjs) | 完整页面与WS/HTTP组合验证 |
+| [本批契约](D:/zy/GoLang/go-im/docs/stage7-notification-realtime-page-contract.md) | 共同接口、七步结果及全部文件定位 |
+| [项目计划](D:/zy/GoLang/go-im/docs/project-plan.md) | 当前成果、下一步及验证边界 |
+| [架构决策](D:/zy/GoLang/go-im/docs/architecture-decisions.md) | 既定方案内的选择、备选、理由与代价 |
+| [worktree协作记录](D:/zy/GoLang/go-im/docs/worktree-collaboration-plan.md) | 三执行分支、root整合与测试责任 |
+| [部署说明](D:/zy/GoLang/go-im/deploy/README.md) | 页面使用方式及最终环境验收边界 |

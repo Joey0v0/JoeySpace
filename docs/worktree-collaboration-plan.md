@@ -470,3 +470,9 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 从b7ba626建立codex/stage7-notification-runtime，共同提交7efed33定义既定A69—A72之内的独立配置与运行契约；main仍89e2a1e。三个worktree从共同提交新建Push/WS/配置验证分支，目录不变，[精确允许文件](stage7-notification-runtime-contract.md)分别两个/两个/一个；root拥有共同配置、模板/覆盖、main/HTTP退出测试及文档。整批八小步，执行agent只编辑/gofmt/diffcheck，无test/build/Git写/合main/push/部署。
 
 实际交付：root定向验证后保存Push383f291、配置fe0045b，WS初次新测试有变量作用域及替换真实TLS工厂漏记录顺序，root仅修测试并保存WS2a787f3/修正4b5d3f4；最终WS定向通过再集中回归。三个分支无冲突整合；root接两个真实main、增加旧HTTP失败/退出测试及两份实际仓库模板读取验证。定向、全仓Go及Linux/CGO0 Push/WS编译通过，含本机实际TLS；默认模块stat缓存写有权限警告但两个构建退出码0，产物为Linux目标。三个执行worktree干净保留，root最终配置/接线修订在本轮整合分支，[八步、18文件与验证边界](stage7-notification-runtime-contract.md#本批实现与审查)。没有Docker命令，未运行Compose/真实信号/数据库/证书挂载/浏览器/云/模型；页面接线后续，未合main或推送。
+
+## 39. 原生页面任务提醒与重连恢复批次（2026-10-05）
+
+从30e90ee建立codex/stage7-notification-realtime-page，main仍89e2a1e。root共同提交bbc99fc固定[契约、三个绝对目录与允许文件](stage7-notification-realtime-page-contract.md)，沿A27/A69/A72推进七步：共同提示DOM、状态、展示、组合测试、root WS接线、集中验证、记录。执行agent仅编辑允许文件，不test/build/Git写/合main/push/部署；root拥有chat.html/旧聊天测试、共同文档与集成验证。
+
+实际交付：状态a9f2413、展示bc1ea5c、完整页面测试8464d04均由root定向验证后提交、无冲突合入本批分支。root先把状态快进提供展示worktree，再把已整合生产接线快进提供测试worktree，确保测试实际生产组合；不是由执行agent自行合main。root接线d328ad8捕获当前局部socket、Token与身份世代，保留原聊天离线/ACK入口。全部303项Node和Gateway go test ./api -count=1通过；[七步、全部12文件及边界](stage7-notification-realtime-page-contract.md#本批实现与审查)。三个worktree干净保留，本批最终HTML/文档在整合分支。没有后端Go/迁移/协议/依赖或新框架变更，未合main/push、运行真实浏览器/云端链或请求模型。

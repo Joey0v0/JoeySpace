@@ -2,7 +2,7 @@
 
 阶段7Task通知事件发布第一批（2026-10-05）：新Task在状态变化事务内同时写通知与Outbox，升级前须先027、028、029，029不回填旧通知；关闭发布也必须029。首次初始化已包含新表，现有数据卷不会因改init自动迁移。发布开关 `TASK_NOTIFICATION_PUBLISH_ENABLED` 默认false；显式启用需Task进程的 `TASK_NOTIFICATION_KAFKA_BROKERS` 和独立 `TASK_NOTIFICATION_TOPIC`，容器网络broker为kafka:19092。私有聊天/Agent Topic改名时，同时传 `TASK_NOTIFICATION_CHAT_TOPIC`/`TASK_NOTIFICATION_AGENT_TOPIC` 做隔离校验。基础Compose本批未注入发布配置，最终通过私有覆盖或下一批完整部署覆盖注入；未配置不能宣称已发布。published只表示Kafka确认。029尚未执行，真实Kafka/MySQL、证书、容器与云端仍待验收。[Task契约和审查](../docs/stage7-notification-outbox-contract.md)。
 
-阶段7提醒传输第二批已完成独立Push消费组件、HTTPS白名单客户端、双向TLS配置与WS当前连接权限处理器，本机真实TLS和全仓Go测试通过；当时尚未接进程，组件范围见[传输审查](../docs/stage7-notification-transport-contract.md#本批实现与审查)。第三批运行接线见下文，页面提醒仍待接入。
+阶段7提醒传输第二批已完成独立Push消费组件、HTTPS白名单客户端、双向TLS配置与WS当前连接权限处理器，本机真实TLS和全仓Go测试通过；当时尚未接进程，组件范围见[传输审查](../docs/stage7-notification-transport-contract.md#本批实现与审查)。第三批运行接线见下文，第四批页面提示/重连查询已完成本地替身验证，见[页面审查](../docs/stage7-notification-realtime-page-contract.md#本批实现与审查)。
 
 ## 阶段7任务提醒运行接线
 
@@ -20,7 +20,9 @@ docker compose --env-file .env -f docker-compose.yaml -f docker-compose.notifica
 
 启动流程先验证结构并加载TLS材料，再准备其他基础设施；不开启时不读证书、不建通知Reader/User连接或监听。新WS监听固定`/internal/task-notifications`且只接mTLS，绑定失败返回启动错误，不降级到旧`/internal/push`。Push坏事件只停通知worker、保留未确认offset，聊天继续；修复后需重启消费，不能默认跳过坏事件。明确离线/失效Token/离队确认消费，记录仍在Task，不保证补在线提示。停止时通知worker取消/等待后关Reader/客户端，WS停止新HTTP请求并结束通知处理后关User连接。旧聊天Hub与已升级WebSocket没有新增完整逐连接排空机制，HTTP Shutdown不等于客户端已收到消息；本批不声称整套聊天停机已验收。
 
-本地运行组件及TLS测试不等于真实Kafka/Redis/User容器或系统信号验收；当前环境没有Docker命令，Compose合并、证书挂载和真实部署待最终验证。页面对新提醒的展示、去重与重连查询仍未接入，通知详情和已读继续经Gateway→Task带当前权限处理。[本批接口和审查](../docs/stage7-notification-runtime-contract.md)。
+本地运行组件及TLS测试不等于真实Kafka/Redis/User容器或系统信号验收；当前环境没有Docker命令，Compose合并、证书挂载和真实部署待最终验证。[运行接口和审查](../docs/stage7-notification-runtime-contract.md)。
+
+页面已接入任务提醒：先登录并填有效团队，点击连接；每次成功连接会独立查询本人最新通知，忙时排队一次。新WS提示只显示固定“请刷新通知”，最多128项内存去重；详情和逐条已读仍经Gateway→Task核对当前权限，不自动标已读。后来填写团队可手动刷新或重新连接，页面没有自动连WS、重连或轮询。全部303项Node页面测试及Gateway API测试通过，使用VM/DOM/HTTP/WS替身；真实浏览器与部署链仍待最终验收。[七步、全部文件及使用边界](../docs/stage7-notification-realtime-page-contract.md#本批实现与审查)。
 
 2026-09-20 根据用户提供的云端 Compose、Dockerfile 和服务配置同步，并在本地补入阶段 1 的 API Gateway 与用户 RPC 容器配置。阶段 3 又补入 IM RPC 的容器接线；阶段 4 增加 Task RPC；阶段 5 准备 Agent RPC 的可选容器配置。这里只表示本地配置和程序构建检查，未连接云服务器、未重新部署、未完成真实数据库或模型联调。
 
