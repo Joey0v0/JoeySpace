@@ -178,6 +178,11 @@ function taskCardMessage(overrides = {}) {
     ...overrides };
 }
 
+function historyTaskCardMessage(overrides = {}) {
+  const { chat_type, to_id, ...history } = taskCardMessage(overrides);
+  return history;
+}
+
 function renderedChatCards(logEntries) {
   return logEntries.flatMap(entry => entry.children.filter(child => child.className === 'task-card'));
 }
@@ -185,12 +190,13 @@ function renderedChatCards(logEntries) {
 test('live, history and offline render identical safe task creation cards without further actions', async () => {
   for (const source of ['live', 'history', 'offline']) {
     const message = taskCardMessage();
+    const historyMessage = historyTaskCardMessage();
     const calls = [];
     const { context, fields, logs, logEntries } = page(async (url, options) => {
       calls.push({ url, options });
       if (url.endsWith('/offline/ack')) return reply({ code: 0 });
       return reply({ code: 0, data: source === 'offline' ? [message] :
-        { messages: [message], next_before_message_id: '0' } });
+        { messages: [historyMessage], next_before_message_id: '0' } });
     });
     fields.teamId.value = '200';
     fields.toUserId.value = '300';
@@ -220,7 +226,7 @@ test('a task card delivered through all three paths renders once and still ackno
       return reply({ code: 0 });
     }
     return reply({ code: 0, data: url.endsWith('/offline') ? [message] :
-      { messages: [message], next_before_message_id: '0' } });
+      { messages: [historyTaskCardMessage()], next_before_message_id: '0' } });
   });
   fields.teamId.value = '200';
   fields.toUserId.value = '300';
@@ -281,11 +287,21 @@ test('task card title limits count Unicode characters and plain text JSON is not
 });
 
 test('task source preview uses a readable immutable card result', async () => {
-  const { context } = page(async () => reply({ code: 0, data: { messages: [taskCardMessage()] } }));
+  const { context } = page(async () => reply({ code: 0, data: { messages: [historyTaskCardMessage()] } }));
   const preview = { textContent: '' };
   await context.loadTaskSource({ source_group_id: '300', source_message_id: '9' }, '200', preview);
   assert.equal(preview.textContent,
     'AI assistant #42 (confirmed by user #9007199254740995): Task created: <img src=x onerror=alert(1)> (Task #9223372036854775807)');
+});
+
+test('history card scope cannot override contradictory message fields', async () => {
+  const message = taskCardMessage({ chat_type: 1 });
+  const { context, fields, logEntries } = page(async () => reply({ code: 0, data: {
+    messages: [message], next_before_message_id: '0'
+  } }));
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  await context.loadTeamGroupHistory();
+  assert.equal(renderedChatCards(logEntries).length, 0);
 });
 
 test('task list uses string ID cursor and renders text safely', async () => {
@@ -750,6 +766,66 @@ test('switching groups starts history at the first page again', async () => {
   await context.loadTeamGroupHistory();
   assert.equal(calls.length, 2);
   assert.match(calls[1], /\/groups\/4\/messages\?limit=20$/);
+});
+
+test('latest history refresh keeps the older-page cursor on success, HTTP failure and invalid response', async () => {
+  for (const result of ['success', 'http', 'invalid']) {
+    const calls = [];
+    const { context, fields } = page(async url => {
+      calls.push(url);
+      if (calls.length === 1) return reply({ code: 0, data: { messages: [], next_before_message_id: '7' } });
+      if (calls.length === 2) {
+        if (result === 'http') return { ok: false, status: 503 };
+        if (result === 'invalid') return reply({ code: 0, data: { messages: [], next_before_message_id: 9 } });
+        return reply({ code: 0, data: { messages: [], next_before_message_id: '99' } });
+      }
+      return reply({ code: 0, data: { messages: [], next_before_message_id: '0' } });
+    });
+    fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+    await context.loadTeamGroupHistory();
+    if (result === 'success') await context.loadTeamGroupHistory(true);
+    else await assert.rejects(context.loadTeamGroupHistory(true), /history/);
+    await context.loadTeamGroupHistory();
+    assert.equal(calls[1], '/api/v1/teams/200/groups/300/messages?limit=20', result);
+    assert.equal(calls[2], calls[1] + '&before_message_id=7', result);
+  }
+});
+
+test('latest refresh and older history discard switched or restored contexts without advancing pagination', async () => {
+  for (const latest of [false, true]) {
+    for (const field of ['token', 'teamId', 'toUserId', 'chatType']) {
+      let finish;
+      const calls = [];
+      const { context, fields, logEntries } = page(async url => {
+        calls.push(url);
+        if (calls.length === 2) return new Promise(resolve => { finish = resolve; });
+        return reply({ code: 0, data: { messages: [], next_before_message_id: '7' } });
+      });
+      fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+      await context.loadTeamGroupHistory();
+      const pending = context.loadTeamGroupHistory(latest);
+      const previous = fields[field].value;
+      fields[field].value = field === 'chatType' ? '1' : 'changed'; context.clearTaskDraftResult();
+      fields[field].value = previous; context.clearTaskDraftResult();
+      finish({ ok: true, json: () => assert.fail('stale history response was consumed') });
+      await pending;
+      assert.equal(logEntries.length, 0, field);
+      await context.loadTeamGroupHistory();
+      assert.equal(calls[2], '/api/v1/teams/200/groups/300/messages?limit=20&before_message_id=7', field);
+    }
+  }
+});
+
+test('latest refresh and older pagination share the in-flight history guard', async () => {
+  let finish, calls = 0;
+  const { context, fields } = page(() => { calls++; return new Promise(resolve => { finish = resolve; }); });
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  const pending = context.loadTeamGroupHistory(true);
+  await context.loadTeamGroupHistory(true);
+  await context.loadTeamGroupHistory();
+  assert.equal(calls, 1);
+  finish(reply({ code: 0, data: { messages: [], next_before_message_id: '0' } }));
+  await pending;
 });
 
 test('team directory pages keep large IDs exact and selecting a group prepares group chat', async () => {
@@ -2767,6 +2843,41 @@ function appendTrigger(context, message = triggerMessage(), scope = { token: 'te
   context.attachAgentTriggerButton(entry, scope, message, history);
   return triggerControls(entry);
 }
+
+test('refreshing completed history discovers a newly sent own AI command without clearing review input or duplicates', async () => {
+  const calls = [];
+  let saved = null;
+  const old = { id: '8', msg_id: 'old-history', from_id: '7', sender_type: 1, initiator_id: '0', content_type: 1, content: 'Earlier message' };
+  const { context, fields, logEntries } = await triggerPage(async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith('/info')) return reply({ code: 0, data: { id: triggerUserID } });
+    if (url.includes('/agent-triggers/')) return reply({ code: 0, data: triggerStatus('queued') });
+    return reply({ code: 0, data: { messages: saved ? [saved, old] : [old], next_before_message_id: '0' } });
+  });
+  await context.loadTeamGroupHistory();
+  fields.draftEditTitle.value = 'Unsaved title'; fields.draftEditDescription.value = 'Unsaved notes';
+  fields.draftRunID.value = '123';
+  let invalidations = 0;
+  context.invalidateMultiDraftPage = () => { invalidations++; };
+  context.doConnect(); fields.msgContent.value = '@AI 整理任务 明天跟进发布'; context.doSend();
+  const sent = JSON.parse(context.socket.sent[0]);
+  saved = triggerMessage({ msg_id: sent.data.msg_id, content: sent.data.content, chat_type: undefined, to_id: undefined });
+  await context.loadTeamGroupHistory(); // The old pagination is already finished.
+  assert.equal(logEntries.filter(triggerControls).length, 0);
+  await context.doRefreshTeamGroupHistory();
+  await context.doRefreshTeamGroupHistory();
+  const controls = logEntries.map(triggerControls).filter(Boolean);
+  assert.equal(controls.length, 1);
+  assert.equal(fields.draftEditTitle.value, 'Unsaved title');
+  assert.equal(fields.draftEditDescription.value, 'Unsaved notes');
+  assert.equal(fields.draftRunID.value, '123'); assert.equal(invalidations, 0);
+  assert.equal(calls.filter(call => call.url.includes('/messages')).length, 3);
+  assert.ok(calls.filter(call => call.url.includes('/messages')).every(call => call.url.endsWith('?limit=20')));
+  await controls[0].button.onclick();
+  assert.equal(calls.at(-1).url, '/api/v1/teams/200/groups/300/agent-triggers/' + triggerMessageID);
+  assert.match(controls[0].status.textContent, /稍后重新查看/);
+  assert.ok(calls.every(call => !call.options.method));
+});
 
 test('AI trigger history and realtime entries retain saved large IDs and show only valid own text commands', async () => {
   for (const origin of ['history', 'live']) {
