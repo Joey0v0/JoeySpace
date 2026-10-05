@@ -54,7 +54,7 @@ function response(items = [], cursor = '0', status = 200) {
 }
 function notice(id = '9007199254741033', changes = {}) {
   return { notification_id: id, task_id: '9007199254740993', actor_id: '9007199254740995',
-    from_status: 0, to_status: 1, created_at_unix_ms: Date.UTC(2026, 9, 5, 0, 0, 0), ...changes };
+    from_status: 0, to_status: 1, created_at_unix_ms: Date.UTC(2026, 9, 5, 0, 0, 0), read_at_unix_ms: 0, ...changes };
 }
 function twenty() { return Array.from({ length: 20 }, (_, index) => notice(String(9007199254741033n - BigInt(index)))); }
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
@@ -254,4 +254,139 @@ test('invalid server IDs cannot create markup or partially display a rejected pa
   assert.equal(page.state.items.length, 0);
   assert.ok(fields.taskNotificationsStatus.textContent);
   assert.doesNotMatch(fields.taskNotificationsStatus.textContent, /<img|alert\(|test-token/);
+});
+
+function readResponse(id, time = Date.UTC(2026, 9, 5, 0, 1, 0)) {
+  return { ok: true, status: 200, json: async () => ({ code: 0, data: { notification_id: id, read_at_unix_ms: time } }) };
+}
+function readButton(fields, index = 0) {
+  return descendants(fields.taskNotificationsList.children[index]).find(node => node.tagName === 'BUTTON');
+}
+
+test('read and unread rows show their own state and first Shanghai read time without automatic PUT', async () => {
+  const items = [notice(), notice('9007199254741032', { read_at_unix_ms: Date.UTC(2026, 9, 5, 0, 1, 0) })], calls = [];
+  const { fields } = boot(async (url, init) => { calls.push({ url, init }); return response(items); });
+  await refresh(fields);
+  assert.equal(calls.length, 1); assert.equal(calls[0].init.method, 'GET');
+  assert.match(text(fields.taskNotificationsList.children[0]), /未读/);
+  assert.equal(readButton(fields).disabled, false);
+  assert.match(text(fields.taskNotificationsList.children[1]), /已读；首次确认时间（Asia\/Shanghai）/);
+  assert.match(text(fields.taskNotificationsList.children[1]), /08:01:00/);
+  assert.equal(readButton(fields, 1), undefined);
+});
+
+test('clicking one unread row sends its large ID only and keeps cursor plus all other rows unchanged', async () => {
+  const items = twenty(), target = items[0].notification_id, calls = [];
+  const { fields, page } = boot(async (url, init) => {
+    calls.push({ url, init }); return init.method === 'PUT' ? readResponse(target) : response(items, items.at(-1).notification_id);
+  });
+  await refresh(fields); const cursor = page.state.cursor;
+  await readButton(fields).onclick();
+  assert.equal(calls[1].url, '/api/v1/teams/200/task-notifications/' + target + '/read');
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[1].init)), { method: 'PUT', headers: { Authorization: 'Bearer test-token' } });
+  assert.equal(page.state.cursor, cursor);
+  assert.equal(page.state.items.length, 20);
+  assert.match(text(fields.taskNotificationsList.children[0]), /已读；首次确认时间/);
+  assert.equal(readButton(fields), undefined);
+  assert.match(text(fields.taskNotificationsList.children[1]), /未读/);
+  assert.equal(page.state.items[1].read_at_unix_ms, 0);
+});
+
+test('confirmation disables all row buttons and paging, including clicks through a previously retained button', async () => {
+  const pending = deferred(); let puts = 0;
+  const { fields } = boot((_, init) => init.method === 'PUT'
+    ? (puts++, pending.promise) : Promise.resolve(response(twenty(), twenty().at(-1).notification_id)));
+  await refresh(fields); const retained = readButton(fields);
+  const request = retained.onclick();
+  assert.match(fields.taskNotificationsStatus.textContent, /确认已读/);
+  assert.equal(fields.btnRefreshTaskNotifications.disabled, true);
+  assert.equal(fields.btnMoreTaskNotifications.disabled, true);
+  assert.equal(descendants(fields.taskNotificationsList).filter(node => node.tagName === 'BUTTON').every(node => node.disabled), true);
+  await retained.onclick(); await refresh(fields); await more(fields);
+  assert.equal(puts, 1);
+  pending.resolve(readResponse(notice().notification_id)); await request;
+  assert.equal(readButton(fields), undefined);
+  assert.equal(fields.btnMoreTaskNotifications.disabled, false);
+});
+
+test('failed confirmation displays uncertainty and explicit retry shows fixed server first-read time', async () => {
+  let puts = 0;
+  const { fields, page } = boot(async (_, init) => {
+    if (init.method !== 'PUT') return response([notice()]);
+    if (++puts === 1) throw new Error('private test-token response lost after saving');
+    return readResponse(notice().notification_id);
+  });
+  await refresh(fields); await readButton(fields).onclick();
+  assert.match(text(fields.taskNotificationsList), /未读/);
+  assert.equal(page.state.items[0].read_at_unix_ms, 0);
+  assert.equal(fields.taskNotificationsStatus.textContent, '未能确认，请刷新或重试');
+  assert.equal(readButton(fields).disabled, false);
+  await readButton(fields).onclick();
+  assert.match(text(fields.taskNotificationsList), /08:01:00/);
+  assert.equal(readButton(fields), undefined);
+  assert.equal(puts, 2);
+});
+
+for (const status of [401, 403]) test('mark permission refusal ' + status + ' clears the panel immediately', async () => {
+  const { fields, page } = boot(async (_, init) => init.method === 'PUT' ? response([], '0', status) : response([notice()]));
+  await refresh(fields); await readButton(fields).onclick();
+  assertCleared(fields); assert.equal(page.state.loaded, false);
+  assert.equal(fields.btnRefreshTaskNotifications.disabled, false);
+  assert.doesNotMatch(fields.taskNotificationsStatus.textContent, /private|test-token|Bearer|<img/);
+});
+
+for (const id of ['teamId', 'token']) test('retained row button cannot mark same ID after ' + id + ' changes A to B to A', async () => {
+  let puts = 0;
+  const { fields, input } = boot(async (_, init) => {
+    if (init.method === 'PUT') { puts++; return readResponse(notice().notification_id); }
+    return response([notice()]);
+  });
+  await refresh(fields); const retained = readButton(fields), original = fields[id].value;
+  input(id, id === 'token' ? 'B' : '201'); await refresh(fields);
+  await retained.onclick(); assert.equal(puts, 0, 'old button cannot mark matching new-scope ID');
+  input(id, original); await refresh(fields);
+  await retained.onclick(); assert.equal(puts, 0, 'return to original scope still requires a current button');
+  await readButton(fields).onclick(); assert.equal(puts, 1);
+});
+
+test('retained button detects programmatic team change even without input event', async () => {
+  const calls = [];
+  const { fields, page } = boot(async (url, init) => { calls.push([url, init]); return response([notice()]); });
+  await refresh(fields); const retained = readButton(fields);
+  fields.teamId.value = '201'; await retained.onclick();
+  assertCleared(fields); assert.equal(page.state.loaded, false); assert.equal(calls.length, 1);
+});
+
+test('stale confirmation response after team switch cannot mark its new-scope matching ID', async () => {
+  const pending = deferred();
+  const { fields, input, page } = boot((_, init) => init.method === 'PUT' ? pending.promise : Promise.resolve(response([notice()])));
+  await refresh(fields); const request = readButton(fields).onclick();
+  input('teamId', '201'); await refresh(fields);
+  pending.resolve(readResponse(notice().notification_id)); await request;
+  assert.equal(page.state.items[0].read_at_unix_ms, 0);
+  assert.match(text(fields.taskNotificationsList), /未读/);
+  assert.equal(readButton(fields).disabled, false);
+});
+
+test('same-token successful login invalidates retained row button and pending mark', async () => {
+  const pending = deferred(); let puts = 0;
+  const { fields, context, page } = boot(async (url, init) => {
+    if (url === '/api/v1/user/login') return { json: async () => ({ code: 0, data: { token: 'test-token' } }) };
+    if (url === '/api/v1/user/info') return { ok: true, json: async () => ({ code: 0, data: { id: '7' } }) };
+    if (init.method === 'PUT') { puts++; return pending.promise; }
+    return response([notice()]);
+  });
+  await refresh(fields); const retained = readButton(fields), request = retained.onclick();
+  fields.username.value = 'same-person'; fields.password.value = 'test-password';
+  await context.doLogin(); assertCleared(fields); await refresh(fields);
+  await retained.onclick(); assert.equal(puts, 1);
+  pending.resolve(readResponse(notice().notification_id)); await request;
+  assert.equal(page.state.items[0].read_at_unix_ms, 0); assert.equal(readButton(fields).disabled, false);
+});
+
+test('missing read state from an old Gateway is rejected instead of displaying an actionable unread row', async () => {
+  const old = notice(); delete old.read_at_unix_ms;
+  const { fields, page } = boot(async () => response([old]));
+  await refresh(fields); assertCleared(fields); assert.equal(page.state.loaded, false);
+  assert.match(fields.taskNotificationsStatus.textContent, /通知读取失败/);
 });

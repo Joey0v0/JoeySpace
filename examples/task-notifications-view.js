@@ -27,7 +27,7 @@
     field('btnRefreshTaskNotifications').disabled = state.loading || !readScope();
     field('btnMoreTaskNotifications').disabled = state.loading || !readScope() || !state.loaded || state.cursor === '0';
     let message;
-    if (state.loading) message = '正在读取通知…';
+    if (state.loading) message = '正在读取通知或确认已读…';
     else if (state.error) message = state.error;
     else if (!readScope()) message = '请输入 Token 和有效的 Team ID，再刷新通知。';
     else if (!state.loaded) message = '尚未读取通知，请点击刷新通知。';
@@ -35,12 +35,25 @@
     else if (state.cursor === '0') message = '已显示 ' + state.items.length + ' 条通知，没有更早通知。';
     else message = '已显示 ' + state.items.length + ' 条通知，可加载更早通知。';
     field('taskNotificationsStatus').textContent = message;
+    const epoch = page.epoch;
     const cards = state.items.map(item => {
       const card = document.createElement('article');
       card.className = 'task-card';
       textNode('strong', '任务 #' + item.task_id, card);
       textNode('p', '操作者 #' + item.actor_id + '：' + statusNames[item.from_status] + ' → ' + statusNames[item.to_status], card);
       textNode('p', '通知时间（Asia/Shanghai）：' + timeFormat.format(new Date(item.created_at_unix_ms)), card);
+      if (item.read_at_unix_ms === 0) {
+        textNode('p', '未读', card);
+        const button = textNode('button', '标为已读', card);
+        button.type = 'button';
+        button.disabled = state.loading || !state.loaded || !readScope();
+        button.onclick = () => {
+          page.syncScope();
+          if (page.epoch === epoch && !button.disabled) return page.markRead(item.notification_id);
+        };
+      } else {
+        textNode('p', '已读；首次确认时间（Asia/Shanghai）：' + timeFormat.format(new Date(item.read_at_unix_ms)), card);
+      }
       return card;
     });
     field('taskNotificationsList').replaceChildren(...cards);
