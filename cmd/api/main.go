@@ -36,26 +36,38 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config failed: %v", err)
 	}
+	if err := runAPI(cfg); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func runAPI(cfg *config.Config) error {
+	// NewClient is lazy: this checks the address, not IM availability.
+	offlineClient, imConn, err := newOfflineMessagesClient()
+	if err != nil {
+		return err
+	}
+	defer imConn.Close()
 
 	// 初始化日志
 	if err := logger.Init(cfg.Log.Level, cfg.Log.Filename); err != nil {
-		log.Fatalf("init logger failed: %v", err)
+		return fmt.Errorf("init logger failed: %w", err)
 	}
 	defer logger.Sync()
 
 	// 初始化 Snowflake
 	if err := snowflake.Init(cfg.App.ServerID); err != nil {
-		log.Fatalf("init snowflake failed: %v", err)
+		return fmt.Errorf("init snowflake failed: %w", err)
 	}
 
 	// 初始化 MySQL
 	if err := repository.InitMySQL(&cfg.MySQL, logger.L); err != nil {
-		log.Fatalf("init mysql failed: %v", err)
+		return fmt.Errorf("init mysql failed: %w", err)
 	}
 
 	// 初始化 Redis
 	if err := repository.InitRedis(&cfg.Redis, logger.L); err != nil {
-		log.Fatalf("init redis failed: %v", err)
+		return fmt.Errorf("init redis failed: %w", err)
 	}
 
 	// 设置 Gin 模式
@@ -70,7 +82,7 @@ func main() {
 	r.Use(middleware.Logger(logger.L))
 
 	// 注册路由
-	handler.RegisterRoutes(r, logger.L, nil) // Replaced by the IM client in this batch's startup task.
+	handler.RegisterRoutes(r, logger.L, offlineClient)
 
 	// 挂载 Swagger 文档
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -79,6 +91,7 @@ func main() {
 	addr := fmt.Sprintf(":%d", cfg.APIServer.Port)
 	logger.L.Sugar().Infof("API server starting on %s", addr)
 	if err := r.Run(addr); err != nil {
-		log.Fatalf("start api server failed: %v", err)
+		return fmt.Errorf("start api server failed: %w", err)
 	}
+	return nil
 }
