@@ -43,7 +43,9 @@ func TestListTaskNotificationsHTTPForwardsCursorAndStringIDs(t *testing.T) {
 		if req.TeamId != 9007199254740993 || req.BeforeNotificationId != 9007199254740999 || req.Limit != 2 || len(md.Get("authorization")) != 1 || md.Get("authorization")[0] != "Bearer original-token" {
 			t.Fatalf("wrong RPC request or token: %v, %v", req, md)
 		}
-		return &pb.ListTaskNotificationsResponse{Notifications: []*pb.TaskNotificationItem{validHTTPTaskNotification(9007199254740997), validHTTPTaskNotification(9007199254740995)}, NextBeforeNotificationId: 9007199254740995}, nil
+		read := validHTTPTaskNotification(9007199254740995)
+		read.ReadAtUnixMs = 1791097201123
+		return &pb.ListTaskNotificationsResponse{Notifications: []*pb.TaskNotificationItem{validHTTPTaskNotification(9007199254740997), read}, NextBeforeNotificationId: 9007199254740995}, nil
 	})
 	w := httptest.NewRecorder()
 	listTaskNotificationsHandler(client)(w, taskNotificationsHTTPRequest("9007199254740993", "?before_notification_id=9007199254740999&limit=2", "Bearer original-token"))
@@ -57,6 +59,7 @@ func TestListTaskNotificationsHTTPForwardsCursorAndStringIDs(t *testing.T) {
 				FromStatus      int32  `json:"from_status"`
 				ToStatus        int32  `json:"to_status"`
 				CreatedAtUnixMs int64  `json:"created_at_unix_ms"`
+				ReadAtUnixMs    *int64 `json:"read_at_unix_ms"`
 			} `json:"notifications"`
 			NextBeforeNotificationID string `json:"next_before_notification_id"`
 		} `json:"data"`
@@ -68,7 +71,8 @@ func TestListTaskNotificationsHTTPForwardsCursorAndStringIDs(t *testing.T) {
 		t.Fatalf("notification list: %d %s", w.Code, w.Body.String())
 	}
 	item := body.Data.Notifications[0]
-	if item.NotificationID != "9007199254740997" || item.TaskID != "9007199254741001" || item.ActorID != "9007199254741003" || item.FromStatus != 0 || item.ToStatus != 1 || item.CreatedAtUnixMs != 1791097200123 {
+	if item.NotificationID != "9007199254740997" || item.TaskID != "9007199254741001" || item.ActorID != "9007199254741003" || item.FromStatus != 0 || item.ToStatus != 1 || item.CreatedAtUnixMs != 1791097200123 ||
+		item.ReadAtUnixMs == nil || *item.ReadAtUnixMs != 0 || body.Data.Notifications[1].ReadAtUnixMs == nil || *body.Data.Notifications[1].ReadAtUnixMs != 1791097201123 {
 		t.Fatalf("notification IDs and fields: %s", w.Body.String())
 	}
 }
@@ -247,6 +251,18 @@ func TestListTaskNotificationsHTTPRejectsInvalidResults(t *testing.T) {
 		}},
 		{"overflow time", func(r *pb.ListTaskNotificationsResponse) *pb.ListTaskNotificationsResponse {
 			r.Notifications[0].CreatedAtUnixMs = 253402300800000
+			return r
+		}},
+		{"negative read time", func(r *pb.ListTaskNotificationsResponse) *pb.ListTaskNotificationsResponse {
+			r.Notifications[0].ReadAtUnixMs = -1
+			return r
+		}},
+		{"read before creation", func(r *pb.ListTaskNotificationsResponse) *pb.ListTaskNotificationsResponse {
+			r.Notifications[0].ReadAtUnixMs = r.Notifications[0].CreatedAtUnixMs - 1
+			return r
+		}},
+		{"read time overflow", func(r *pb.ListTaskNotificationsResponse) *pb.ListTaskNotificationsResponse {
+			r.Notifications[0].ReadAtUnixMs = 253402300800000
 			return r
 		}},
 		{"negative next", func(r *pb.ListTaskNotificationsResponse) *pb.ListTaskNotificationsResponse {

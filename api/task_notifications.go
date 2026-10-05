@@ -39,6 +39,7 @@ type taskNotificationItem struct {
 	FromStatus      int32 `json:"from_status"`
 	ToStatus        int32 `json:"to_status"`
 	CreatedAtUnixMs int64 `json:"created_at_unix_ms"`
+	ReadAtUnixMs    int64 `json:"read_at_unix_ms"`
 }
 
 // Decimal IDs must not accept signs, whitespace, or other numeric notation.
@@ -127,7 +128,7 @@ func listTaskNotificationsHandler(client taskNotificationLister) http.HandlerFun
 		}
 		data := &taskNotificationsData{Notifications: make([]taskNotificationItem, 0, len(result.Notifications)), NextBeforeNotificationID: result.NextBeforeNotificationId}
 		for _, item := range result.Notifications {
-			data.Notifications = append(data.Notifications, taskNotificationItem{NotificationID: item.NotificationId, TaskID: item.TaskId, ActorID: item.ActorId, FromStatus: item.FromStatus, ToStatus: item.ToStatus, CreatedAtUnixMs: item.CreatedAtUnixMs})
+			data.Notifications = append(data.Notifications, taskNotificationItem{NotificationID: item.NotificationId, TaskID: item.TaskId, ActorID: item.ActorId, FromStatus: item.FromStatus, ToStatus: item.ToStatus, CreatedAtUnixMs: item.CreatedAtUnixMs, ReadAtUnixMs: item.ReadAtUnixMs})
 		}
 		httpx.WriteJson(w, http.StatusOK, taskNotificationsResponse{Code: errcode.Success, Msg: "success", Data: data})
 	}
@@ -142,7 +143,9 @@ func validTaskNotificationResult(result *pb.ListTaskNotificationsResponse, befor
 		if item == nil || item.NotificationId <= 0 || item.TaskId <= 0 || item.ActorId <= 0 ||
 			(previousID > 0 && item.NotificationId >= previousID) ||
 			item.FromStatus < 0 || item.FromStatus > 2 || item.ToStatus < 0 || item.ToStatus > 2 || item.FromStatus == item.ToStatus ||
-			item.CreatedAtUnixMs <= 0 || item.CreatedAtUnixMs > 253402300799999 {
+			item.CreatedAtUnixMs <= 0 || item.CreatedAtUnixMs > 253402300799999 ||
+			item.ReadAtUnixMs < 0 || item.ReadAtUnixMs > 253402300799999 ||
+			(item.ReadAtUnixMs > 0 && item.ReadAtUnixMs < item.CreatedAtUnixMs) {
 			return false
 		}
 		previousID = item.NotificationId
