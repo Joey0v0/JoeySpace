@@ -432,3 +432,252 @@ test('paging after confirmation keeps marked first-page records and loaded older
   assert.equal(c.state.items[20].read_at_unix_ms, 1791000000777);
   assert.equal(c.state.cursor, '0');
 });
+
+const notificationHint = (id = '77', team = '9007199254740997') => ({
+  type: 'task_notification_changed', data: { version: 1, notification_id: id, team_id: team }
+});
+
+test('hints expose only a copied boolean indicator and never create, read or mark records', async () => {
+  const { controller: c, calls, changes } = setup(async () => response(body(rows(2))));
+  assert.deepEqual(clone(c.realtime), { hasUpdate: false, recoveryPending: false });
+  const detached = c.realtime; detached.hasUpdate = true; detached.recoveryPending = true;
+  assert.deepEqual(clone(c.realtime), { hasUpdate: false, recoveryPending: false });
+  assert.equal(c.receiveHint(notificationHint(String(firstID)), 'private-test-token'), true);
+  assert.equal(c.realtime.hasUpdate, true);
+  assert.equal(calls.length, 0);
+  assert.equal(c.state.items.length, 0);
+  assert.equal(c.state.error, '');
+  const updates = changes.length;
+  assert.equal(c.receiveHint(notificationHint(String(firstID)), 'private-test-token'), true);
+  assert.equal(changes.length, updates);
+  await c.refresh();
+  assert.equal(c.realtime.hasUpdate, false);
+  const loadedUpdates = changes.length;
+  assert.equal(c.receiveHint(notificationHint(String(firstID)), 'private-test-token'), true);
+  assert.equal(c.realtime.hasUpdate, false);
+  assert.equal(c.receiveHint(notificationHint(String(firstID - 1n)), 'private-test-token'), true);
+  assert.equal(c.realtime.hasUpdate, false);
+  assert.equal(changes.length, loadedUpdates);
+  assert.equal(c.state.items[0].read_at_unix_ms, 0);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(Object.keys(c.realtime), ['hasUpdate', 'recoveryPending']);
+});
+
+test('invalid hint objects, mismatched identity and noncanonical team or notification IDs are ignored', () => {
+  const malformed = [null, [], {}, { type: 'chat', data: notificationHint().data },
+    { ...notificationHint(), token: 'private' }, { ...notificationHint(), data: [] },
+    ...[0, 2, '1', null].map(version => ({ ...notificationHint(), data: { ...notificationHint().data, version } })),
+    ...['0', '01', '-1', '9223372036854775808', 77, null].map(id => notificationHint(id)),
+    ...['0', '01', '200', 9007199254740997].map(team => notificationHint('77', team)),
+    { ...notificationHint(), data: { ...notificationHint().data, recipient_id: '42' } },
+    { ...notificationHint(), data: { ...notificationHint().data, content: '<script>private</script>' } },
+    { ...notificationHint(), data: { notification_id: '77', team_id: '9007199254740997' } },
+    Object.create(notificationHint())];
+  const { controller: c, calls, changes } = setup(async () => response());
+  for (const hint of malformed) assert.equal(c.receiveHint(hint, 'private-test-token'), false);
+  assert.equal(c.receiveHint(notificationHint(), 'old-token'), false);
+  assert.deepEqual(clone(c.realtime), { hasUpdate: false, recoveryPending: false });
+  assert.equal(changes.length, 0);
+  assert.equal(calls.length, 0);
+  assert.deepEqual(clone(c.state), { items: [], cursor: '0', loaded: false, loading: false, error: '' });
+});
+
+test('hint deduplication uses a bounded FIFO window without assuming highest ID covers smaller events', async () => {
+  const { controller: c, calls } = setup(async () => response(body([])));
+  for (let id = 1; id <= 129; id++) assert.equal(c.receiveHint(notificationHint(String(id)), 'private-test-token'), true);
+  await c.refresh();
+  assert.equal(c.realtime.hasUpdate, false);
+  assert.equal(c.receiveHint(notificationHint('2'), 'private-test-token'), true);
+  assert.equal(c.realtime.hasUpdate, false);
+  assert.equal(c.receiveHint(notificationHint('1'), 'private-test-token'), true);
+  assert.equal(c.realtime.hasUpdate, true);
+  await c.refresh();
+  assert.equal(c.receiveHint(notificationHint('130'), 'private-test-token'), true);
+  await c.refresh();
+  assert.equal(c.receiveHint(notificationHint('3'), 'private-test-token'), true);
+  assert.equal(c.realtime.hasUpdate, true);
+  assert.equal(calls.every(call => call.init.method === 'GET'), true);
+});
+
+test('successful refresh clears earlier hints while failed or malformed reads preserve them without retrying automatically', async () => {
+  for (const fail of [async () => { throw new Error('private-test-token'); },
+    async () => response({ msg: 'private' }, 503), async () => response({ code: 0, data: null })]) {
+    let attempt = 0;
+    const { controller: c, calls } = setup(() => ++attempt === 1 ? fail() : Promise.resolve(response(body([]))));
+    c.receiveHint(notificationHint(), 'private-test-token');
+    await c.refresh();
+    assert.equal(c.realtime.hasUpdate, true);
+    assert.equal(c.realtime.recoveryPending, false);
+    assert.equal(calls.length, 1);
+    await c.refresh();
+    assert.equal(c.realtime.hasUpdate, false);
+    assert.equal(calls.length, 2);
+  }
+});
+
+test('a new hint arriving during fetch or JSON parsing survives the first-page response', async () => {
+  for (const stage of ['fetch', 'json']) {
+    const pending = deferred(), entered = deferred();
+    const { controller: c, calls } = setup(() => stage === 'fetch' ? pending.promise : Promise.resolve({
+      ok: true, status: 200, json: () => { entered.resolve(); return pending.promise; }
+    }));
+    c.receiveHint(notificationHint('1'), 'private-test-token');
+    const reading = c.refresh();
+    if (stage === 'json') await entered.promise;
+    c.receiveHint(notificationHint('2'), 'private-test-token');
+    pending.resolve(stage === 'fetch' ? response(body([])) : body([]));
+    await reading;
+    assert.equal(c.realtime.hasUpdate, true);
+    assert.equal(c.state.loaded, true);
+    assert.equal(calls.length, 1);
+  }
+});
+
+test('pagination and explicit marking preserve unrelated hint indicators', async () => {
+  let gets = 0;
+  const { controller: c } = setup(async (_, init) => response(init.method === 'PUT'
+    ? readBody(String(firstID)) : ++gets === 1 ? body() : body(rows(1, firstID - 20n))));
+  await c.refresh();
+  c.receiveHint(notificationHint('1'), 'private-test-token');
+  await c.markRead(String(firstID));
+  assert.equal(c.realtime.hasUpdate, true);
+  await c.loadMore();
+  assert.equal(c.realtime.hasUpdate, true);
+  assert.equal(c.state.items[0].read_at_unix_ms, 1791000000999);
+});
+
+test('connection recovery uses a current-token first-page GET and ignores invalid scopes or tokens', async () => {
+  const { controller: c, calls, scope } = setup(async () => response(body([])));
+  await c.recover('wrong-token');
+  scope.teamID = '0'; await c.recover('private-test-token');
+  assert.equal(calls.length, 0);
+  scope.teamID = '9007199254740997';
+  await c.recover('private-test-token');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/api/v1/teams/9007199254740997/task-notifications?limit=20&before_notification_id=0');
+  assert.equal(calls[0].init.method, 'GET');
+  assert.equal(c.state.loaded, true);
+  assert.deepEqual(clone(c.realtime), { hasUpdate: false, recoveryPending: false });
+});
+
+test('recover calls during older-page loading merge into one serial authoritative first-page read', async () => {
+  const older = deferred(), restored = deferred(), restoreStarted = deferred();
+  let gets = 0;
+  const { controller: c, calls } = setup(() => {
+    if (++gets === 1) return Promise.resolve(response());
+    if (gets === 2) return older.promise;
+    restoreStarted.resolve();
+    return restored.promise;
+  });
+  await c.refresh();
+  const paging = c.loadMore();
+  await c.recover('private-test-token'); await c.recover('private-test-token'); await c.recover('private-test-token');
+  assert.equal(calls.length, 2);
+  assert.equal(c.realtime.recoveryPending, true);
+  older.resolve(response(body(rows(1, firstID - 20n))));
+  await restoreStarted.promise;
+  assert.equal(c.state.loading, true);
+  assert.equal(c.realtime.recoveryPending, false);
+  assert.equal(calls[2].url.endsWith('before_notification_id=0'), true);
+  restored.resolve(response(body(rows(2, firstID - 100n))));
+  await paging;
+  assert.equal(calls.length, 3);
+  assert.equal(c.state.items.length, 2);
+  assert.equal(c.state.items[0].notification_id, String(firstID - 100n));
+});
+
+test('recovery queued behind PUT waits for its result then reads authority without an extra PUT', async () => {
+  const marked = deferred(), restored = deferred(), restoring = deferred();
+  let gets = 0;
+  const { controller: c, calls } = setup((_, init) => {
+    if (init.method === 'PUT') return marked.promise;
+    if (++gets === 1) return Promise.resolve(response(body(rows(1))));
+    restoring.resolve(); return restored.promise;
+  });
+  await c.refresh();
+  const marking = c.markRead(String(firstID));
+  await c.recover('private-test-token'); await c.recover('private-test-token');
+  assert.equal(calls.length, 2);
+  assert.equal(c.realtime.recoveryPending, true);
+  marked.resolve(response(readBody(String(firstID))));
+  await restoring.promise;
+  assert.equal(calls.length, 3);
+  const authoritative = rows(1); authoritative[0].read_at_unix_ms = 1791000000999;
+  restored.resolve(response(body(authoritative)));
+  await marking;
+  assert.equal(calls.filter(call => call.init.method === 'PUT').length, 1);
+  assert.equal(c.state.items[0].read_at_unix_ms, 1791000000999);
+});
+
+test('a requested recovery follows a failed operation once, but its own network failure does not retry', async () => {
+  const active = deferred();
+  let attempt = 0;
+  const { controller: c, calls } = setup(() => ++attempt === 1 ? active.promise : Promise.reject(new Error('private-test-token')));
+  const reading = c.refresh();
+  await c.recover('private-test-token'); await c.recover('private-test-token');
+  active.reject(new Error('private-test-token'));
+  await reading;
+  assert.equal(calls.length, 2);
+  assert.equal(c.state.loading, false);
+  assert.equal(c.state.error, '通知读取失败，请重试');
+  assert.equal(c.realtime.recoveryPending, false);
+});
+
+for (const method of ['GET', 'PUT']) for (const status of [401, 403]) {
+  test(method + ' ' + status + ' clears hints and queued recovery, blocking delayed hints until an authorized GET', async () => {
+    const active = deferred();
+    let gets = 0;
+    const { controller: c, calls } = setup((_, init) => {
+      if (method === 'PUT' && init.method === 'PUT' || method === 'GET' && ++gets === 1) return active.promise;
+      return Promise.resolve(response(body(rows(1))));
+    });
+    if (method === 'PUT') await c.refresh();
+    const operation = method === 'PUT' ? c.markRead(String(firstID)) : c.refresh();
+    c.receiveHint(notificationHint(), 'private-test-token');
+    await c.recover('private-test-token');
+    active.resolve(response({ msg: 'private-test-token' }, status));
+    await operation;
+    assert.equal(calls.length, method === 'PUT' ? 2 : 1);
+    assert.deepEqual(clone(c.realtime), { hasUpdate: false, recoveryPending: false });
+    assert.equal(c.state.items.length, 0);
+    assert.equal(c.receiveHint(notificationHint('78'), 'private-test-token'), false);
+    assert.equal(c.realtime.hasUpdate, false);
+    await c.refresh();
+    assert.equal(c.receiveHint(notificationHint('78'), 'private-test-token'), true);
+    assert.equal(c.realtime.hasUpdate, true);
+  });
+}
+
+for (const change of ['reset', 'scope', 'A-B-A']) {
+  test(change + ' invalidates queued recovery and old fetch finally without releasing current loading', async () => {
+    const old = deferred(), current = deferred();
+    let attempt = 0;
+    const { controller: c, calls, scope } = setup(() => ++attempt === 1 ? old.promise : current.promise);
+    const original = c.refresh();
+    c.receiveHint(notificationHint(), 'private-test-token');
+    await c.recover('private-test-token');
+    if (change === 'reset') c.reset();
+    else if (change === 'scope') { scope.teamID = '2'; c.syncScope(); }
+    else { scope.token = 'B'; c.syncScope(); scope.token = 'private-test-token'; c.syncScope(); }
+    assert.deepEqual(clone(c.realtime), { hasUpdate: false, recoveryPending: false });
+    const latest = c.refresh();
+    old.resolve(response(body([])));
+    await original;
+    assert.equal(calls.length, 2);
+    assert.equal(c.state.loading, true);
+    assert.equal(c.state.loaded, false);
+    current.resolve(response(body([])));
+    await latest;
+    assert.equal(c.state.loaded, true);
+  });
+}
+
+test('reset after authorization failure allows hints again without reading or marking automatically', async () => {
+  const { controller: c, calls } = setup(async () => response({}, 403));
+  await c.refresh();
+  assert.equal(c.receiveHint(notificationHint(), 'private-test-token'), false);
+  c.reset();
+  assert.equal(c.receiveHint(notificationHint(), 'private-test-token'), true);
+  assert.equal(c.realtime.hasUpdate, true);
+  assert.equal(calls.length, 1);
+});
