@@ -92,7 +92,9 @@ Gateway 的 [api-gateway.yaml](api-gateway.yaml) 已配置非阻塞的 `agent-rp
 
 阶段 4 的 Task RPC 使用 [task-rpc.yaml](task-rpc.yaml) 在容器内监听 9003，Gateway 的 `TaskRPC` 指向 `task-rpc:9003`。Compose 注入 `TASK_MYSQL_DSN`、`USER_RPC_ADDR=user-rpc:9001`、`IM_RPC_ADDR=im-rpc:9002` 和默认节点号 4；已有数据库须依次执行 [006_tasks.sql](mysql/migrations/006_tasks.sql)、[007_task_operations.sql](mysql/migrations/007_task_operations.sql)、[008_task_source.sql](mysql/migrations/008_task_source.sql) 和 [009_task_due_at.sql](mysql/migrations/009_task_due_at.sql)，再启动更新后的任务 RPC。IM RPC 校验来源消息后，Task RPC 才保存来源 ID；无来源任务不依赖 IM 调用。本机已做本地测试与编译检查；没有启动容器或验证真实数据库。
 
-阶段 7 的任务状态通知落库要求已有数据库在升级 Task RPC 前另执行一次 [027_task_status_notifications.sql](mysql/migrations/027_task_status_notifications.sql)；新库初始化已包含该表。真实状态变化会在同一事务写状态、操作记录和个人通知依据；未迁移时整笔状态变更会失败并回滚。Task 和 Gateway 已提供按团队读取本人通知的只读接口，需同时更新两者以使用新增 RPC。Gateway `/demo/chat` 已接通知面板及两个固定同源嵌入脚本，重新编译Gateway即可随程序更新，无新增前端构建或部署服务；本人填写Token/团队后手动读取。当前没有已读或实时提醒。027 及真实 MySQL/浏览器行为未在本机执行，[查询契约](../docs/stage7-notification-read-contract.md)、[页面验收与审查](../docs/stage7-notification-page-contract.md#本批实现与审查)。
+阶段 7 的任务状态通知落库要求已有数据库在升级 Task RPC 前另执行一次 [027_task_status_notifications.sql](mysql/migrations/027_task_status_notifications.sql)；新库初始化已包含该表。真实状态变化会在同一事务写状态、操作记录和个人通知依据；未迁移时整笔状态变更会失败并回滚。Task 和 Gateway 已提供按团队读取本人通知的只读接口，需同时更新两者以使用新增 RPC。Gateway `/demo/chat` 已接通知面板及两个固定同源嵌入脚本，重新编译Gateway即可随程序更新，无新增前端构建或部署服务；本人填写Token/团队后手动读取。已读扩展见下一段，实时提醒尚未接入。027及真实MySQL/浏览器行为未在本机执行，[查询契约](../docs/stage7-notification-read-contract.md)、[页面基础审查](../docs/stage7-notification-page-contract.md#本批实现与审查)。
+
+A68本人逐条已读需要在027后另执行一次 [028_task_notification_read.sql](mysql/migrations/028_task_notification_read.sql)，再升级Task和Gateway（页面脚本随Gateway嵌入）；新库init已包含read_at。历史记录默认未读，点击保存首次数据库时间，重试不重写；GET依旧不写状态。缺028时新版通知查询/确认会安全报数据库不可用，不自动补表或绕过。当前没有实时提醒或全库未读数。028尚未执行，最终部署需验证升级前旧数据/升级后重复点击/离队/双页面读取，[已读契约和实际限制](../docs/stage7-notification-read-state-contract.md)。
 
 本地配置已把 `api/`、`rpc/user/`、`rpc/im/`、`rpc/task/`、`cmd/agent/` 加入 Dockerfile 和 Compose；各服务的 Linux 交叉编译结果以对应开发步骤记录为准。
 

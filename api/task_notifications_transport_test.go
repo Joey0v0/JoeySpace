@@ -36,6 +36,7 @@ type taskNotificationTransportHTTPResponse struct {
 			NotificationID string `json:"notification_id"`
 			TaskID         string `json:"task_id"`
 			ActorID        string `json:"actor_id"`
+			ReadAtUnixMs   int64  `json:"read_at_unix_ms"`
 		} `json:"notifications"`
 		NextBeforeNotificationID string `json:"next_before_notification_id"`
 	} `json:"data"`
@@ -68,7 +69,7 @@ func (s *taskNotificationTransportServer) ListTaskNotifications(ctx context.Cont
 }
 
 func transportNotification(id int64) *pb.TaskNotificationItem {
-	return &pb.TaskNotificationItem{
+	item := &pb.TaskNotificationItem{
 		NotificationId:  id,
 		TaskId:          9007199254741001,
 		ActorId:         9007199254741003,
@@ -76,6 +77,10 @@ func transportNotification(id int64) *pb.TaskNotificationItem {
 		ToStatus:        1,
 		CreatedAtUnixMs: 1791097200123,
 	}
+	if id == 9007199254740997 {
+		item.ReadAtUnixMs = 1791097201123
+	}
+	return item
 }
 
 func TestTaskNotificationsHTTPOverTCPGRPC(t *testing.T) {
@@ -147,7 +152,8 @@ func TestTaskNotificationsHTTPOverTCPGRPC(t *testing.T) {
 	first := decode(body)
 	if code != http.StatusOK || len(first.Data.Notifications) != 2 || first.Data.NextBeforeNotificationID != "9007199254740995" ||
 		first.Data.Notifications[0].NotificationID != "9007199254740997" || first.Data.Notifications[0].TaskID != "9007199254741001" || first.Data.Notifications[0].ActorID != "9007199254741003" ||
-		first.Data.Notifications[1].NotificationID != "9007199254740995" {
+		first.Data.Notifications[0].ReadAtUnixMs != 1791097201123 ||
+		first.Data.Notifications[1].NotificationID != "9007199254740995" || first.Data.Notifications[1].ReadAtUnixMs != 0 {
 		t.Fatalf("first page or exact string IDs: %d %s", code, body)
 	}
 
