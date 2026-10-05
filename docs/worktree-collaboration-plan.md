@@ -406,4 +406,17 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 | 离群撤权与状态查询 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-recovery-revocation | 新 rpc/agent/trigger_revocation_recovery_test.go |
 | 主 agent | D:/zy/GoLang/go-im | codex/trigger-recovery-integration | 共同契约、执行范围、审查/Git整合、集中验证与文档 |
 
-执行 agent 仅编辑各自单一测试文件、gofmt 和差异检查，不自行测试/build、提交、合 main、推送或部署。主 agent 审查后保存三分支 `6bf4fd0`、`6d89d68`、`7633f76` 并无冲突合入本批集成分支。三项新增测试重复五次、全仓 Go 测试通过；[五步、全部七文件和验证边界](trigger-recovery-review.md)。三个 worktree 保留，main 仍 `9c45e13`，不推送/迁移/部署/调用真实模型。子 agent 分别报告约3分53秒、3分43秒、4分28秒；没有单 agent 同任务对照，不推断固定效率倍数。
+执行 agent 仅编辑各自单一测试文件、gofmt 和差异检查，不自行测试/build、提交、合 main、推送或部署。主 agent 审查后保存三分支 `6bf4fd0`、`6d89d68`、`7633f76` 并无冲突合入本批集成分支。三项新增测试重复五次、全仓 Go 测试通过；[五步、全部七文件和验证边界](trigger-recovery-review.md)。三个 worktree 保留，main 当时仍 `9c45e13`，不推送/迁移/部署/调用真实模型。子 agent 分别报告约3分53秒、3分43秒、4分28秒；没有单 agent 同任务对照，不推断固定效率倍数。
+
+## 31. 阶段6运行验收准备批次（2026-10-05）
+
+用户继续后，A64 与后台恢复批次已快进合入本地 main `ada504d`，未推送。主 agent 从 main 建 `codex/stage6-acceptance-audit`，先提交审查边界 `120fc3e` 和可选 Compose 接线 `984efaf`。三个保留 worktree 从共同提交做相互独立的审查；后端负责静态接线测试、Gateway 负责原消息页面、UI worktree 只审查恢复验收边界。没有新的服务边界、权限或中间件选择，部署覆盖沿用已有 A59—A64 决策；具体实现取舍见[架构记录](architecture-decisions.md)的“阶段6部署覆盖实现选择”。
+
+| 执行项 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| Compose 接线静态测试 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/stage6-trigger-compose-test | 新 rpc/im/trigger_compose_test.go |
+| 原消息页面刷新与历史卡片 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/stage6-history-ui | examples/chat.html、examples/chat.test.cjs |
+| 恢复验收边界审查 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/stage6-audit-recovery | 只读；建议交主 agent 写文档 |
+| 主 agent | D:/zy/GoLang/go-im | codex/stage6-acceptance-audit | Compose/环境模板、共同文档、集中测试与 Git 整合 |
+
+两个执行 agent 在提交前达到会话用量限制；主 agent 接手其已保存文件，补齐历史卡片测试并集中运行。已保存 Compose 测试 `2a9b6df`、页面 `a430ca5`，并无冲突合入本批 `codex/stage6-acceptance-audit`。子 agent 未自行合并 main、推送或部署。合并后页面两份 Node 测试共174项及全仓 Go 测试通过；真实运行结果只允许在最终部署时记录到[验收准备](stage6-runtime-acceptance.md)。

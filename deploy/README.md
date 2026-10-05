@@ -108,6 +108,10 @@ Gateway 的 [api-gateway.yaml](api-gateway.yaml) 已配置非阻塞的 `agent-rp
 
 ## 云端联调顺序（待实际执行）
 
+### 群内 @AI 后台触发（可选）
+
+当前本地增加 [docker-compose.trigger.yaml](docker-compose.trigger.yaml) 作为显式覆盖文件：仅在选择 `agent` profile 并提供方舟凭证后，为 User 和 IM 开启容器内部专用 mTLS 监听，并让 Agent 消费独立 Kafka 通知、运行后台草稿 worker。四个触发证书目录在 [.env.example](.env.example) 中留空，必须使用各自私有目录；不要与机器人回帖证书共用私钥。Push 的发布开关只从不入库的 `docker-config.local.yaml` 读取，启用时还须将 `kafka.agent_trigger_enabled` 改为 `true`。基础 Compose 和公开 YAML 模板保持默认关闭。具体启动、迁移、原消息入口和恢复核对见[阶段6运行验收准备](../docs/stage6-runtime-acceptance.md)；目前仅做本地静态配置与自动化测试，尚未运行 Docker 或真实模型。
+
 ### 可选 IM 机器人 TLS 入口
 
 IM 进程提供专用机器人监听，Agent 已接入独立 mTLS 客户端、持久回帖意图和同步回帖/显式重试 RPC；Gateway 与原生页面已有状态展示和只重试原回帖的操作。基础 Compose 不启用；[docker-compose.bot.yaml](docker-compose.bot.yaml)作为显式覆盖文件，在 IM 容器内监听 9005，不发布宿主机端口，并分别只读挂载 IM 与 Agent 的证书目录。Agent 保留基础文件的 `agent` profile，仍须显式启用；真实模型配置及预算未就绪前不启动。HTTP 成功返回任务 ID 不代表群卡片已送达；回帖状态须另行查看，失败先重读同一运行再手动重试，见 [HTTP 说明](../api/README.md#回帖状态与显式重试2026-10-03)。
