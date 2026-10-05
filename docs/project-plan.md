@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-05）：A64 原指令消息入口、后台恢复组合测试，以及阶段6的可选触发 Compose 覆盖、原消息最新历史刷新、历史任务卡片显示和[运行验收准备](stage6-runtime-acceptance.md)，均已快进合入**本地** main `27aec67`，未推送。合并前全仓 Go 与页面174项测试通过；真实 MySQL/Kafka、进程崩溃、生产证书、浏览器、模型及云端仍未验收，阶段6不标完成。阶段7按 A65/A66 在独立分支完成首步：Task 状态真实变化与个人通知依据同事务写入，本地定向及全仓 Go 测试通过；通知查询/实时提醒留后续小步，027 未执行。
+最新进展（2026-10-05）：阶段6本地接线与验收准备、阶段7 A65/A66 通知事务写入已合入**本地** main `8aa25a2`，未推送。阶段7本批在 `codex/stage7-notification-read` 按用户已选 A67 完成 Task 本人通知只读查询、返回前团队资格复核及 Gateway 转发；两个执行分支已整合，定向及全仓 Go 测试通过，本批尚未合 main。[全部15文件、四步调用链和验证边界](stage7-notification-read-contract.md#本批实现与审查)。下一步接原生页面通知列表。027 及真实 MySQL/Kafka、证书、模型、浏览器、容器和云端仍未验收，阶段6/7不标整体完成。
 
 ## 1. 项目目标与学习背景
 
@@ -464,7 +464,9 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 - [x] 阶段6后台恢复本地组合验证（2026-10-05）：生产Publisher/Consumer/Inbox/本人RPC组合验证completed通知重复与ACK失败仍指向原两项草稿；真实Worker/InboxStore组合验证重建、过期租约、模型预算和旧持有者隔离；生产Worker/Processor与本机mTLS来源/状态RPC组合验证首次读取前或模型期间离群后不保存草稿，并由持久退避和当前资格拦住读回。SQL/Kafka/IM/User/模型仍有替身，没有实际杀进程或连接真实数据库；三组新增测试重复5次、全仓Go通过。[契约](trigger-recovery-contract.md)、[全部文件和边界](trigger-recovery-review.md)。
 - [x] 阶段7任务通知持久化第一步（2026-10-05）：A65/A66 选个人通知、由 Task 持有；027/init 新增 `(operation_id, recipient_id)` 唯一记录，Task 状态真实变化时与操作记录同事务写创建者和当前负责人，重复状态无记录，重复接收人只一条，通知写失败整笔回滚。定向 Task 与全仓 Go 测试通过，使用 SQL 替身；尚无通知查询、已读或实时推送，不标通知已送达，真实迁移/数据库/容器未验收。[本步契约](stage7-task-notification-contract.md)。
 
-当前下一步（2026-10-05）：上一批通知持久化已合入本地 main `8aa25a2`，未推送。阶段7本批在 `codex/stage7-notification-read` 增加 Task 通知本人只读查询和 Gateway 转发，页面、已读与实时提醒后续分步。用户已选离队立即拒绝，重入后原记录可见；取舍见[架构记录](architecture-decisions.md) A67，[本批契约](stage7-notification-read-contract.md)定义范围和分页。027 仍未执行，真实环境统一验收按[阶段6运行验收准备](stage6-runtime-acceptance.md)及各阶段清单执行；方舟接入点/预算未定前不请求真实模型。
+- [x] 阶段7通知本人只读查询（2026-10-05）：用户选择 A67 当前团队资格；新增 ListTaskNotifications 及 Gateway GET，Token 派生本人、团队/接收人双条件、通知ID倒序limit+1游标，查询后再次复核同一本人资格。Gateway 拒绝自报接收人、校验分页/回包并以字符串输出大ID；14个新增测试函数含实际本机TCP Task gRPC、SQL/User或RPC替身，定向及全仓Go通过。[四步、15文件和未验证范围](stage7-notification-read-contract.md#本批实现与审查)，[架构记录](architecture-decisions.md) A67。两个执行分支已合入本批整合分支，尚未合main；没有新增迁移或页面/已读/实时提醒。
+
+当前下一步（2026-10-05）：本地 main 为 `8aa25a2`，通知查询批次保存在 `codex/stage7-notification-read` 待审查，未推送。下一小步将按现有原生页面方案接本人通知列表，让用户在页面看到任务状态变化；已读与实时提醒另行讨论和推进。027 仍未执行，真实环境统一验收按[阶段6运行验收准备](stage6-runtime-acceptance.md)及各阶段清单执行；方舟接入点/预算未定前不请求真实模型。
 
 ## 10. 决策记录与文档关系
 

@@ -92,7 +92,7 @@ Gateway 的 [api-gateway.yaml](api-gateway.yaml) 已配置非阻塞的 `agent-rp
 
 阶段 4 的 Task RPC 使用 [task-rpc.yaml](task-rpc.yaml) 在容器内监听 9003，Gateway 的 `TaskRPC` 指向 `task-rpc:9003`。Compose 注入 `TASK_MYSQL_DSN`、`USER_RPC_ADDR=user-rpc:9001`、`IM_RPC_ADDR=im-rpc:9002` 和默认节点号 4；已有数据库须依次执行 [006_tasks.sql](mysql/migrations/006_tasks.sql)、[007_task_operations.sql](mysql/migrations/007_task_operations.sql)、[008_task_source.sql](mysql/migrations/008_task_source.sql) 和 [009_task_due_at.sql](mysql/migrations/009_task_due_at.sql)，再启动更新后的任务 RPC。IM RPC 校验来源消息后，Task RPC 才保存来源 ID；无来源任务不依赖 IM 调用。本机已做本地测试与编译检查；没有启动容器或验证真实数据库。
 
-阶段 7 的任务状态通知落库要求已有数据库在升级 Task RPC 前另执行一次 [027_task_status_notifications.sql](mysql/migrations/027_task_status_notifications.sql)；新库初始化已包含该表。真实状态变化会在同一事务写状态、操作记录和个人通知依据；未迁移时整笔状态变更会失败并回滚。当前尚无通知读取、已读或实时推送入口，027 及真实 MySQL 行为未在本机执行。
+阶段 7 的任务状态通知落库要求已有数据库在升级 Task RPC 前另执行一次 [027_task_status_notifications.sql](mysql/migrations/027_task_status_notifications.sql)；新库初始化已包含该表。真实状态变化会在同一事务写状态、操作记录和个人通知依据；未迁移时整笔状态变更会失败并回滚。Task 和 Gateway 已提供按团队读取本人通知的只读接口，需同时更新两者以使用新增 RPC；当前没有页面、已读或实时提醒入口。027 及真实 MySQL 行为未在本机执行，接口及权限见[查询契约](../docs/stage7-notification-read-contract.md)。
 
 本地配置已把 `api/`、`rpc/user/`、`rpc/im/`、`rpc/task/`、`cmd/agent/` 加入 Dockerfile 和 Compose；各服务的 Linux 交叉编译结果以对应开发步骤记录为准。
 

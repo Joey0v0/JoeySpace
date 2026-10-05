@@ -6,7 +6,9 @@ Gateway 的 `/demo/chat` 提供同源原生 HTML/JavaScript 演示页。页面�
 
 团队任务列表入口为 `GET /api/v1/teams/{team_id}/tasks?after_task_id=0&limit=20`，需要 Bearer Token；两个查询参数可省略，默认 20 条、最多 100 条。结果按任务 ID 升序，`task_id`、`creator_id`、`assignee_id`、`source_group_id`、`source_message_id`、`next_after_task_id` 均为字符串；未指派或无来源的对应 ID 为 `"0"`，下一页游标为 `"0"` 表示无后续数据。每项任务的 `due_at_unix_ms` 是 JSON 数字，表示 UTC Unix 毫秒；`0` 表示未设置。只有当前团队成员可读；消息正文仍由 IM 校验群访问权。
 
-状态更新入口为 `PUT /api/v1/teams/{team_id}/tasks/{task_id}/status`，需要 Bearer Token，请求体如 `{"status":1}`；状态 0 待办、1 进行中、2 完成。仅创建者、当前负责人或团队拥有者可改，重复提交当前状态仍返回成功。任务 RPC 在同一事务中更新状态并写操作记录；已有数据库须在 006 后执行 007 增量迁移。列表与状态入口已通过本地测试，真实 MySQL/容器链路尚未验收。
+状态更新入口为 `PUT /api/v1/teams/{team_id}/tasks/{task_id}/status`，需要 Bearer Token，请求体如 `{"status":1}`；状态 0 待办、1 进行中、2 完成。仅创建者、当前负责人或团队拥有者可改，重复提交当前状态仍返回成功。任务 RPC 在同一事务中更新状态、写操作记录和给创建者/负责人的个人通知依据；已有数据库须核对006、007并在升级Task前执行027迁移，否则状态变化会回滚。列表与状态入口已通过本地测试，真实 MySQL/容器链路尚未验收。
+
+个人任务状态通知入口为 `GET /api/v1/teams/{team_id}/task-notifications?before_notification_id=0&limit=20`，需本人 Bearer Token。只支持这两个分页参数，省略时读最新20条，最多100条；按通知 ID 倒序，非零 `next_before_notification_id` 可继续查更旧记录。响应 `data.notifications` 的 `notification_id`、`task_id`、`actor_id` 及下一页游标均为字符串，`from_status`、`to_status` 为0—2，`created_at_unix_ms` 为UTC Unix毫秒；空列表为 `[]`。Task RPC 从 Token 派生本人 ID，先查当前团队资格，再限定团队和通知接收人读取，返回前复核当前资格及同一本人 ID；不能通过参数查询别人的通知。离队后拒绝，重新入队后原记录可见。GET 不标为已读，没有实时提醒或页面入口；需已执行027迁移，真实环境仍未验收。[权限与分页契约](../docs/stage7-notification-read-contract.md)。
 
 后续小步已新增 `/api/v1/user/info` 本人查询（需 Token）、`/api/v1/user/login` 登录、`/api/v1/user/register` 注册，以及创建团队、添加成员、查询成员和变更角色的团队入口；接口与验证限制见 [本人资料查询](../docs/user-profile.md)、[用户登录](../docs/user-login.md)、[用户注册](../docs/user-register.md)、[团队数据与接口](../docs/team-schema.md)。团队群创建 HTTP 入口为 `POST /api/v1/teams/{team_id}/groups`，需 Bearer Token 与 Idempotency-Key（1～64 位 ASCII 字母、数字、-、_、.）；同一次创建重试复用该键，请求体为 `{"name":"项目群"}`，成功返回字符串形式的 `data.group_id`。Gateway 只转发给 IM RPC；IM 再向用户与团队 RPC 检查创建权限并写群。相同键和内容的重试返回原群 ID，同键不同内容返回 HTTP 409。已有数据库需执行 004 增量迁移；该入口尚未做真实 MySQL 联调。下文记录原演示接口及其验证。
 

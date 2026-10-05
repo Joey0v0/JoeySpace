@@ -158,6 +158,11 @@ func main() {
 		Handler: listTeamTasksHandler(taskpb.NewTaskClient(taskRPCClient.Conn())),
 	})
 	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/teams/:team_id/task-notifications",
+		Handler: listTaskNotificationsHandler(taskpb.NewTaskClient(taskRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
 		Method:  http.MethodPut,
 		Path:    "/api/v1/teams/:team_id/tasks/:task_id/status",
 		Handler: setTaskStatusHandler(taskpb.NewTaskClient(taskRPCClient.Conn())),

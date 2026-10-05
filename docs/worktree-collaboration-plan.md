@@ -438,3 +438,5 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 | 主 agent | D:/zy/GoLang/go-im | codex/stage7-notification-read | proto/生成、路由/共同文档、审查/合并/集中验证 |
 
 两个执行 worktree 从同一可编译共同提交建立分支，不修改彼此文件，不自行合 main/推送/部署。第三个 worktree 继续保留，页面在 API 验证后另行推进。最多九小步按整个批次计算，真实权限/数据库/浏览器联调仍待最终统一验收。
+
+实际交付：共同契约及生成代码 `2ee6666`；主 agent 审查并分别定向测试后保存 Task `e0e991d`、Gateway `2efaffd`，无冲突合入 `codex/stage7-notification-read`。两个执行 agent 只格式化和检查允许文件，没有自行测试/build、提交或合并。主 agent 接入路由并集中完成 `go test ./... -count=1`，全仓通过；[四步、全部15文件及验证限制](stage7-notification-read-contract.md#本批实现与审查)。两个执行 worktree 干净保留，第三个本批未派任务；main 仍 `8aa25a2`，没有推送、迁移、部署或真实模型请求。
