@@ -462,3 +462,5 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 ## 37. A70—A72任务提醒传输组件批次（2026-10-05）
 
 从f6e05db建codex/stage7-notification-transport，main89e2a1e。已选A69/A70之内先实现TLS/WS/Push传输；用户随后选A71坏事件停止/保留、A72明确离线或撤权不补发在线提示，于九步批次中加入root负责的消费组件。三个执行worktree同一共同提交，各只编辑[契约规定的两个文件](stage7-notification-transport-contract.md)；root负责共同TLS/model、文档/消费、整合验证。进程配置、实际生产启动和页面提示后续，执行agent不提交、测试/build、合main/push或部署。
+
+实际交付：共同8181f18；root逐包验证后保存WS处理器a491ea0、Push客户端2704cb2、TLS/协议测试da8b258，无冲突整合。三个执行agent各只新增两个允许文件，未自行测试/build、Git写入或部署。root新增消费组件及重试/确认/坏事件测试，再补生产TLS客户端→生产WS处理器offline→消费者确认原offset组合；定向及全仓Go通过。三worktree干净保留，root最终代码和共同文档在本轮整合分支，[九步、17文件与边界](stage7-notification-transport-contract.md#本批实现与审查)。没有cmd启动接线、页面变更、迁移/依赖/proto修改、main合并、push、真实环境或模型调用。

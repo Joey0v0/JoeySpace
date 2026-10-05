@@ -48,4 +48,4 @@
 
 实际修改三个文件：[本候选方案](D:/zy/GoLang/go-im/docs/stage7-notification-realtime-design.md)、[架构选型记录A69/A70](D:/zy/GoLang/go-im/docs/architecture-decisions.md)、[项目计划](D:/zy/GoLang/go-im/docs/project-plan.md)。仅文档变更，不重复运行上一批已经通过的Go/Node测试；差异格式检查不等于新实时能力通过验收。
 
-用户选择两项A后已实现Task事件/存储/发布第一批并完成本地回归，实际文件与验证见[本批审查](stage7-notification-outbox-contract.md#本批实现与审查)。完整Push/WS/mTLS/页面链仍待后续，不将旧讨论轮的“仅文档”当本批状态。
+用户选择两项A后已实现Task事件/存储/发布第一批并完成本地回归，实际文件与验证见[本批审查](stage7-notification-outbox-contract.md#本批实现与审查)。随后用户明确选A71坏事件停止保留、A72离线/撤权确认消费并查询恢复，第二批完成Push客户端/独立消费组件、专用TLS配置和WS权限处理器，实际本机TLS及全仓Go通过；[九步、17文件及边界](stage7-notification-transport-contract.md#本批实现与审查)。这些组件尚未接cmd/push、cmd/ws启动配置或页面提醒，完整运行链仍待后续；不将旧讨论轮的“仅文档”当当前状态。
