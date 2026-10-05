@@ -8,14 +8,15 @@ import (
 
 // Config 统一配置结构体
 type Config struct {
-	App       AppConfig       `mapstructure:"app"`
-	APIServer APIServerConfig `mapstructure:"api_server"`
-	WSServer  WSServerConfig  `mapstructure:"ws_server"`
-	MySQL     MySQLConfig     `mapstructure:"mysql"`
-	Redis     RedisConfig     `mapstructure:"redis"`
-	Kafka     KafkaConfig     `mapstructure:"kafka"`
-	JWT       JWTConfig       `mapstructure:"jwt"`
-	Log       LogConfig       `mapstructure:"log"`
+	App               AppConfig               `mapstructure:"app"`
+	APIServer         APIServerConfig         `mapstructure:"api_server"`
+	WSServer          WSServerConfig          `mapstructure:"ws_server"`
+	MySQL             MySQLConfig             `mapstructure:"mysql"`
+	Redis             RedisConfig             `mapstructure:"redis"`
+	Kafka             KafkaConfig             `mapstructure:"kafka"`
+	JWT               JWTConfig               `mapstructure:"jwt"`
+	Log               LogConfig               `mapstructure:"log"`
+	TaskNotifications TaskNotificationsConfig `mapstructure:"task_notifications"`
 }
 
 type AppConfig struct {
