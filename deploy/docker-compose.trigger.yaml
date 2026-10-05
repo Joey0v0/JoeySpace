@@ -1,0 +1,67 @@
+# Opt-in stage 6 group @AI trigger chain. Merge only after migrations 022-026,
+# private mTLS certificates, a real model endpoint/budget and the private Push
+# YAML kafka.agent_trigger_enabled switch are ready. No host RPC ports.
+services:
+  user-rpc:
+    environment:
+      USER_TRIGGER_LISTEN_ON: "0.0.0.0:9007"
+      USER_TRIGGER_IM_DNS_NAME: "im.go-im.internal"
+      USER_TRIGGER_TLS_CERT_FILE: "/app/certs/user-trigger/cert.pem"
+      USER_TRIGGER_TLS_KEY_FILE: "/app/certs/user-trigger/key.pem"
+      USER_TRIGGER_TLS_CA_FILE: "/app/certs/user-trigger/ca.pem"
+    volumes:
+      - type: bind
+        source: "${USER_TRIGGER_CERT_DIR:?Set private USER_TRIGGER_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/user-trigger
+        read_only: true
+        bind:
+          create_host_path: false
+
+  im-rpc:
+    environment:
+      IM_TRIGGER_LISTEN_ON: "0.0.0.0:9006"
+      IM_TRIGGER_AGENT_DNS_NAME: "agent.go-im.internal"
+      IM_TRIGGER_TLS_CERT_FILE: "/app/certs/im-trigger/cert.pem"
+      IM_TRIGGER_TLS_KEY_FILE: "/app/certs/im-trigger/key.pem"
+      IM_TRIGGER_TLS_CA_FILE: "/app/certs/im-trigger/ca.pem"
+      IM_TRIGGER_USER_RPC_ADDR: "user-rpc:9007"
+      IM_TRIGGER_USER_TLS_SERVER_NAME: "user.go-im.internal"
+      IM_TRIGGER_USER_TLS_CERT_FILE: "/app/certs/im-trigger-user/cert.pem"
+      IM_TRIGGER_USER_TLS_KEY_FILE: "/app/certs/im-trigger-user/key.pem"
+      IM_TRIGGER_USER_TLS_CA_FILE: "/app/certs/im-trigger-user/ca.pem"
+    volumes:
+      - type: bind
+        source: "${IM_TRIGGER_CERT_DIR:?Set private IM_TRIGGER_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/im-trigger
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${IM_TRIGGER_USER_CERT_DIR:?Set private IM_TRIGGER_USER_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/im-trigger-user
+        read_only: true
+        bind:
+          create_host_path: false
+
+  agent-rpc:
+    environment:
+      AGENT_TRIGGER_INBOX_ENABLED: "true"
+      AGENT_TRIGGER_WORKER_ENABLED: "true"
+      AGENT_TRIGGER_KAFKA_BROKERS: "kafka:19092"
+      AGENT_TRIGGER_KAFKA_TOPIC: "agent_task_triggers"
+      AGENT_TRIGGER_KAFKA_GROUP: "agent_task_trigger_group"
+      AGENT_IM_TRIGGER_ADDR: "im-rpc:9006"
+      AGENT_IM_TRIGGER_SERVER_NAME: "im.go-im.internal"
+      AGENT_IM_TRIGGER_TLS_CERT_FILE: "/app/certs/agent-trigger/cert.pem"
+      AGENT_IM_TRIGGER_TLS_KEY_FILE: "/app/certs/agent-trigger/key.pem"
+      AGENT_IM_TRIGGER_TLS_CA_FILE: "/app/certs/agent-trigger/ca.pem"
+    volumes:
+      - type: bind
+        source: "${AGENT_TRIGGER_CERT_DIR:?Set private AGENT_TRIGGER_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/agent-trigger
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      kafka:
+        condition: service_healthy
