@@ -458,3 +458,7 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 用户选A69持久事件/Kafka/WS和A70专用mTLS，主agent从39c5493创建codex/stage7-notification-outbox，保留上轮候选文档后转为已确认状态；main仍89e2a1e。本批最多八步，仅Task事件/事务/store/publisher及进程接线，不提前实现Push/WS/TLS/页面。[精确接口、三个绝对worktree目录及允许文件](stage7-notification-outbox-contract.md)。主agent负责共同model/contract、029/init、进程/runtime、文档与Git/集中测试；子agent仅允许文件编辑和格式/差异检查，不自行测试/build/提交/合main/push/部署。
 
 实际交付：共同d757f80；root保存事务/store791f808、发布76e8f89、协议/迁移测试7caaab6，无冲突合入本批整合分支。root接进程/runtime、补真实Task状态→GORM store→发布器故障重建组合（SQL/Kafka替身）；初次包级回归发现测试清理先于database/sql异步取消回滚，root只修新测试等待实际回滚，重复10次通过，再全仓Go通过。无JS改动，不重复上一批259项Node。三个执行worktree干净保留，root最终修订在整合分支，[八步/23文件及未验收范围](stage7-notification-outbox-contract.md#本批实现与审查)；未合main/push/执行029/部署/调用模型。
+
+## 37. A70—A72任务提醒传输组件批次（2026-10-05）
+
+从f6e05db建codex/stage7-notification-transport，main89e2a1e。已选A69/A70之内先实现TLS/WS/Push传输；用户随后选A71坏事件停止/保留、A72明确离线或撤权不补发在线提示，于九步批次中加入root负责的消费组件。三个执行worktree同一共同提交，各只编辑[契约规定的两个文件](stage7-notification-transport-contract.md)；root负责共同TLS/model、文档/消费、整合验证。进程配置、实际生产启动和页面提示后续，执行agent不提交、测试/build、合main/push或部署。
