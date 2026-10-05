@@ -61,6 +61,8 @@ func expectTaskStatusChange(mock sqlmock.Sqlmock, actorID int64, oldStatus, newS
 			return
 		}
 		insert.WillReturnResult(sqlmock.NewResult(int64(i+1), 1))
+		mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_notification_outbox`")).
+			WithArgs(int64(i+1), int64(200), recipientID, 1, false).WillReturnResult(sqlmock.NewResult(0, 1))
 	}
 	mock.ExpectCommit()
 }
@@ -190,5 +192,52 @@ func TestSetTaskStatusNotificationFailureRollsBack(t *testing.T) {
 	result, err := s.SetTaskStatus(taskListContext(), statusRequest(1))
 	if result != nil || status.Code(err) != codes.Unavailable || status.Convert(err).Message() == "notification insert failed" {
 		t.Fatalf("notification failure: %v, %v", result, err)
+	}
+}
+
+func TestSetTaskStatusOutboxFailureRollsBackAllRecipients(t *testing.T) {
+	for _, failRecipient := range []int64{42, 77} {
+		t.Run(map[int64]string{42: "first recipient", 77: "second recipient"}[failRecipient], func(t *testing.T) {
+			s, mock := statusTaskServer(t, 42, 0)
+			expectTaskStatusRow(mock, 42, int64(77), 0)
+			mock.ExpectExec(regexp.QuoteMeta("UPDATE `tasks` SET `status`=? WHERE id = ? AND team_id = ?")).
+				WithArgs(int8(1), int64(500), int64(200)).WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_operations`")).
+				WithArgs(int64(500), int64(42), int8(0), int8(1)).WillReturnResult(sqlmock.NewResult(123, 1))
+			for i, recipientID := range []int64{42, 77} {
+				id := int64(i + 1)
+				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_status_notifications`")).
+					WithArgs(int64(123), int64(200), int64(500), recipientID).WillReturnResult(sqlmock.NewResult(id, 1))
+				write := mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_notification_outbox`")).WithArgs(id, int64(200), recipientID, 1, false)
+				if recipientID == failRecipient {
+					write.WillReturnError(errors.New("outbox table missing private detail"))
+					break
+				}
+				write.WillReturnResult(sqlmock.NewResult(0, 1))
+			}
+			mock.ExpectRollback()
+			result, err := s.SetTaskStatus(taskListContext(), statusRequest(1))
+			if result != nil || status.Code(err) != codes.Unavailable || status.Convert(err).Message() != "task database unavailable" {
+				t.Fatalf("event failure: result=%v error=%v", result, err)
+			}
+		})
+	}
+}
+
+func TestSetTaskStatusInvalidNotificationIDPreventsOutboxAndRollsBack(t *testing.T) {
+	for _, id := range []int64{0, -1} {
+		s, mock := statusTaskServer(t, 42, 0)
+		expectTaskStatusRow(mock, 42, nil, 0)
+		mock.ExpectExec(regexp.QuoteMeta("UPDATE `tasks` SET `status`=? WHERE id = ? AND team_id = ?")).
+			WithArgs(int8(1), int64(500), int64(200)).WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_operations`")).
+			WithArgs(int64(500), int64(42), int8(0), int8(1)).WillReturnResult(sqlmock.NewResult(123, 1))
+		mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_status_notifications`")).
+			WithArgs(int64(123), int64(200), int64(500), int64(42)).WillReturnResult(sqlmock.NewResult(id, 1))
+		mock.ExpectRollback()
+		result, err := s.SetTaskStatus(taskListContext(), statusRequest(1))
+		if result != nil || status.Code(err) != codes.Unavailable {
+			t.Fatalf("invalid notice ID %d: result=%v error=%v", id, result, err)
+		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/task/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -69,12 +70,20 @@ func (s *taskServer) SetTaskStatus(ctx context.Context, req *pb.SetTaskStatusReq
 		}
 		for _, recipientID := range recipients {
 			notification := struct {
+				ID          int64
 				OperationID int64
 				TeamID      int64
 				TaskID      int64
 				RecipientID int64
-			}{operation.ID, req.GetTeamId(), req.GetTaskId(), recipientID}
+			}{OperationID: operation.ID, TeamID: req.GetTeamId(), TaskID: req.GetTaskId(), RecipientID: recipientID}
 			if err := tx.Table("task_status_notifications").Create(&notification).Error; err != nil {
+				return err
+			}
+			outbox := taskNotificationOutboxRow{NotificationID: notification.ID, TeamID: req.GetTeamId(), RecipientID: recipientID, EventVersion: model.TaskNotificationEventVersion}
+			if err := outbox.Validate(); err != nil {
+				return err
+			}
+			if err := tx.Create(&outbox).Error; err != nil {
 				return err
 			}
 		}
