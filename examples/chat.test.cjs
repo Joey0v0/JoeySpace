@@ -7,6 +7,53 @@ const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, 'chat.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
+test('replaced socket callbacks cannot query offline messages or overwrite the current connection', async () => {
+  const calls = [];
+  const { context, fields } = page(async url => { calls.push(url); return reply({ code: 0, data: [] }); });
+  const statuses = [];
+  context.setWsStatus = value => statuses.push(value);
+  context.doConnect();
+  const previous = context.socket;
+  context.doConnect();
+  const current = context.socket;
+  assert.equal(previous.readyState, 3);
+  await previous.onopen();
+  previous.onclose({ code: 1000, reason: 'old connection' });
+  assert.equal(calls.length, 0);
+  assert.deepEqual(statuses, ['Connecting', 'Connecting']);
+  await current.onopen();
+  assert.deepEqual(statuses, ['Connecting', 'Connecting', 'Connected']);
+  assert.equal(calls[0], '/api/v1/message/offline');
+  fields.toUserId.value = '42';
+  fields.msgContent.value = 'still connected';
+  context.doSend();
+  assert.equal(current.sent.length, 1);
+  assert.equal(previous.sent.length, 0);
+});
+
+test('connection identity invalidation rejects old open and notification callbacks after token A to B to A', async () => {
+  const { context, fields, logs } = page(() => assert.fail('invalidated socket must not fetch'));
+  let hints = 0, recoveries = 0;
+  context.taskNotificationsPage = { receiveHint: () => { hints++; }, recover: () => { recoveries++; } };
+  context.doConnect();
+  const previous = context.socket;
+  fields.token.value = 'other-token'; context.invalidateTaskNotificationConnection();
+  fields.token.value = 'test-token'; context.invalidateTaskNotificationConnection();
+  await previous.onopen();
+  previous.onmessage({ data: JSON.stringify({ type: 'task_notification_changed', data: { version: 1, notification_id: '1', team_id: '2' } }) });
+  assert.equal(hints, 0);
+  assert.equal(recoveries, 0);
+  assert.equal(logs.some(line => line.includes('task_notification_changed')), false);
+});
+
+test('notification handler failure never falls through to raw chat logging', () => {
+  const { context, logs } = page(() => assert.fail('unexpected notification fetch'));
+  context.taskNotificationsPage = { receiveHint: () => { throw new Error('private test failure'); } };
+  context.doConnect();
+  context.socket.onmessage({ data: JSON.stringify({ type: 'task_notification_changed', data: { private: 'must-not-be-logged' } }) });
+  assert.equal(logs.some(line => line.includes('must-not-be-logged') || line.includes('private test failure')), false);
+});
+
 function page(fetch) {
   const logs = [];
   const logEntries = [];
@@ -89,6 +136,7 @@ function page(fetch) {
       context.socket = this;
     }
     send(payload) { this.sent.push(payload); }
+    close() { this.readyState = 3; }
   };
   vm.runInNewContext(script + '\nthis.pullOfflineMessages = pullOfflineMessages; this.isNewChatMessage = isNewChatMessage; this.loadTeamGroupHistory = loadTeamGroupHistory; this.loadTeamGroups = loadTeamGroups; this.selectTeamGroup = selectTeamGroup; this.joinTeamGroup = joinTeamGroup; this.createTeamGroup = createTeamGroup; this.newGroupRequestKey = newGroupRequestKey; this.loadTasks = loadTasks; this.createTask = createTask; this.askAI = askAI; this.doAskAI = doAskAI; this.clearAIAnswer = clearAIAnswer; this.prepareTaskDraft = prepareTaskDraft; this.doPrepareTaskDraft = doPrepareTaskDraft; this.loadTaskDraft = loadTaskDraft; this.newDraftRequestKey = newDraftRequestKey;', context);
   context.log = text => {

@@ -332,6 +332,9 @@
 
 <script>
 let ws = null;
+
+let wsIdentityGeneration = 0;
+globalThis.invalidateTaskNotificationConnection = () => { wsIdentityGeneration++; };
 let msgSeq = 0;
 const seenChatIDs = new Set();
 const maxSeenChatIDs = 5000;
@@ -2097,6 +2100,7 @@ async function doLogin() {
 
     if (data.code === 0 && data.data && data.data.token) {
       document.getElementById('token').value = data.data.token;
+      globalThis.invalidateTaskNotificationConnection();
       if (globalThis.taskNotificationsPage) globalThis.taskNotificationsPage.reset();
       clearAIAnswer();
       clearTaskDraftResult();
@@ -2137,11 +2141,22 @@ function doConnect() {
   log('Connecting to ' + wsUrl + '/ws ...', 'info');
   setWsStatus('Connecting');
 
-  ws = new WebSocket(url);
+  const connection = new WebSocket(url);
+  const previous = ws;
+  ws = connection;
+  if (previous && typeof previous.close === 'function') previous.close();
+  const identityGeneration = wsIdentityGeneration;
+  const currentConnection = () => ws === connection && identityGeneration === wsIdentityGeneration &&
+    document.getElementById('token').value === token;
 
-  ws.onopen = async function() {
+  connection.onopen = async function() {
+    if (!currentConnection()) return;
     log('WebSocket connected!', 'info');
     setWsStatus('Connected');
+    if (globalThis.taskNotificationsPage) {
+      // Independent of offline-chat recovery, and never a mark-as-read call.
+      void globalThis.taskNotificationsPage.recover(token);
+    }
     try {
       await pullOfflineMessages(token);
     } catch (e) {
@@ -2149,9 +2164,16 @@ function doConnect() {
     }
   };
 
-  ws.onmessage = function(event) {
+  connection.onmessage = function(event) {
+    if (!currentConnection()) return;
     try {
       const msg = JSON.parse(event.data);
+      if (msg && msg.type === 'task_notification_changed') {
+        try {
+          if (globalThis.taskNotificationsPage) globalThis.taskNotificationsPage.receiveHint(msg, token);
+        } catch (_) { /* Never log hint payloads, even if the page handler fails. */ }
+        return;
+      }
       if (msg.type === 'chat' && !isNewChatMessage(msg.data)) return;
       log('← RECV: ' + event.data, 'recv');
       if (msg.type === 'ack') {
@@ -2174,21 +2196,24 @@ function doConnect() {
     }
   };
 
-  ws.onclose = function(event) {
+  connection.onclose = function(event) {
+    if (ws !== connection) return;
     log('WebSocket closed (code=' + event.code + ', reason=' + (event.reason || 'none') + ')', 'info');
     setWsStatus('Disconnected');
     ws = null;
   };
 
-  ws.onerror = function(event) {
+  connection.onerror = function(event) {
+    if (!currentConnection()) return;
     log('WebSocket error', 'error');
   };
 }
 
 function doDisconnect() {
   if (ws) {
-    ws.close();
+    const connection = ws;
     ws = null;
+    connection.close();
   }
   setWsStatus('Disconnected');
   log('Disconnected by user', 'info');
