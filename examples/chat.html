@@ -197,6 +197,17 @@
     <div id="taskList"></div>
   </div>
 
+  <section class="step-panel" id="taskNotificationsPanel" aria-labelledby="taskNotificationsHeading">
+    <h2 id="taskNotificationsHeading">我的任务状态通知</h2>
+    <p>使用上方 Token 和 Team ID，手动读取本人通知，不需要选择群。记录表示任务当时的状态变化，时间按 Asia/Shanghai 显示。</p>
+    <div class="config-row">
+      <button type="button" id="btnRefreshTaskNotifications" disabled>刷新通知</button>
+      <button type="button" id="btnMoreTaskNotifications" disabled>加载更早通知</button>
+    </div>
+    <div id="taskNotificationsStatus" role="status" aria-live="polite"></div>
+    <div id="taskNotificationsList"></div>
+  </section>
+
   <div class="step-panel">
     <h2>Step 6 — Ask AI (read-only)</h2>
     <p>Ask about the current team group. The answer appears only here; it does not post to the group or create a task.</p>
@@ -2085,6 +2096,7 @@ async function doLogin() {
 
     if (data.code === 0 && data.data && data.data.token) {
       document.getElementById('token').value = data.data.token;
+      if (globalThis.taskNotificationsPage) globalThis.taskNotificationsPage.reset();
       clearAIAnswer();
       clearTaskDraftResult();
       await refreshAgentTriggerIdentity();
@@ -2225,6 +2237,8 @@ function doSend() {
 <script src="/demo/multi-draft-core.js"></script>
 <script src="/demo/multi-draft-actions.js"></script>
 <script src="/demo/multi-draft-view.js"></script>
+<script src="/demo/task-notifications.js"></script>
+<script src="/demo/task-notifications-view.js"></script>
 
 </body>
 </html>
