@@ -151,6 +151,7 @@
     </div>
     <div class="config-row">
       <label></label>
+      <button onclick="doRefreshTeamGroupHistory()">刷新最新群消息</button>
       <button onclick="doLoadTeamGroupHistory()">Load older messages for the Group ID above</button>
     </div>
   </div>
@@ -1443,7 +1444,7 @@ async function loadTaskSource(task, teamID, preview) {
   const message = messages[0];
   if (!message || message.id !== task.source_message_id || typeof message.content !== 'string' ||
       !validID(message.from_id)) throw new Error('source message not found');
-  const card = taskCreatedCard(message);
+  const card = taskCreatedCard(historyDisplayMessage(message, task.source_group_id));
   preview.textContent = chatSenderLabel(message) + ': ' + (card ?
     'Task created: ' + card.title + ' (Task #' + card.task_id + ')' : message.content);
 }
@@ -1870,6 +1871,16 @@ function taskCreatedCard(message) {
   }
 }
 
+// Team-group history is already scoped and authorized by this exact HTTP path.
+// Its response omits chat_type/to_id, unlike WS and offline messages. Supply
+// only those display fields; a contradictory field must not become a card.
+function historyDisplayMessage(message, groupID) {
+  if (!message || !validID(groupID) ||
+      (message.chat_type !== undefined && message.chat_type !== 2) ||
+      (message.to_id !== undefined && message.to_id !== groupID)) return message;
+  return { ...message, chat_type: 2, to_id: groupID };
+}
+
 // All three receive paths share the same card display and plain-text fallback.
 function renderChatMessage(prefix, message) {
   const card = taskCreatedCard(message);
@@ -1942,7 +1953,7 @@ async function pullOfflineMessages(token) {
   }
 }
 
-async function loadTeamGroupHistory() {
+async function loadTeamGroupHistory(latest = false) {
   if (historyLoading) return;
   const token = document.getElementById('token').value;
   const teamId = document.getElementById('teamId').value.trim();
@@ -1952,25 +1963,26 @@ async function loadTeamGroupHistory() {
   }
 
   const key = teamId + ':' + groupId;
-  if (key !== historyKey) {
-    historyKey = key;
-    historyCursor = '';
-    historyFinished = false;
-  }
-  if (historyFinished) {
+  if (!latest && key === historyKey && historyFinished) {
     log('No older team group messages', 'info');
     return;
   }
 
   const path = '/api/v1/teams/' + teamId + '/groups/' + groupId + '/messages';
-  const query = '?limit=20' + (historyCursor ? '&before_message_id=' + historyCursor : '');
+  const cursor = !latest && key === historyKey ? historyCursor : '';
+  const query = '?limit=20' + (cursor ? '&before_message_id=' + cursor : '');
+  const epoch = draftEditorEpoch;
+  const scope = { token, teamID: teamId, groupID: groupId };
+  const current = () => draftEditorEpoch === epoch && sameTaskDraftScope(scope);
   historyLoading = true;
   try {
     const resp = await fetch(path + query, {
       headers: { Authorization: 'Bearer ' + token }
     });
+    if (!current()) return;
     if (!resp.ok) throw new Error('history HTTP ' + resp.status);
     const result = await resp.json();
+    if (!current()) return;
     const data = result.data;
     if (result.code !== 0 || !data || !Array.isArray(data.messages) ||
         typeof data.next_before_message_id !== 'string' ||
@@ -1983,13 +1995,16 @@ async function loadTeamGroupHistory() {
         continue;
       }
       if (isNewChatMessage(message)) {
-        const entry = renderChatMessage('  📜 History message: ', message);
+        const entry = renderChatMessage('  📜 History message: ', historyDisplayMessage(message, groupId));
         attachTaskSourceButton(entry, teamId, groupId, message.id);
         attachAgentTriggerButton(entry, { token, teamID: teamId, groupID: groupId }, message, true);
       }
     }
-    historyCursor = data.next_before_message_id;
-    historyFinished = historyCursor === '0';
+    if (!latest) {
+      historyKey = key;
+      historyCursor = data.next_before_message_id;
+      historyFinished = historyCursor === '0';
+    }
   } finally {
     historyLoading = false;
   }
@@ -2000,6 +2015,14 @@ async function doLoadTeamGroupHistory() {
     await loadTeamGroupHistory();
   } catch (e) {
     log('History load failed: ' + e.message, 'error');
+  }
+}
+
+async function doRefreshTeamGroupHistory() {
+  try {
+    await loadTeamGroupHistory(true);
+  } catch (e) {
+    log('Latest history refresh failed: ' + e.message, 'error');
   }
 }
 
