@@ -41,7 +41,7 @@ func expectTaskStatusRow(mock sqlmock.Sqlmock, creatorID int64, assigneeID any, 
 		WillReturnRows(sqlmock.NewRows([]string{"id", "creator_id", "assignee_id", "status"}).AddRow(int64(500), creatorID, assigneeID, oldStatus))
 }
 
-func expectTaskStatusChange(mock sqlmock.Sqlmock, actorID int64, oldStatus, newStatus int8, operationErr error) {
+func expectTaskStatusChange(mock sqlmock.Sqlmock, actorID int64, oldStatus, newStatus int8, operationErr, notificationErr error, recipientIDs ...int64) {
 	mock.ExpectExec(regexp.QuoteMeta("UPDATE `tasks` SET `status`=? WHERE id = ? AND team_id = ?")).
 		WithArgs(newStatus, int64(500), int64(200)).WillReturnResult(sqlmock.NewResult(0, 1))
 	insert := mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_operations`")).
@@ -49,10 +49,20 @@ func expectTaskStatusChange(mock sqlmock.Sqlmock, actorID int64, oldStatus, newS
 	if operationErr != nil {
 		insert.WillReturnError(operationErr)
 		mock.ExpectRollback()
-	} else {
-		insert.WillReturnResult(sqlmock.NewResult(1, 1))
-		mock.ExpectCommit()
+		return
 	}
+	insert.WillReturnResult(sqlmock.NewResult(123, 1))
+	for i, recipientID := range recipientIDs {
+		insert := mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `task_status_notifications`")).
+			WithArgs(int64(123), int64(200), int64(500), recipientID)
+		if notificationErr != nil && i == len(recipientIDs)-1 {
+			insert.WillReturnError(notificationErr)
+			mock.ExpectRollback()
+			return
+		}
+		insert.WillReturnResult(sqlmock.NewResult(int64(i+1), 1))
+	}
+	mock.ExpectCommit()
 }
 
 func statusRequest(newStatus int32) *pb.SetTaskStatusRequest {
@@ -62,7 +72,7 @@ func statusRequest(newStatus int32) *pb.SetTaskStatusRequest {
 func TestSetTaskStatusOverRPCWritesOperation(t *testing.T) {
 	s, mock := statusTaskServer(t, 42, 0)
 	expectTaskStatusRow(mock, 42, int64(77), 0)
-	expectTaskStatusChange(mock, 42, 0, 1, nil)
+	expectTaskStatusChange(mock, 42, 0, 1, nil, nil, 42, 77)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -101,7 +111,7 @@ func TestSetTaskStatusAllowsAssigneeAndOwnerButNotOtherMember(t *testing.T) {
 			s, mock := statusTaskServer(t, tc.actorID, tc.role)
 			expectTaskStatusRow(mock, 42, int64(77), 0)
 			if tc.allowed {
-				expectTaskStatusChange(mock, tc.actorID, 0, 2, nil)
+				expectTaskStatusChange(mock, tc.actorID, 0, 2, nil, nil, 42, 77)
 			} else {
 				mock.ExpectRollback()
 			}
@@ -144,9 +154,41 @@ func TestSetTaskStatusNoopAndOperationFailure(t *testing.T) {
 		t.Fatalf("repeated status: %v, %v", result, err)
 	}
 	expectTaskStatusRow(mock, 42, nil, 1)
-	expectTaskStatusChange(mock, 42, 1, 2, errors.New("operation insert failed"))
+	expectTaskStatusChange(mock, 42, 1, 2, errors.New("operation insert failed"), nil)
 	result, err = s.SetTaskStatus(taskListContext(), statusRequest(2))
 	if result != nil || status.Code(err) != codes.Unavailable || status.Convert(err).Message() == "operation insert failed" {
 		t.Fatalf("operation failure: %v, %v", result, err)
+	}
+}
+
+func TestSetTaskStatusNotificationRecipients(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		assigneeID   any
+		recipientIDs []int64
+	}{
+		{"creator and assignee", int64(77), []int64{42, 77}},
+		{"creator also assignee", int64(42), []int64{42}},
+		{"unassigned", nil, []int64{42}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, mock := statusTaskServer(t, 42, 0)
+			expectTaskStatusRow(mock, 42, tc.assigneeID, 0)
+			expectTaskStatusChange(mock, 42, 0, 1, nil, nil, tc.recipientIDs...)
+			result, err := s.SetTaskStatus(taskListContext(), statusRequest(1))
+			if err != nil || result == nil {
+				t.Fatalf("status change: %v, %v", result, err)
+			}
+		})
+	}
+}
+
+func TestSetTaskStatusNotificationFailureRollsBack(t *testing.T) {
+	s, mock := statusTaskServer(t, 42, 0)
+	expectTaskStatusRow(mock, 42, int64(77), 0)
+	expectTaskStatusChange(mock, 42, 0, 1, nil, errors.New("notification insert failed"), 42, 77)
+	result, err := s.SetTaskStatus(taskListContext(), statusRequest(1))
+	if result != nil || status.Code(err) != codes.Unavailable || status.Convert(err).Message() == "notification insert failed" {
+		t.Fatalf("notification failure: %v, %v", result, err)
 	}
 }
