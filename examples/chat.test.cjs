@@ -25,6 +25,7 @@ function page(fetch) {
   const fields = {
     wsUrl: { value: '' },
     token: { value: 'test-token' },
+    agentTriggerIdentityHint: { textContent: '' },
     teamId: { value: '' },
     newGroupName: { value: '' },
     groupRequestKey: { value: '' },
@@ -534,14 +535,16 @@ test('login uses the same-origin Gateway path', async () => {
   const calls = [];
   const { context, fields } = page(async (url, options) => {
     calls.push({ url, options });
-    return reply({ code: 0, data: { token: 'new-token', user_id: '42' } });
+    return reply({ code: 0, data: url.endsWith('/login') ? { token: 'new-token' } : { id: '42' } });
   });
   fields.username = { value: 'alice' };
   fields.password = { value: 'secret' };
   fields.loginStatus = { textContent: '', style: {} };
   await context.doLogin();
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, '/api/v1/user/login');
+  assert.equal(calls[1].url, '/api/v1/user/info');
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer new-token');
   assert.equal(fields.token.value, 'new-token');
 });
 
@@ -2737,4 +2740,134 @@ test('reply retry rejects token and run changes before sending', async () => {
     await context.loadTaskDraft();fields[changed].value='different';
     await assert.rejects(context.retryTaskReply(),/load this same successful run/);assert.equal(calls,1);
   }
+});
+
+const triggerMessageID = '9007199254740993';
+const triggerUserID = '9007199254740995';
+function triggerMessage(overrides = {}) {
+  return { id: triggerMessageID, msg_id: 'trigger-command', from_id: triggerUserID, sender_type: 1, initiator_id: '0',
+    content_type: 1, content: '@AI 整理任务 明天跟进发布', chat_type: 2, to_id: '300', ...overrides };
+}
+function triggerStatus(status, overrides = {}) {
+  return { message_id: triggerMessageID, team_id: '200', group_id: '300', status,
+    run_id: status === 'completed' ? '9007199254741011' : '0', ...overrides };
+}
+async function triggerPage(fetch) {
+  const value = page(fetch);
+  value.fields.teamId.value = '200'; value.fields.toUserId.value = '300'; value.fields.chatType.value = '2';
+  await value.context.refreshAgentTriggerIdentity();
+  return value;
+}
+function triggerControls(entry) {
+  const index = entry.children.findIndex(child => child.textContent === '查看 AI 草稿');
+  return index < 0 ? null : { button: entry.children[index], status: entry.children[index + 1] };
+}
+function appendTrigger(context, message = triggerMessage(), scope = { token: 'test-token', teamID: '200', groupID: '300' }, history = false) {
+  const entry = { children: [], appendChild(child) { this.children.push(child); } };
+  context.attachAgentTriggerButton(entry, scope, message, history);
+  return triggerControls(entry);
+}
+
+test('AI trigger history and realtime entries retain saved large IDs and show only valid own text commands', async () => {
+  for (const origin of ['history', 'live']) {
+    const { context, logEntries } = await triggerPage(async url => url.endsWith('/info') ? reply({ code: 0, data: { id: triggerUserID } }) :
+      reply({ code: 0, data: { messages: [triggerMessage({ ...(origin === 'history' ? { chat_type: undefined, to_id: undefined } : {}) })], next_before_message_id: '0' } }));
+    if (origin === 'history') await context.loadTeamGroupHistory();
+    else { context.doConnect(); context.socket.onmessage({ data: JSON.stringify({ type: 'chat', data: triggerMessage() }) }); }
+    assert.equal(logEntries.filter(triggerControls).length, 1, origin);
+    assert.equal(context.isAgentTaskCommand('\u0085@AI\u0085整理任务\u0085处理😀\u0085'), true);
+    assert.equal(context.isAgentTaskCommand('@AI 整理任务 ' + '😀'.repeat(2000)), true);
+    assert.equal(context.isAgentTaskCommand('@AI 整理任务 ' + '😀'.repeat(2001)), false);
+    for (const change of [{ from_id: '7' }, { sender_type: 2 }, { initiator_id: '7' }, { content_type: 4 }, { id: '0' }, { id: 9007199254740992 },
+      { id: '' }, { chat_type: 1 }, { to_id: '4' }, { content: '@AI 普通问答' }, { content: '@AI 整理任务 ' },
+      { content: '@AI整理任务 跟进' }, { content: '@AI 整理任务跟进' }, { content: '@AI 整理任务 \ud800' }, { content: '\ufeff@AI 整理任务 发布' }]) {
+      assert.equal(appendTrigger(context, triggerMessage(change)), null, JSON.stringify(change));
+    }
+    assert.equal(appendTrigger(context, triggerMessage(), { token: 'old-token', teamID: '200', groupID: '300' }), null);
+  }
+});
+
+test('trigger status has four safe states; only completed loads the exact run without any write', async () => {
+  for (const status of ['queued', 'running', 'exhausted', 'completed']) {
+    const calls = [], loads = [];
+    const { context } = await triggerPage(async (url, options) => { calls.push([url, options]); return reply({ code: 0,
+      data: url.endsWith('/info') ? { id: triggerUserID } : triggerStatus(status) }); });
+    context.loadMultiDraftForTrigger = async (id, scope, current) => { assert.equal(current(), true); loads.push([id, { ...scope }]); };
+    const control = appendTrigger(context); await control.button.onclick();
+    assert.equal(calls[1][0], '/api/v1/teams/200/groups/300/agent-triggers/' + triggerMessageID);
+    assert.equal(calls[1][1].headers.Authorization, 'Bearer test-token');
+    assert.equal(calls[1][1].method, undefined); assert.equal(calls[1][1].body, undefined);
+    assert.equal(control.button.disabled, false);
+    assert.equal(loads.length, status === 'completed' ? 1 : 0);
+    assert.match(control.status.textContent, status === 'completed' ? /逐项审查/ : status === 'exhausted' ? /人工排查/ : /稍后重新查看/);
+    if (loads.length) { assert.equal(loads[0][0], '9007199254741011'); assert.deepEqual(loads[0][1], { token: 'test-token', teamID: '200', groupID: '300' }); }
+  }
+});
+
+test('trigger status rejects malformed IDs, scope and state combinations without loading any run', async () => {
+  const malformed = [null, [], triggerStatus('other'), triggerStatus('queued', { run_id: '1' }), triggerStatus('completed', { run_id: '0' }),
+    triggerStatus('completed', { run_id: 9007199254741010 }), triggerStatus('queued', { message_id: '9007199254740994' }),
+    triggerStatus('queued', { message_id: 9007199254740992 }), triggerStatus('queued', { team_id: '201' }), triggerStatus('queued', { group_id: '301' }),
+    triggerStatus('queued', { lease_token: 'private-token' }), triggerStatus('completed', { run_id: '9223372036854775808' })];
+  for (const data of malformed) {
+    const { context } = await triggerPage(async url => reply({ code: 0, data: url.endsWith('/info') ? { id: triggerUserID } : data }));
+    context.loadMultiDraftForTrigger = () => assert.fail('malformed success loaded run');
+    const control = appendTrigger(context); await control.button.onclick();
+    assert.match(control.status.textContent, /无法读取/); assert.doesNotMatch(control.status.textContent, /private-token/);
+  }
+});
+
+test('trigger errors use fixed safe text and never expose response or fetch error bodies', async () => {
+  for (const failure of ['http', 'code', 'network', 'panel']) {
+    const { context } = await triggerPage(async url => {
+      if (url.endsWith('/info')) return reply({ code: 0, data: { id: triggerUserID } });
+      if (failure === 'network') throw new Error('Bearer test-token mysql private-password');
+      if (failure === 'http') return { ok: false, status: 503, json: () => assert.fail('read error body') };
+      return reply({ code: failure === 'code' ? 500 : 0, msg: 'private-password', data: triggerStatus('completed') });
+    });
+    context.loadMultiDraftForTrigger = () => { throw new Error('Bearer test-token private-panel'); };
+    const control = appendTrigger(context); await control.button.onclick();
+    assert.match(control.status.textContent, /无法读取/); assert.doesNotMatch(control.status.textContent, /test-token|private/);
+  }
+});
+
+test('trigger clicks are mutually exclusive and stale token/group/page responses cannot load drafts', async () => {
+  for (const field of ['token', 'toUserId', 'teamId', 'chatType', 'draftRunID']) {
+    let finish, statusCalls = 0, loads = 0;
+    const { context, fields } = await triggerPage(async url => {
+      if (url.endsWith('/info')) return reply({ code: 0, data: { id: triggerUserID } });
+      statusCalls++; return new Promise(resolve => { finish = resolve; });
+    });
+    context.loadMultiDraftForTrigger = async () => { loads++; };
+    const control = appendTrigger(context), another = appendTrigger(context, triggerMessage({ id: '9007199254740997' }));
+    const pending = control.button.onclick(); await control.button.onclick(); await another.button.onclick(); assert.equal(statusCalls, 1);
+    const old = fields[field].value; fields[field].value = field === 'chatType' ? '1' : 'different'; context.clearTaskDraftResult();
+    fields[field].value = old; context.clearTaskDraftResult();
+    finish(reply({ code: 0, data: triggerStatus('completed') })); await pending;
+    assert.equal(loads, 0, field); assert.equal(control.status.textContent, '', field);
+  }
+});
+
+test('a panel review change during status lookup discards the response and preserves the current review', async () => {
+  let finish, generation = 0, loads = 0;
+  const { context } = await triggerPage(async url => url.endsWith('/info') ? reply({ code: 0, data: { id: triggerUserID } }) :
+    new Promise(resolve => { finish = resolve; }));
+  context.captureMultiDraftReviewState = () => { const saved = generation; return () => generation === saved; };
+  context.loadMultiDraftForTrigger = async () => { loads++; };
+  const control = appendTrigger(context), pending = control.button.onclick(); generation++;
+  finish(reply({ code: 0, data: triggerStatus('completed') })); await pending;
+  assert.equal(loads, 0); assert.equal(control.status.textContent, ''); assert.equal(control.button.disabled, false);
+});
+
+test('identity is read only for display and fails closed on malformed or switched-token profile replies', async () => {
+  for (const id of [7, '0', '9223372036854775808', undefined]) {
+    const { context, fields } = await triggerPage(async () => reply({ code: 0, data: { id } }));
+    assert.equal(appendTrigger(context), null); assert.match(fields.agentTriggerIdentityHint.textContent, /读取失败/);
+  }
+  let finish;
+  const { context, fields } = page(() => new Promise(resolve => { finish = resolve; }));
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  const pending = context.refreshAgentTriggerIdentity(); fields.token.value = 'other'; context.clearTaskDraftResult();
+  fields.token.value = 'test-token'; context.clearTaskDraftResult(); finish(reply({ code: 0, data: { id: triggerUserID } })); await pending;
+  assert.equal(appendTrigger(context), null);
 });

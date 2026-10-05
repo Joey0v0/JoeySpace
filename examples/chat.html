@@ -79,7 +79,9 @@
     <div class="config-row">
       <label>Token:</label>
       <input type="text" id="token" value="" placeholder="JWT token (auto-filled after login, or paste manually)" oninput="clearAIAnswer(); clearTaskDraftResult()">
+      <button type="button" onclick="refreshAgentTriggerIdentity()">读取本人身份</button>
     </div>
+    <small id="agentTriggerIdentityHint">登录后读取本人身份，或粘贴 Token 后点击读取；再加载群历史，可从本人原指令查看 AI 草稿。</small>
   </div>
 
   <!-- Step 2: Connect WebSocket -->
@@ -352,6 +354,10 @@ let draftConfirmNeedsReload = false;
 let loadedTaskDraft = null;
 let draftEditNeedsReload = false;
 let draftEditorEpoch = 0;
+let agentTriggerIdentity = null;
+let agentTriggerIdentityEpoch = 0;
+let agentTriggerQuery = null;
+const agentTriggerControls = new Set();
 const draftPreparationRequests = new Map();
 const updatingTasks = new Set();
 
@@ -416,6 +422,7 @@ async function doAskAI() {
 }
 
 function clearTaskDraftResult() {
+  invalidateAgentTriggerQueries();
   if (typeof globalThis.invalidateMultiDraftPage === 'function') globalThis.invalidateMultiDraftPage();
   document.getElementById('draftResult').textContent = '';
   loadedTaskDraft = null;
@@ -1291,6 +1298,117 @@ function attachTaskSourceButton(entry, teamID, groupID, messageID) {
   entry.appendChild(button);
 }
 
+// Matching only controls visibility; the status API authorizes the real actor.
+function isAgentTaskCommand(content) {
+  if (typeof content !== 'string' || Array.from(content).some(char => char.codePointAt(0) >= 0xd800 && char.codePointAt(0) <= 0xdfff)) return false;
+  const space = '[\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]';
+  const trimmed = content.replace(new RegExp('^' + space + '+|' + space + '+$', 'g'), '');
+  const command = trimmed.match(new RegExp('^@AI' + space + '+整理任务' + space + '+([\\s\\S]+)$'));
+  return !!command && Array.from(command[1]).length <= 2000;
+}
+
+function invalidateAgentTriggerQueries() {
+  agentTriggerQuery = null;
+  if (agentTriggerIdentity && document.getElementById('token').value !== agentTriggerIdentity.token) {
+    agentTriggerIdentity = null;
+    agentTriggerIdentityEpoch++;
+  }
+  for (const control of agentTriggerControls) {
+    control.status.textContent = '';
+    control.button.disabled = !sameTaskDraftScope(control.scope) || agentTriggerIdentity !== control.identity;
+  }
+}
+
+async function refreshAgentTriggerIdentity() {
+  const token = document.getElementById('token').value, epoch = ++agentTriggerIdentityEpoch;
+  const contextEpoch = draftEditorEpoch;
+  const hint = document.getElementById('agentTriggerIdentityHint');
+  agentTriggerIdentity = null;
+  invalidateAgentTriggerQueries();
+  if (!token) { hint.textContent = '请先登录或粘贴 Token。'; return; }
+  hint.textContent = '正在读取本人身份…';
+  const current = () => agentTriggerIdentityEpoch === epoch && draftEditorEpoch === contextEpoch && document.getElementById('token').value === token;
+  try {
+    const response = await fetch('/api/v1/user/info', { headers: { Authorization: 'Bearer ' + token } });
+    if (!current()) return;
+    if (!response.ok) throw new Error('identity unavailable');
+    const result = await response.json();
+    if (!current()) return;
+    if (!result || result.code !== 0 || !result.data || !validID(result.data.id)) throw new Error('invalid identity');
+    agentTriggerIdentity = { token, userID: result.data.id };
+    for (const control of agentTriggerControls) {
+      if (control.identity.token === token && control.identity.userID === result.data.id) {
+        control.identity = agentTriggerIdentity;
+        control.button.disabled = !sameTaskDraftScope(control.scope);
+      }
+    }
+    hint.textContent = '本人 #' + result.data.id + '；加载当前群历史后，可从本人“@AI 整理任务”原消息查看草稿。';
+  } catch (_) {
+    if (current()) hint.textContent = '本人身份读取失败；登录仍可用，暂不展示 AI 草稿入口。';
+  }
+}
+
+function attachAgentTriggerButton(entry, scope, message, fromHistory = false) {
+  const identity = agentTriggerIdentity;
+  if (!identity || identity.token !== scope.token || !sameTaskDraftScope(scope) || !message || !validID(message.id) ||
+      message.from_id !== identity.userID || ![0, 1].includes(message.sender_type) || message.initiator_id !== '0' ||
+      message.content_type !== 1 || !isAgentTaskCommand(message.content) ||
+      (!fromHistory && (message.chat_type !== 2 || message.to_id !== scope.groupID))) return;
+  const button = document.createElement('button'), status = document.createElement('span');
+  button.type = 'button'; button.textContent = '查看 AI 草稿';
+  status.setAttribute && status.setAttribute('role', 'status');
+  const control = { button, status, scope: { ...scope }, identity, messageID: message.id };
+  agentTriggerControls.add(control);
+  button.onclick = () => viewAgentTriggerDraft(control);
+  entry.appendChild(button); entry.appendChild(status);
+}
+
+function validAgentTriggerStatus(data, control) {
+  return !!data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length === 5 &&
+    data.message_id === control.messageID && validID(data.message_id) && data.team_id === control.scope.teamID && validID(data.team_id) &&
+    data.group_id === control.scope.groupID && validID(data.group_id) &&
+    ['queued', 'running', 'exhausted', 'completed'].includes(data.status) &&
+    (data.status === 'completed' ? validID(data.run_id) : data.run_id === '0');
+}
+
+async function viewAgentTriggerDraft(control) {
+  if (agentTriggerQuery || !agentTriggerControls.has(control) || control.button.disabled ||
+      agentTriggerIdentity !== control.identity || !sameTaskDraftScope(control.scope)) return;
+  const epoch = draftEditorEpoch;
+  const reviewCurrent = typeof globalThis.captureMultiDraftReviewState === 'function' ? globalThis.captureMultiDraftReviewState() : () => true;
+  const query = {}; agentTriggerQuery = query;
+  let allowedPanelChange = false;
+  const current = (review = true) => agentTriggerQuery === query && draftEditorEpoch === epoch && agentTriggerIdentity === control.identity &&
+    sameTaskDraftScope(control.scope) && (!review || reviewCurrent());
+  for (const candidate of agentTriggerControls) candidate.button.disabled = true;
+  control.status.textContent = '正在查看 AI 草稿状态…';
+  try {
+    const response = await fetch('/api/v1/teams/' + control.scope.teamID + '/groups/' + control.scope.groupID + '/agent-triggers/' + control.messageID,
+      { headers: { Authorization: 'Bearer ' + control.scope.token } });
+    if (!current()) return;
+    if (!response.ok) throw new Error('status unavailable');
+    const result = await response.json();
+    if (!current()) return;
+    if (!result || result.code !== 0 || !validAgentTriggerStatus(result.data, control)) throw new Error('invalid status');
+    if (result.data.status === 'completed') {
+      if (typeof globalThis.loadMultiDraftForTrigger !== 'function') throw new Error('draft panel unavailable');
+      control.status.textContent = '已生成草稿；正在读取多项草稿面板，请逐项审查。';
+      await globalThis.loadMultiDraftForTrigger(result.data.run_id, control.scope, () => current());
+      allowedPanelChange = true;
+      if (current(false)) control.status.textContent = '已读取草稿，请在多项草稿面板逐项审查。';
+    } else control.status.textContent = result.data.status === 'exhausted' ? '生成失败，需要人工排查；不会自动重新生成。' : '尚在处理，可稍后重新查看。';
+  } catch (_) {
+    if (current(false)) control.status.textContent = '无法读取 AI 草稿，请核对当前身份、群权限和服务状态；保留现有未保存内容。';
+  } finally {
+    if (agentTriggerQuery === query) {
+      const belongs = current(false);
+      agentTriggerQuery = null;
+      if (!belongs || !allowedPanelChange && !reviewCurrent()) control.status.textContent = '';
+      for (const candidate of agentTriggerControls) candidate.button.disabled = !sameTaskDraftScope(candidate.scope) || agentTriggerIdentity !== candidate.identity;
+    }
+  }
+}
+
 const taskStatusNames = ['To do', 'In progress', 'Done'];
 
 function taskMetaText(task) {
@@ -1867,6 +1985,7 @@ async function loadTeamGroupHistory() {
       if (isNewChatMessage(message)) {
         const entry = renderChatMessage('  📜 History message: ', message);
         attachTaskSourceButton(entry, teamId, groupId, message.id);
+        attachAgentTriggerButton(entry, { token, teamID: teamId, groupID: groupId }, message, true);
       }
     }
     historyCursor = data.next_before_message_id;
@@ -1905,6 +2024,8 @@ function escapeHtml(text) {
 }
 
 function clearLog() {
+  agentTriggerQuery = null;
+  agentTriggerControls.clear();
   document.getElementById('logPanel').innerHTML = '';
 }
 
@@ -1943,9 +2064,10 @@ async function doLogin() {
       document.getElementById('token').value = data.data.token;
       clearAIAnswer();
       clearTaskDraftResult();
-      statusEl.textContent = '✓ Login success (user_id: ' + data.data.user_id + ')';
+      await refreshAgentTriggerIdentity();
+      statusEl.textContent = '✓ Login success';
       statusEl.style.color = '#4CAF50';
-      log('Login success — user_id: ' + data.data.user_id, 'info');
+      log('Login success', 'info');
     } else {
       statusEl.textContent = '✗ ' + (data.msg || 'Login failed');
       statusEl.style.color = '#f44336';
@@ -2006,6 +2128,7 @@ function doConnect() {
             validID(msg.data.to_id) && validID(teamID) && groupID === msg.data.to_id &&
             document.getElementById('chatType').value === '2') {
           attachTaskSourceButton(entry, teamID, groupID, msg.data.id);
+          attachAgentTriggerButton(entry, { token, teamID, groupID }, msg.data);
         }
       } else if (msg.type === 'error') {
         log('  ⚠ Server error: ' + JSON.stringify(msg.data), 'error');

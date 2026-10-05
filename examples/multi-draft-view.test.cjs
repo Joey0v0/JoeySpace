@@ -409,3 +409,109 @@ test('maximum revision remains readable and confirmable but changed saves cannot
   assert.equal(card.saveDeadline.disabled, true);
   assert.equal(card.confirm.disabled, true);
 });
+
+function triggerEntry(context) {
+  const entry = { children: [], appendChild(child) { this.children.push(child); } };
+  context.attachAgentTriggerButton(entry, { token: 'test-token', teamID: '200', groupID: '300' }, {
+    id: '9007199254740993', msg_id: 'source-command', from_id: '9007199254740995', sender_type: 1, initiator_id: '0',
+    chat_type: 2, to_id: '300', content_type: 1, content: '@AI 整理任务 整理发布事项' });
+  assert.equal(entry.children.length, 2);
+  return { button: entry.children[0], status: entry.children[1] };
+}
+function completedTrigger(id = runID) {
+  return { message_id: '9007199254740993', team_id: '200', group_id: '300', status: 'completed', run_id: id };
+}
+
+test('saved own trigger completion enters the existing multi-draft controller through GET and never confirms or replies', async () => {
+  const calls = [];
+  const { context, fields } = boot(async (url, options) => {
+    calls.push([url, options]);
+    if (url.endsWith('/info')) return reply({ id: '9007199254740995' });
+    if (url.includes('/agent-triggers/')) return reply(completedTrigger());
+    assert.equal(url, '/api/v1/agent/runs/' + runID + '/drafts');
+    return reply(collection());
+  });
+  await context.refreshAgentTriggerIdentity();
+  const control = triggerEntry(context); await control.button.onclick();
+  assert.equal(calls.length, 3);
+  assert.equal(calls.every(([, options]) => !options.method && !options.body), true);
+  assert.equal(fields.multiDraftRunID.value, runID);
+  assert.equal(fields.multiDraftItems.children.length, 2);
+  assert.equal(context.multiDraftPage.runID, runID);
+  assert.match(control.status.textContent, /逐项审查/);
+  assert.equal(controls(fields, 0).confirm.disabled, false);
+  assert.equal(controls(fields, 0).retryReply.disabled, true);
+  assert.equal(context.multiDraftPage.items.every(item => item.task_id === '0'), true);
+});
+
+test('controlled trigger loading refuses to replace unsaved candidates and preserves same-run edits on reread', async () => {
+  const calls = [];
+  const { context, fields } = boot(async (url, options) => { calls.push(url); return url.endsWith('/info') ? reply({ id: '9007199254740995' }) :
+    url.includes('/agent-triggers/') ? reply(completedTrigger('9007199254741013')) : reply(collection()); });
+  await load(fields); edit(controls(fields, 0).title, 'Unsaved title');
+  await context.refreshAgentTriggerIdentity();
+  const control = triggerEntry(context); await control.button.onclick();
+  assert.equal(calls.length, 3, 'status lookup must not read another run over unsaved changes');
+  assert.equal(context.multiDraftPage.runID, runID); assert.equal(controls(fields, 0).title.value, 'Unsaved title');
+  assert.match(control.status.textContent, /无法读取/);
+  await context.loadMultiDraftForTrigger(runID, context.taskDraftScope(), context.captureMultiDraftReviewState());
+  assert.equal(calls.length, 4); assert.equal(controls(fields, 0).title.value, 'Unsaved title');
+  assert.equal(controls(fields, 0).confirm.disabled, true);
+});
+
+test('trigger review guard rejects stale scope, invalid runs, busy controller and intervening review input even when restored', async () => {
+  let calls = 0;
+  const { context, fields } = boot(async () => { calls++; return reply(collection()); });
+  const scope = context.taskDraftScope();
+  await assert.rejects(context.loadMultiDraftForTrigger(9007199254741010, scope, () => true), /context changed/);
+  await assert.rejects(context.loadMultiDraftForTrigger(runID, { ...scope, groupID: '301' }, () => true), /context changed/);
+  await assert.rejects(context.loadMultiDraftForTrigger(runID, scope, null), /context changed/);
+  await load(fields);
+  for (const id of ['multiDraftRunID', 'multiDraftInstruction', 'multiDraftRequestKey']) {
+    const current = context.captureMultiDraftReviewState(), old = fields[id].value;
+    fields[id].value = 'changed'; fields[id].oninput(); fields[id].value = old; fields[id].oninput();
+    assert.equal(current(), false, id);
+    await assert.rejects(context.loadMultiDraftForTrigger(runID, scope, current), /context changed/);
+  }
+  const beforeEdit = context.captureMultiDraftReviewState(); edit(controls(fields, 0).title, 'changed'); edit(controls(fields, 0).title, 'Task 0');
+  assert.equal(beforeEdit(), false);
+  context.multiDraftPage.busy = true;
+  await assert.rejects(context.loadMultiDraftForTrigger(runID, scope, () => true), /current review operation/);
+  context.multiDraftPage.busy = false;
+  assert.equal(calls, 1);
+});
+
+test('trigger status arriving during another collection action is discarded without loading its completed run', async () => {
+  const status = deferred(), calls = [];
+  const { context, fields } = boot(async (url, options) => {
+    calls.push(url);
+    if (url.endsWith('/info')) return reply({ id: '9007199254740995' });
+    if (url.includes('/agent-triggers/')) return status.promise;
+    return reply(collection());
+  });
+  await context.refreshAgentTriggerIdentity();
+  const control = triggerEntry(context), pending = control.button.onclick();
+  await load(fields); edit(controls(fields, 1).description, 'Preserve my input');
+  status.resolve(reply(completedTrigger('9007199254741013'))); await pending;
+  assert.equal(calls.length, 3); assert.equal(context.multiDraftPage.runID, runID);
+  assert.equal(controls(fields, 1).description.value, 'Preserve my input');
+  assert.equal(control.status.textContent, '');
+});
+
+test('context switch during completed-trigger draft GET discards old collection and old status', async () => {
+  const draftRead = deferred(); let started;
+  const reading = new Promise(resolve => { started = resolve; });
+  const { context, fields } = boot(async url => {
+    if (url.endsWith('/info')) return reply({ id: '9007199254740995' });
+    if (url.includes('/agent-triggers/')) return reply(completedTrigger());
+    started(); return draftRead.promise;
+  });
+  await context.refreshAgentTriggerIdentity();
+  const control = triggerEntry(context), pending = control.button.onclick(); await reading;
+  fields.toUserId.value = '301'; context.clearTaskDraftResult();
+  fields.toUserId.value = '300'; context.clearTaskDraftResult();
+  draftRead.resolve(reply(collection())); await pending;
+  assert.equal(fields.multiDraftItems.children.length, 0);
+  assert.equal(context.multiDraftPage.runID, '');
+  assert.equal(control.status.textContent, '');
+});
