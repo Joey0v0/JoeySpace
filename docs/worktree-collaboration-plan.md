@@ -394,3 +394,16 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 九步上限按共同契约1、Agent最多3、Gateway最多2、页面最多2、集中验证/审查1计算；无须凑满。执行 agent 不改共同文件，不自行测试/build、提交、合 main、推送或部署。主 agent 逐分支检查并集中验证；旧 worker/mTLS/模型预算规则保持，未执行真实迁移或调用真实模型。
 
 实际交付：共同`3354836`、Gateway`1bd5eff`、Agent`5e4e6f1`、页面`b433c0e`，主 agent 已在集成分支无冲突合并。全仓Go测试、页面相关169项Node测试、Linux/amd64全仓编译通过；[全部21文件、九步目的与未验收范围](trigger-status-review.md)。三个执行worktree干净保留，main仍`9c45e13`，本批待用户审查，未推送/迁移/部署或调用真实模型。三个执行agent分别报告约9分09秒、3分53秒、10分40秒；任务范围不同且不含主agent协调/集成时间，不据此推断固定效率倍数。
+
+## 30. 阶段6后台恢复组合验证批次（2026-10-05）
+
+上批 A64 尚在待审查的本地 `codex/trigger-status-integration`，未合 `main`。主 agent 从完整提交新建 `codex/trigger-recovery-integration`，共同契约提交 `e3f72bd`；三个保留的干净 worktree 均由该提交开独立分支。没有新增关键架构选型。[范围与限制](trigger-recovery-contract.md)。
+
+| 执行项 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 完成通知重放与本人查询 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-recovery-replay | 新 rpc/agent/trigger_replay_recovery_test.go |
+| worker 重建和旧租约隔离 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-recovery-restart | 新 rpc/agent/trigger_restart_recovery_test.go |
+| 离群撤权与状态查询 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-recovery-revocation | 新 rpc/agent/trigger_revocation_recovery_test.go |
+| 主 agent | D:/zy/GoLang/go-im | codex/trigger-recovery-integration | 共同契约、执行范围、审查/Git整合、集中验证与文档 |
+
+执行 agent 仅编辑各自单一测试文件、gofmt 和差异检查，不自行测试/build、提交、合 main、推送或部署。主 agent 审查后保存三分支 `6bf4fd0`、`6d89d68`、`7633f76` 并无冲突合入本批集成分支。三项新增测试重复五次、全仓 Go 测试通过；[五步、全部七文件和验证边界](trigger-recovery-review.md)。三个 worktree 保留，main 仍 `9c45e13`，不推送/迁移/部署/调用真实模型。子 agent 分别报告约3分53秒、3分43秒、4分28秒；没有单 agent 同任务对照，不推断固定效率倍数。
