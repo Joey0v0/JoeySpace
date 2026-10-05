@@ -20,12 +20,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const notificationListSelect = "SELECT n.id AS notification_id, n.task_id, o.actor_id, o.from_status, o.to_status, CAST(UNIX_TIMESTAMP(n.created_at) * 1000 AS SIGNED) AS created_at_unix_ms FROM task_status_notifications AS n JOIN task_operations AS o ON o.id = n.operation_id AND o.task_id = n.task_id WHERE "
+const notificationListSelect = "SELECT n.id AS notification_id, n.task_id, o.actor_id, o.from_status, o.to_status, CAST(UNIX_TIMESTAMP(n.created_at) * 1000 AS SIGNED) AS created_at_unix_ms, COALESCE(CAST(UNIX_TIMESTAMP(n.read_at) * 1000 AS SIGNED), 0) AS read_at_unix_ms FROM task_status_notifications AS n JOIN task_operations AS o ON o.id = n.operation_id AND o.task_id = n.task_id WHERE "
 const notificationListQuery = notificationListSelect + "n.team_id = ? AND n.recipient_id = ? ORDER BY n.id DESC LIMIT ?"
 const notificationCursorQuery = notificationListSelect + "(n.team_id = ? AND n.recipient_id = ?) AND n.id < ? ORDER BY n.id DESC LIMIT ?"
 
 func notificationRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"notification_id", "task_id", "actor_id", "from_status", "to_status", "created_at_unix_ms"})
+	return sqlmock.NewRows([]string{"notification_id", "task_id", "actor_id", "from_status", "to_status", "created_at_unix_ms", "read_at_unix_ms"})
 }
 
 func TestListTaskNotificationsPersonalIsolationAndLargeCursor(t *testing.T) {
@@ -41,16 +41,16 @@ func TestListTaskNotificationsPersonalIsolationAndLargeCursor(t *testing.T) {
 	}}
 	mock.ExpectQuery(regexp.QuoteMeta(notificationCursorQuery)).WithArgs(int64(200), int64(42), int64(math.MaxInt64), 3).
 		WillReturnRows(notificationRows().
-			AddRow(math.MaxInt64-1, math.MaxInt64-10, int64(77), 0, 2, int64(1790874000123)).
-			AddRow(math.MaxInt64-2, int64(51), int64(43), 2, 1, int64(1790874000000)).
-			AddRow(math.MaxInt64-3, int64(52), int64(44), 1, 0, int64(1790873999999)))
+			AddRow(math.MaxInt64-1, math.MaxInt64-10, int64(77), 0, 2, int64(1790874000123), int64(1790874001000)).
+			AddRow(math.MaxInt64-2, int64(51), int64(43), 2, 1, int64(1790874000000), 0).
+			AddRow(math.MaxInt64-3, int64(52), int64(44), 1, 0, int64(1790873999999), 0))
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer sample", "recipient-id", "99"))
 	result, err := s.ListTaskNotifications(ctx, &pb.ListTaskNotificationsRequest{TeamId: 200, BeforeNotificationId: math.MaxInt64, Limit: 2})
 	if err != nil || result == nil || len(result.Notifications) != 2 || result.NextBeforeNotificationId != math.MaxInt64-2 || checks != 2 {
 		t.Fatalf("page=%v error=%v membership checks=%d", result, err, checks)
 	}
 	first := result.Notifications[0]
-	if first.NotificationId != math.MaxInt64-1 || first.TaskId != math.MaxInt64-10 || first.ActorId != 77 || first.FromStatus != 0 || first.ToStatus != 2 || first.CreatedAtUnixMs != 1790874000123 {
+	if first.NotificationId != math.MaxInt64-1 || first.TaskId != math.MaxInt64-10 || first.ActorId != 77 || first.FromStatus != 0 || first.ToStatus != 2 || first.CreatedAtUnixMs != 1790874000123 || first.ReadAtUnixMs != 1790874001000 || result.Notifications[1].ReadAtUnixMs != 0 {
 		t.Fatalf("first notification=%v", first)
 	}
 }
@@ -67,7 +67,7 @@ func TestListTaskNotificationsOverTCPRPC(t *testing.T) {
 		return &userpb.CheckTeamMemberResponse{UserId: 42}, nil
 	}}
 	mock.ExpectQuery(regexp.QuoteMeta(notificationListQuery)).WithArgs(int64(200), int64(42), 2).
-		WillReturnRows(notificationRows().AddRow(math.MaxInt64-1, math.MaxInt64-10, 77, 2, 0, 1790874000123))
+		WillReturnRows(notificationRows().AddRow(math.MaxInt64-1, math.MaxInt64-10, 77, 2, 0, 1790874000123, 1790874001000))
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestListTaskNotificationsOverTCPRPC(t *testing.T) {
 	defer cancel()
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", "Bearer sample"))
 	result, err := pb.NewTaskClient(conn).ListTaskNotifications(ctx, &pb.ListTaskNotificationsRequest{TeamId: 200, Limit: 1})
-	if err != nil || result == nil || len(result.Notifications) != 1 || result.Notifications[0].NotificationId != math.MaxInt64-1 || result.Notifications[0].TaskId != math.MaxInt64-10 || result.Notifications[0].ActorId != 77 || result.Notifications[0].FromStatus != 2 || result.Notifications[0].ToStatus != 0 || result.Notifications[0].CreatedAtUnixMs != 1790874000123 || result.NextBeforeNotificationId != 0 || checks != 2 {
+	if err != nil || result == nil || len(result.Notifications) != 1 || result.Notifications[0].NotificationId != math.MaxInt64-1 || result.Notifications[0].TaskId != math.MaxInt64-10 || result.Notifications[0].ActorId != 77 || result.Notifications[0].FromStatus != 2 || result.Notifications[0].ToStatus != 0 || result.Notifications[0].CreatedAtUnixMs != 1790874000123 || result.Notifications[0].ReadAtUnixMs != 1790874001000 || result.NextBeforeNotificationId != 0 || checks != 2 {
 		t.Fatalf("RPC notification page=%v error=%v checks=%d", result, err, checks)
 	}
 }
@@ -99,7 +99,7 @@ func TestListTaskNotificationsDefaultsEmptyAndFinalPage(t *testing.T) {
 	}{
 		{"default empty", 0, notificationRows(), 0},
 		{"maximum empty", 100, notificationRows(), 0},
-		{"exact full final page", 1, notificationRows().AddRow(9, 51, 43, 1, 2, 1790874000000), 1},
+		{"exact full final page", 1, notificationRows().AddRow(9, 51, 43, 1, 2, 1790874000000, 0), 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, mock := testTaskServer(t)
@@ -186,7 +186,7 @@ func TestListTaskNotificationsRechecksMembershipBeforeReturn(t *testing.T) {
 			}}
 			rows := notificationRows()
 			if populated {
-				rows.AddRow(9, 51, 43, 1, 2, 1790874000000)
+				rows.AddRow(9, 51, 43, 1, 2, 1790874000000, 0)
 			}
 			mock.ExpectQuery(regexp.QuoteMeta(notificationListQuery)).WithArgs(int64(200), int64(42), 21).WillReturnRows(rows)
 			result, err := s.ListTaskNotifications(taskListContext(), &pb.ListTaskNotificationsRequest{TeamId: 200})
@@ -257,21 +257,25 @@ func TestListTaskNotificationsRejectsInvalidDatabaseResults(t *testing.T) {
 		name string
 		rows *sqlmock.Rows
 	}{
-		{"zero notification", notificationRows().AddRow(0, 51, 43, 0, 1, 1790874000000)},
-		{"zero task", notificationRows().AddRow(9, 0, 43, 0, 1, 1790874000000)},
-		{"zero actor", notificationRows().AddRow(9, 51, 0, 0, 1, 1790874000000)},
-		{"invalid source status", notificationRows().AddRow(9, 51, 43, -1, 1, 1790874000000)},
-		{"invalid target status", notificationRows().AddRow(9, 51, 43, 0, 3, 1790874000000)},
-		{"same status", notificationRows().AddRow(9, 51, 43, 1, 1, 1790874000000)},
-		{"null time", notificationRows().AddRow(9, 51, 43, 0, 1, nil)},
-		{"time out of range", notificationRows().AddRow(9, 51, 43, 0, 1, maxTaskDueAtUnixMs+1)},
-		{"outside cursor", notificationRows().AddRow(10, 51, 43, 0, 1, 1790874000000)},
-		{"duplicate id", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000).AddRow(9, 52, 44, 1, 2, 1790874000000)},
-		{"ascending id", notificationRows().AddRow(8, 51, 43, 0, 1, 1790874000000).AddRow(9, 52, 44, 1, 2, 1790874000000)},
-		{"invalid hidden next row", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000).AddRow(8, 52, 0, 1, 2, 1790874000000)},
-		{"too many rows", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000).AddRow(8, 52, 44, 1, 2, 1790874000000).AddRow(7, 53, 45, 0, 2, 1790874000000)},
-		{"scan failure", notificationRows().AddRow("not an ID", 51, 43, 0, 1, 1790874000000)},
-		{"row stream failure", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000).RowError(0, errors.New("private row detail"))},
+		{"zero notification", notificationRows().AddRow(0, 51, 43, 0, 1, 1790874000000, 0)},
+		{"zero task", notificationRows().AddRow(9, 0, 43, 0, 1, 1790874000000, 0)},
+		{"zero actor", notificationRows().AddRow(9, 51, 0, 0, 1, 1790874000000, 0)},
+		{"invalid source status", notificationRows().AddRow(9, 51, 43, -1, 1, 1790874000000, 0)},
+		{"invalid target status", notificationRows().AddRow(9, 51, 43, 0, 3, 1790874000000, 0)},
+		{"same status", notificationRows().AddRow(9, 51, 43, 1, 1, 1790874000000, 0)},
+		{"null time", notificationRows().AddRow(9, 51, 43, 0, 1, nil, 0)},
+		{"negative read time", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, -1)},
+		{"read before notification", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, 1790873999999)},
+		{"read time out of range", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, maxTaskDueAtUnixMs+1)},
+		{"invalid read time on hidden row", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, 0).AddRow(8, 52, 44, 1, 2, 1790874000000, 1790873999999)},
+		{"time out of range", notificationRows().AddRow(9, 51, 43, 0, 1, maxTaskDueAtUnixMs+1, 0)},
+		{"outside cursor", notificationRows().AddRow(10, 51, 43, 0, 1, 1790874000000, 0)},
+		{"duplicate id", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, 0).AddRow(9, 52, 44, 1, 2, 1790874000000, 0)},
+		{"ascending id", notificationRows().AddRow(8, 51, 43, 0, 1, 1790874000000, 0).AddRow(9, 52, 44, 1, 2, 1790874000000, 0)},
+		{"invalid hidden next row", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, 0).AddRow(8, 52, 0, 1, 2, 1790874000000, 0)},
+		{"too many rows", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, 0).AddRow(8, 52, 44, 1, 2, 1790874000000, 0).AddRow(7, 53, 45, 0, 2, 1790874000000, 0)},
+		{"scan failure", notificationRows().AddRow("not an ID", 51, 43, 0, 1, 1790874000000, 0)},
+		{"row stream failure", notificationRows().AddRow(9, 51, 43, 0, 1, 1790874000000, 0).RowError(0, errors.New("private row detail"))},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, mock := testTaskServer(t)

@@ -41,9 +41,10 @@ func (s *taskServer) ListTaskNotifications(ctx context.Context, req *pb.ListTask
 		FromStatus      int32
 		ToStatus        int32
 		CreatedAtUnixMs int64
+		ReadAtUnixMs    int64
 	}
 	query := s.db.WithContext(ctx).Table("task_status_notifications AS n").
-		Select("n.id AS notification_id, n.task_id, o.actor_id, o.from_status, o.to_status, CAST(UNIX_TIMESTAMP(n.created_at) * 1000 AS SIGNED) AS created_at_unix_ms").
+		Select("n.id AS notification_id, n.task_id, o.actor_id, o.from_status, o.to_status, CAST(UNIX_TIMESTAMP(n.created_at) * 1000 AS SIGNED) AS created_at_unix_ms, COALESCE(CAST(UNIX_TIMESTAMP(n.read_at) * 1000 AS SIGNED), 0) AS read_at_unix_ms").
 		Joins("JOIN task_operations AS o ON o.id = n.operation_id AND o.task_id = n.task_id").
 		Where("n.team_id = ? AND n.recipient_id = ?", req.GetTeamId(), member.GetUserId())
 	if req.GetBeforeNotificationId() > 0 {
@@ -61,6 +62,9 @@ func (s *taskServer) ListTaskNotifications(ctx context.Context, req *pb.ListTask
 	for i, row := range rows {
 		if row.NotificationID <= 0 || row.TaskID <= 0 || row.ActorID <= 0 || row.FromStatus < 0 || row.FromStatus > 2 || row.ToStatus < 0 || row.ToStatus > 2 || row.FromStatus == row.ToStatus || row.CreatedAtUnixMs <= 0 || row.CreatedAtUnixMs > maxTaskDueAtUnixMs || (req.GetBeforeNotificationId() > 0 && row.NotificationID >= req.GetBeforeNotificationId()) || (i > 0 && row.NotificationID >= rows[i-1].NotificationID) {
 			return nil, taskDatabaseError(ctx, errors.New("invalid task notification result"))
+		}
+		if row.ReadAtUnixMs < 0 || row.ReadAtUnixMs > maxTaskDueAtUnixMs || (row.ReadAtUnixMs > 0 && row.ReadAtUnixMs < row.CreatedAtUnixMs) {
+			return nil, taskDatabaseError(ctx, errors.New("invalid task notification read time"))
 		}
 	}
 	current, err := s.currentTeamMember(teamCtx, req.GetTeamId())
@@ -81,7 +85,7 @@ func (s *taskServer) ListTaskNotifications(ctx context.Context, req *pb.ListTask
 	for _, row := range rows {
 		result.Notifications = append(result.Notifications, &pb.TaskNotificationItem{
 			NotificationId: row.NotificationID, TaskId: row.TaskID, ActorId: row.ActorID,
-			FromStatus: row.FromStatus, ToStatus: row.ToStatus, CreatedAtUnixMs: row.CreatedAtUnixMs,
+			FromStatus: row.FromStatus, ToStatus: row.ToStatus, CreatedAtUnixMs: row.CreatedAtUnixMs, ReadAtUnixMs: row.ReadAtUnixMs,
 		})
 	}
 	return result, nil
