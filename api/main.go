@@ -51,6 +51,8 @@ func main() {
 		{Method: http.MethodGet, Path: "/demo/multi-draft-core.js", Handler: chatDemoScriptHandler(examples.MultiDraftCoreJS)},
 		{Method: http.MethodGet, Path: "/demo/multi-draft-actions.js", Handler: chatDemoScriptHandler(examples.MultiDraftActionsJS)},
 		{Method: http.MethodGet, Path: "/demo/multi-draft-view.js", Handler: chatDemoScriptHandler(examples.MultiDraftViewJS)},
+		{Method: http.MethodGet, Path: "/demo/task-notifications.js", Handler: chatDemoScriptHandler(examples.TaskNotificationsJS)},
+		{Method: http.MethodGet, Path: "/demo/task-notifications-view.js", Handler: chatDemoScriptHandler(examples.TaskNotificationsViewJS)},
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,

@@ -21,3 +21,13 @@ var MultiDraftActionsJS string
 //
 //go:embed multi-draft-view.js
 var MultiDraftViewJS string
+
+// TaskNotificationsJS 管理本人任务通知的分页和请求范围。
+//
+//go:embed task-notifications.js
+var TaskNotificationsJS string
+
+// TaskNotificationsViewJS 将本人通知接入原生聊天页面。
+//
+//go:embed task-notifications-view.js
+var TaskNotificationsViewJS string

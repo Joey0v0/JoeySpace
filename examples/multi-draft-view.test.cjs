@@ -29,13 +29,14 @@ function edit(control, value) {
   (control.oninput || control.onchange)();
 }
 
-test('HTML contains an independent accessible panel and three same-origin scripts after the old script', () => {
+test('HTML contains an independent accessible panel and ordered same-origin scripts after the old script', () => {
   const html = fs.readFileSync(path.join(__dirname, 'chat.html'), 'utf8');
   for (const id of ['multiDraftInstruction', 'multiDraftRequestKey', 'multiDraftRunID', 'multiDraftReference', 'multiDraftMessage',
     'multiDraftSummary', 'multiDraftItems', 'btnMultiPrepare', 'btnMultiLoad', 'btnMultiNewKey', 'btnMultiMembers', 'btnMultiMoreMembers']) {
     assert.equal([...html.matchAll(new RegExp('id="' + id + '"', 'g'))].length, 1, id);
   }
-  assert.deepEqual([...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]), scripts.map(name => '/demo/' + name));
+  assert.deepEqual([...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]),
+    [...scripts, 'task-notifications.js', 'task-notifications-view.js'].map(name => '/demo/' + name));
   assert.ok(html.indexOf('<script src=') > html.indexOf('</script>'));
   assert.match(html, /typeof globalThis\.invalidateMultiDraftPage === 'function'/);
   assert.doesNotMatch(fs.readFileSync(path.join(__dirname, 'multi-draft-view.js'), 'utf8'), /\.innerHTML\s*=/);

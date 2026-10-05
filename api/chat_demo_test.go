@@ -41,3 +41,20 @@ func TestMultiDraftDemoServesSameOriginEmbeddedScripts(t *testing.T) {
 		})
 	}
 }
+
+func TestTaskNotificationDemoServesSameOriginEmbeddedScripts(t *testing.T) {
+	for _, asset := range []struct{ path, body string }{
+		{"/demo/task-notifications.js", examples.TaskNotificationsJS},
+		{"/demo/task-notifications-view.js", examples.TaskNotificationsViewJS},
+	} {
+		t.Run(asset.path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			chatDemoScriptHandler(asset.body)(w, httptest.NewRequest(http.MethodGet, asset.path, nil))
+			if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/javascript; charset=utf-8" ||
+				w.Header().Get("Cache-Control") != "no-store" || asset.body == "" || w.Body.String() != asset.body ||
+				!strings.Contains(examples.ChatHTML, `src="`+asset.path+`"`) {
+				t.Fatalf("missing notification script: status=%d type=%q", w.Code, w.Header().Get("Content-Type"))
+			}
+		})
+	}
+}

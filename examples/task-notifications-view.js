@@ -2,7 +2,7 @@
   'use strict';
   const field = id => document.getElementById(id);
   const readScope = () => {
-    const token = field('token').value, teamID = field('teamId').value;
+    const token = field('token').value, teamID = field('teamId').value.trim();
     if (typeof token !== 'string' || !token.trim() || typeof teamID !== 'string' ||
         !/^[1-9]\d{0,18}$/.test(teamID) || BigInt(teamID) > 9223372036854775807n) return null;
     return { token, teamID };

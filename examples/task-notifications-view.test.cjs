@@ -24,7 +24,8 @@ function boot(fetch, values = {}) {
   }
   fields.token.value = 'test-token'; fields.teamId.value = '200';
   for (const [id, value] of Object.entries(values)) fields[id].value = value;
-  const context = { fetch, location: { protocol: 'http:', hostname: 'gateway.test' },
+  const context = { fetch, crypto: require('node:crypto').webcrypto,
+    location: { protocol: 'http:', hostname: 'gateway.test' },
     document: { getElementById: id => fields[id], createElement: element },
     console, encodeURIComponent,
     WebSocket: class { constructor() { assert.fail('notifications must not open WebSocket'); } },
@@ -33,7 +34,12 @@ function boot(fetch, values = {}) {
     localStorage: { setItem: () => assert.fail('notifications must not persist Token') } };
   vm.createContext(context);
   vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
-  for (const script of scripts) vm.runInContext(fs.readFileSync(path.join(__dirname, script), 'utf8'), context, { filename: script });
+  // Load the complete production script order to catch interference with the
+  // existing multi-draft page, including its input and login invalidation hooks.
+  for (const match of html.matchAll(/<script src="\/demo\/([^"]+)"/g)) {
+    const script = match[1];
+    vm.runInContext(fs.readFileSync(path.join(__dirname, script), 'utf8'), context, { filename: script });
+  }
   function input(id, value) {
     fields[id].value = value;
     if (inlineInputs[id]) vm.runInContext(inlineInputs[id], context);
@@ -84,7 +90,7 @@ test('starts idle without reads or WS and requires only Token plus canonical tea
   assert.equal(fields.btnRefreshTaskNotifications.disabled, false);
   assert.equal(fields.btnMoreTaskNotifications.disabled, true);
   assertCleared(fields);
-  for (const value of ['', '0', '0200', '+200', ' 200', '9223372036854775808']) {
+  for (const value of ['', '0', '0200', '+200', '9223372036854775808']) {
     input('teamId', value);
     assert.equal(fields.btnRefreshTaskNotifications.disabled, true, value);
   }
@@ -93,6 +99,15 @@ test('starts idle without reads or WS and requires only Token plus canonical tea
   input('token', 'test-token');
   assert.equal(fields.btnRefreshTaskNotifications.disabled, false);
   assert.equal(fields.toUserId.value, '', 'group selection is unnecessary');
+});
+
+test('team ID surrounding whitespace is normalized consistently with existing task controls', async () => {
+  const calls = [];
+  const { fields, input } = boot(async url => { calls.push(url); return response(); });
+  input('teamId', ' 200 ');
+  assert.equal(fields.btnRefreshTaskNotifications.disabled, false);
+  await refresh(fields);
+  assert.equal(calls[0], '/api/v1/teams/200/task-notifications?limit=20&before_notification_id=0');
 });
 
 test('manual refresh displays exact large IDs, historical status and Shanghai time as text', async () => {
