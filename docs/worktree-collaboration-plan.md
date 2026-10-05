@@ -379,3 +379,18 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 九步按整批计数；执行 agent 只改各自范围并做格式/差异检查，未测试/build、提交、合 main 或推送。主 agent 保存 A `f69d89e`、B `99e63b7`、C `aae8fb5`，先补两份结果夹具再无冲突合入本批整合分支。全仓 Go 测试、worker 场景5次及 Linux/amd64 全仓编译通过；race 因本机无 CGO/gcc 未执行。实际改动的28个文件、每步目的和真实环境限制见[本批审查](trigger-worker-review.md)。用户随后要求合入，本地 main 已从 `ef78ba8` 快进包含本批；三个worktree干净保留，不推送、迁移、部署或调用真实模型。
 
 三个子 agent 各约13分53秒、8分02秒、15分28秒；包含不同任务复杂度，不含主 agent 协调/集成时间，无法据此推断固定效率倍数。
+
+## 29. 群内 @AI 后台草稿发现入口批次（2026-10-05）
+
+上批 worker 已按用户要求合入本地 main `9c45e13`。用户本轮选 A64：从本人原指令消息查看处理状态与草稿，备选“我的后台运行”列表暂不做。主 agent 在独立集成分支 `codex/trigger-status-integration` 先提交共同协议/生成文件、[契约](trigger-status-contract.md)和决策为 `3354836`；三个干净的保留 worktree 均从该提交建立新分支。
+
+| 角色 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| Agent 状态与鉴权 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/trigger-status-agent | 新rpc/agent/trigger_status.go/test.go、trigger_status_store.go/test.go，必要的rpc/agent/server.go、cmd/agent/main.go |
+| Gateway 状态转发 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/trigger-status-gateway | api/main.go、新api/agent_trigger_status.go/test.go |
+| 原消息页面 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/trigger-status-ui | examples/chat.html、chat.test.cjs、multi-draft-view.js、multi-draft-view.test.cjs |
+| 主 agent | D:/zy/GoLang/go-im | codex/trigger-status-integration | 协议/生成/决策/计划/审查、接口协调、必要跨层组合验证、集中测试和Git整合 |
+
+九步上限按共同契约1、Agent最多3、Gateway最多2、页面最多2、集中验证/审查1计算；无须凑满。执行 agent 不改共同文件，不自行测试/build、提交、合 main、推送或部署。主 agent 逐分支检查并集中验证；旧 worker/mTLS/模型预算规则保持，未执行真实迁移或调用真实模型。
+
+实际交付：共同`3354836`、Gateway`1bd5eff`、Agent`5e4e6f1`、页面`b433c0e`，主 agent 已在集成分支无冲突合并。全仓Go测试、页面相关169项Node测试、Linux/amd64全仓编译通过；[全部21文件、九步目的与未验收范围](trigger-status-review.md)。三个执行worktree干净保留，main仍`9c45e13`，本批待用户审查，未推送/迁移/部署或调用真实模型。三个执行agent分别报告约9分09秒、3分53秒、10分40秒；任务范围不同且不含主agent协调/集成时间，不据此推断固定效率倍数。
