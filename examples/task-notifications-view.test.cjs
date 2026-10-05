@@ -56,6 +56,9 @@ function notice(id = '9007199254741033', changes = {}) {
   return { notification_id: id, task_id: '9007199254740993', actor_id: '9007199254740995',
     from_status: 0, to_status: 1, created_at_unix_ms: Date.UTC(2026, 9, 5, 0, 0, 0), read_at_unix_ms: 0, ...changes };
 }
+function hint(id = '9007199254741099', teamID = '200') {
+  return { type: 'task_notification_changed', data: { version: 1, notification_id: id, team_id: teamID } };
+}
 function twenty() { return Array.from({ length: 20 }, (_, index) => notice(String(9007199254741033n - BigInt(index)))); }
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
@@ -69,7 +72,7 @@ function assertCleared(fields) {
 
 test('HTML provides a separate accessible panel and same-origin scripts in controller then view order', () => {
   for (const id of ['taskNotificationsPanel', 'btnRefreshTaskNotifications', 'btnMoreTaskNotifications',
-    'taskNotificationsStatus', 'taskNotificationsList']) {
+    'taskNotificationsStatus', 'taskNotificationsRealtimeStatus', 'taskNotificationsList']) {
     assert.equal([...html.matchAll(new RegExp('id="' + id + '"', 'g'))].length, 1, id);
   }
   assert.ok(html.indexOf('id="taskList"') < html.indexOf('id="taskNotificationsPanel"'));
@@ -389,4 +392,86 @@ test('missing read state from an old Gateway is rejected instead of displaying a
   const { fields, page } = boot(async () => response([old]));
   await refresh(fields); assertCleared(fields); assert.equal(page.state.loaded, false);
   assert.match(fields.taskNotificationsStatus.textContent, /通知读取失败/);
+});
+
+test('realtime display begins empty without connecting, polling or reading automatically', () => {
+  let reads = 0;
+  const { fields, page } = boot(async () => { reads++; return response(); });
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '');
+  assert.equal(fields.taskNotificationsStatus.textContent, '尚未读取通知，请点击刷新通知。');
+  assert.equal(page.state.items.length, 0);
+  assert.equal(reads, 0);
+});
+
+test('hint shows fixed text without changing rows or marking read; duplicate and listed IDs stay quiet', async () => {
+  const calls = [];
+  const { fields, page } = boot(async (url, init) => { calls.push([url, init]); return response([notice()]); });
+  await refresh(fields);
+  const beforeRows = text(fields.taskNotificationsList), beforeStatus = fields.taskNotificationsStatus.textContent;
+  assert.equal(page.receiveHint(hint(), 'test-token'), true);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '有新的任务通知，请刷新通知。');
+  assert.equal(text(fields.taskNotificationsList), beforeRows);
+  assert.equal(fields.taskNotificationsStatus.textContent, beforeStatus);
+  assert.equal(calls.length, 1);
+  assert.equal(page.receiveHint(hint(), 'test-token'), true);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '有新的任务通知，请刷新通知。');
+  await refresh(fields);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '');
+  assert.equal(page.receiveHint(hint(notice().notification_id), 'test-token'), true);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '');
+  assert.equal(calls.every(([, init]) => init.method === 'GET'), true);
+});
+
+test('failed refresh keeps hint and a hint arriving during refresh remains visible', async () => {
+  const pending = deferred(); let reads = 0;
+  const { fields, page } = boot(() => {
+    reads++;
+    if (reads === 1) return Promise.reject(new Error('private test-token Bearer detail'));
+    if (reads === 2) return pending.promise;
+    return Promise.resolve(response());
+  });
+  page.receiveHint(hint(), 'test-token');
+  await refresh(fields);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '有新的任务通知，请刷新通知。');
+  assert.doesNotMatch(fields.taskNotificationsStatus.textContent, /private|test-token|Bearer/);
+  const request = refresh(fields);
+  page.receiveHint(hint('9007199254741101'), 'test-token');
+  pending.resolve(response()); await request;
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '有新的任务通知，请刷新通知。');
+  await refresh(fields);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '');
+});
+
+test('busy recovery has its own fixed hint while existing loading and buttons stay unchanged', async () => {
+  const pending = deferred(); let reads = 0;
+  const { fields, page } = boot(() => { reads++; return reads === 1 ? pending.promise : Promise.resolve(response()); });
+  const request = refresh(fields);
+  page.recover('test-token');
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '连接已恢复，将在当前操作结束后查询通知。');
+  assert.match(fields.taskNotificationsStatus.textContent, /正在读取/);
+  assert.equal(fields.btnRefreshTaskNotifications.disabled, true);
+  assert.equal(reads, 1, 'recovery must not start a competing request');
+  pending.resolve(response()); await request;
+});
+
+test('token input invalidates connection before scope sync; team input does not', async () => {
+  const { fields, input, context, page } = boot(async () => response([notice()]));
+  await refresh(fields);
+  page.receiveHint(hint(), 'test-token');
+  let invalidations = 0;
+  context.invalidateTaskNotificationConnection = () => { invalidations++; };
+  input('teamId', '201');
+  assert.equal(invalidations, 0);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '');
+  const epochBeforeToken = page.epoch;
+  context.invalidateTaskNotificationConnection = () => {
+    invalidations++;
+    assert.equal(page.epoch, epochBeforeToken, 'socket invalidation must precede scope sync');
+  };
+  input('token', 'another-token');
+  assert.equal(invalidations, 1);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '');
+  assertCleared(fields);
+  assert.equal(page.receiveHint(hint('9007199254741111', '201'), 'test-token'), false);
+  assert.equal(fields.taskNotificationsRealtimeStatus.textContent, '');
 });

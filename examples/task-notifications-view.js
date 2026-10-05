@@ -24,6 +24,11 @@
 
   function render() {
     const state = page.state;
+    const realtime = page.realtime;
+    const hints = [];
+    if (realtime.hasUpdate) hints.push('有新的任务通知，请刷新通知。');
+    if (realtime.recoveryPending) hints.push('连接已恢复，将在当前操作结束后查询通知。');
+    field('taskNotificationsRealtimeStatus').textContent = hints.join(' ');
     field('btnRefreshTaskNotifications').disabled = state.loading || !readScope();
     field('btnMoreTaskNotifications').disabled = state.loading || !readScope() || !state.loaded || state.cursor === '0';
     let message;
@@ -65,6 +70,10 @@
   field('btnMoreTaskNotifications').onclick = () => {
     if (!field('btnMoreTaskNotifications').disabled) return page.loadMore();
   };
-  for (const id of ['token', 'teamId']) field(id).addEventListener('input', () => { page.syncScope(); render(); });
+  field('token').addEventListener('input', () => {
+    if (typeof globalThis.invalidateTaskNotificationConnection === 'function') globalThis.invalidateTaskNotificationConnection();
+    page.syncScope(); render();
+  });
+  field('teamId').addEventListener('input', () => { page.syncScope(); render(); });
   render();
 })();
