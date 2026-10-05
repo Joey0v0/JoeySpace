@@ -482,3 +482,9 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 从3de7a1a建立codex/stage7-notification-flow-verification，main仍89e2a1e。共同41fcfe2固定[三目录、分支及唯一允许测试文件](stage7-notification-flow-contract.md)：backend的Task发布→Push消费、gateway的mTLS→实际WS帧、ui的生产Task TCP RPC查询/已读恢复；只是任务划分，worktree名称不代表数据归属。root拥有共同文档、审查、测试及所有Git动作；执行agent仅编辑/gofmt/diffcheck，不test/build/commit/合main/push/部署。
 
 实际交付：eea031f、9232549、828f098由root验证对应包后提交，无冲突整合；完整`go test ./... -count=1`通过，未发现生产缺陷，没有生产代码修改。root新增阶段7验收清单和缺口记录，整批六步，[全部9文件及分段验证边界](stage7-notification-flow-contract.md#本批实现与审查)。三个执行worktree干净保留，共同最终文档在整合分支。页面本批不变，不重复先前303项Node；实际MySQL/Kafka/User/Redis/浏览器/Compose/迁移/云/模型未验收，未合main或push。
+
+## 41. 阶段7缺口审查与RPC统计正文修复（2026-10-05）
+
+从8114155建立codex/stage7-experience-audit，main仍89e2a1e。本批三个子agent仅只读审查：audit_chat_unread核对IM阅读/离线/资格，audit_agent_records核对Agent持久记录和本人状态，audit_failure_observability核对失败定位与日志。三者读取root同一快照，不是执行worktree实现任务；没有允许编辑文件，不测试/build/Git写入或自行合并。既有三个执行worktree保持不变，后续选型确认后的实现再固定共同契约及精确允许文件。
+
+root核实发现、提出A73/A74候选并提问，用户明确选择团队群规则、逐消息已读凭据及离线当前资格过滤。root修复go-zero默认统计正文，统一共享策略、四个服务启动及真实框架对照测试；最初慢调用假处理器被计时为零，仅修正测试延时场景后通过。随后root完成A74 IM离线读取小步，audit_chat_unread继续只读审查权限/兼容边界；定向IM/API及最终全仓Go通过。整批八步，[全部15文件与验证边界](stage7-experience-gap-design.md#本批实现与审查)。未读表/RPC/页面及旧Gin收口后续，无生成代码删除、迁移、依赖或页面变更，没有main合并/push、云端部署或真实环境/模型验收。

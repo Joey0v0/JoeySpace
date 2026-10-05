@@ -11,6 +11,7 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	driver "github.com/go-sql-driver/mysql"
+	"github.com/yjydist/go-im/internal/rpcauth"
 	impb "github.com/yjydist/go-im/rpc/im/pb"
 	"github.com/yjydist/go-im/rpc/task/pb"
 	userpb "github.com/yjydist/go-im/rpc/user/pb"
@@ -70,6 +71,7 @@ func main() {
 		log.Fatal("invalid TASK_SNOWFLAKE_NODE_ID")
 	}
 	impl := &taskServer{db: db, idNode: idNode, teamClient: userpb.NewUserClient(conn), imClient: imClient}
+	c = rpcauth.WithoutRPCRequestContent(c, &pb.Task_ServiceDesc)
 	s := zrpc.MustNewServer(c, func(server *grpc.Server) {
 		pb.RegisterTaskServer(server, impl)
 	})

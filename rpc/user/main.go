@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/yjydist/go-im/internal/rpcauth"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -66,6 +67,7 @@ func main() {
 	ordinaryReady := make(chan *grpc.Server, 1)
 	triggerFailed := make(chan struct{}, 1)
 	// 将我们实现的查询方法注册到独立的 RPC 服务中。
+	c = rpcauth.WithoutRPCRequestContent(c, &pb.User_ServiceDesc)
 	s := zrpc.MustNewServer(c, func(server *grpc.Server) {
 		pb.RegisterUserServer(server, users)
 		if triggerRuntime != nil {

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/yjydist/go-im/internal/rpcauth"
 	agent "github.com/yjydist/go-im/rpc/agent"
 	"github.com/yjydist/go-im/rpc/agent/pb"
 	impb "github.com/yjydist/go-im/rpc/im/pb"
@@ -80,6 +81,7 @@ func runAgent(c zrpc.RpcServerConf) error {
 			log.Print(err)
 		}
 	}()
+	c = rpcauth.WithoutRPCRequestContent(c, &pb.Agent_ServiceDesc)
 	s, err := zrpc.NewServer(c, func(server *grpc.Server) {
 		pb.RegisterAgentServer(server, impl)
 		// The ordinary service is registered before background work begins.

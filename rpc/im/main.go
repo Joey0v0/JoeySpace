@@ -10,6 +10,8 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	driver "github.com/go-sql-driver/mysql"
+	"github.com/yjydist/go-im/internal/rpcauth"
+	impb "github.com/yjydist/go-im/rpc/im/pb"
 	userpb "github.com/yjydist/go-im/rpc/user/pb"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -101,6 +103,7 @@ func main() {
 	}
 	ordinaryReady := make(chan *grpc.Server, 1)
 	triggerFailed := make(chan struct{}, 2)
+	c = rpcauth.WithoutRPCRequestContent(c, &impb.IM_ServiceDesc)
 	s, err := zrpc.NewServer(c, func(server *grpc.Server) {
 		registerOrdinaryIM(server, serverImpl)
 		if triggerRuntime != nil {

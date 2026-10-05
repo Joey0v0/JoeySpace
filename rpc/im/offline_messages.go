@@ -33,8 +33,26 @@ func (s *imServer) ListOfflineMessages(ctx context.Context, _ *pb.ListOfflineMes
 		logx.WithContext(ctx).Errorf("list offline messages failed: %v", err)
 		return nil, status.Error(codes.Unavailable, "IM database unavailable")
 	}
+	// Check each distinct group against current membership on every pull. A
+	// denied delivery remains stored; transient authorization failures abort the
+	// response rather than exposing unchecked content or pretending it is denied.
+	groupAccess := make(map[int64]bool)
 	result := &pb.ListOfflineMessagesResponse{Messages: make([]*pb.OfflineMessage, 0, len(messages))}
 	for _, message := range messages {
+		if message.ChatType == 2 {
+			allowed, checked := groupAccess[message.ToID]
+			if !checked {
+				_, err := s.CheckGroupMember(ctx, &pb.CheckGroupMemberRequest{GroupId: message.ToID})
+				if err != nil && status.Code(err) != codes.PermissionDenied {
+					return nil, err
+				}
+				allowed = err == nil
+				groupAccess[message.ToID] = allowed
+			}
+			if !allowed {
+				continue
+			}
+		}
 		if message.SenderType == 0 {
 			message.SenderType = model.MessageSenderUser
 		}

@@ -26,6 +26,10 @@ docker compose --env-file .env -f docker-compose.yaml -f docker-compose.notifica
 
 2026-10-05收尾验证新增生产发布器→Push消费、专用mTLS→实际本机WS帧及生产Task TCP gRPC已读丢响应/权限恢复组合，全仓Go通过；SQL/Kafka/User等仍为替身，没有生产配置或代码变更。[六步审查](../docs/stage7-notification-flow-contract.md#本批实现与审查)。最终按[阶段7验收清单](../docs/stage7-acceptance.md)核对全部覆盖文件、迁移、证书与真实业务/故障证据，不能将本机分段测试作为部署成功。
 
+2026-10-05日志修复：User、IM、Task、Agent在构造go-zero RPC时自动抑制统计日志的业务请求正文，旧私有YAML无需新增字段；保留原统计配置及慢调用耗时记录。最终须升级这四个服务的镜像才生效，本批未部署、不清理旧日志，也不代表HTTP/SQL等其他日志全面脱敏。真实框架本机对照及全仓Go通过，[八步与全部文件](../docs/stage7-experience-gap-design.md#本批实现与审查)。
+
+A74离线核权本批只接IM RPC：Gateway原离线入口随IM升级按当前群/团队资格过滤；明确拒绝群保留投递，临时核权故障读取失败，不自动删除或标已读，其他有权聊天保留。旧Gin `/api/v1/message/offline` 仍直查本人投递，尚未收口，不得把此次局部修复作为全部出口已撤权的验收结论；最终部署前须完成其迁移/限制和兼容检查。
+
 2026-09-20 根据用户提供的云端 Compose、Dockerfile 和服务配置同步，并在本地补入阶段 1 的 API Gateway 与用户 RPC 容器配置。阶段 3 又补入 IM RPC 的容器接线；阶段 4 增加 Task RPC；阶段 5 准备 Agent RPC 的可选容器配置。这里只表示本地配置和程序构建检查，未连接云服务器、未重新部署、未完成真实数据库或模型联调。
 
 2026-09-25 用户决定先完成本地开发与自动化测试，项目整体完成后统一同步云端；以下联调顺序留待届时执行。
