@@ -419,4 +419,8 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 | 恢复验收边界审查 | D:/zy/GoLang/go-im/.worktrees/assignee-ui | codex/stage6-audit-recovery | 只读；建议交主 agent 写文档 |
 | 主 agent | D:/zy/GoLang/go-im | codex/stage6-acceptance-audit | Compose/环境模板、共同文档、集中测试与 Git 整合 |
 
-两个执行 agent 在提交前达到会话用量限制；主 agent 接手其已保存文件，补齐历史卡片测试并集中运行。已保存 Compose 测试 `2a9b6df`、页面 `a430ca5`，并无冲突合入本批 `codex/stage6-acceptance-audit`。子 agent 未自行合并 main、推送或部署。合并后页面两份 Node 测试共174项及全仓 Go 测试通过；真实运行结果只允许在最终部署时记录到[验收准备](stage6-runtime-acceptance.md)。
+两个执行 agent 在提交前达到会话用量限制；主 agent 接手其已保存文件，补齐历史卡片测试并集中运行。已保存 Compose 测试 `2a9b6df`、页面 `a430ca5`，并无冲突合入本批 `codex/stage6-acceptance-audit`。子 agent 未自行合并 main、推送或部署。合并后页面两份 Node 测试共174项及全仓 Go 测试通过；用户随后要求继续，本批于 2026-10-05 快进合入本地 main `27aec67`，仍未推送或部署。真实运行结果只允许在最终部署时记录到[验收准备](stage6-runtime-acceptance.md)。
+
+## 32. 阶段7任务变更通知设计起步（2026-10-05）
+
+主 agent 从干净 main `27aec67` 建立 `codex/stage7-notification-design`。当前仅审查既有 Task 状态事务、操作记录与 IM Push 边界，更新[项目进度](project-plan.md)和[选型记录](architecture-decisions.md) A65；不让执行 agent 在通知归属未确定前改业务代码。用户已选择个人通知给任务创建者和负责人；通知记录归属（Task 服务或新服务）待讨论，确定后再给三个独立 worktree 分配互不重叠的实现文件。现有三个 worktree 保留，不自行合并 main、推送或部署。
