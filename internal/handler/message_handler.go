@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
+	"io"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/yjydist/go-im/internal/pkg/errcode"
 	"github.com/yjydist/go-im/internal/pkg/response"
 	"github.com/yjydist/go-im/internal/service"
+	"github.com/yjydist/go-im/rpc/im/pb"
 	"go.uber.org/zap"
 )
 
@@ -54,24 +58,39 @@ func NewMessageHandler(logger *zap.Logger, offlineClient OfflineMessagesClient) 
 // @Failure 401 {object} response.Response
 // @Router /api/v1/message/offline [get]
 func (h *MessageHandler) GetOfflineMessages(c *gin.Context) {
-	userID := middleware.GetUserID(c)
-	messages, err := h.msgService.GetOfflineMessages(c.Request.Context(), userID)
-	if err != nil {
-		h.logger.Error("get offline messages failed", zap.Error(err))
+	ctx, cancel, ok := offlineRPCContext(c)
+	if !ok {
+		response.Error(c, errcode.ErrUnAuth)
+		return
+	}
+	defer cancel()
+	if h.offlineClient == nil {
 		response.Error(c, errcode.ErrInternal)
 		return
 	}
-
-	result := make([]offlineMessageResponse, 0, len(messages))
-	for _, message := range messages {
+	messages, err := h.offlineClient.ListOfflineMessages(ctx, &pb.ListOfflineMessagesRequest{})
+	if err != nil {
+		response.Error(c, offlineRPCErrorCode(err))
+		return
+	}
+	if messages == nil {
+		response.Error(c, errcode.ErrInternal)
+		return
+	}
+	result := make([]offlineMessageResponse, 0, len(messages.Messages))
+	for _, message := range messages.Messages {
+		if !validOfflineMessage(message) {
+			response.Error(c, errcode.ErrInternal)
+			return
+		}
 		senderType := message.SenderType
 		if senderType == 0 {
 			senderType = 1
 		}
 		result = append(result, offlineMessageResponse{
-			ID: message.ID, MsgID: message.MsgID, FromID: message.FromID, ToID: message.ToID,
-			SenderType: senderType, InitiatorID: message.InitiatorID,
-			ChatType: message.ChatType, ContentType: message.ContentType, Content: message.Content, CreatedAt: message.CreatedAt,
+			ID: message.Id, MsgID: message.MsgId, FromID: message.FromId, ToID: message.ToId,
+			SenderType: int8(senderType), InitiatorID: message.InitiatorId,
+			ChatType: int8(message.ChatType), ContentType: int8(message.ContentType), Content: message.Content, CreatedAt: message.CreatedAt.AsTime(),
 		})
 	}
 	response.Success(c, result)
@@ -80,7 +99,12 @@ func (h *MessageHandler) GetOfflineMessages(c *gin.Context) {
 // AckOfflineMessages 客户端处理完成后确认离线消息。
 func (h *MessageHandler) AckOfflineMessages(c *gin.Context) {
 	var req offlineAckRequest
-	if err := c.ShouldBindJSON(&req); err != nil || len(req.MessageIDs) == 0 || len(req.MessageIDs) > 1000 {
+	decoder := json.NewDecoder(http.MaxBytesReader(c.Writer, c.Request.Body, 32*1024))
+	if err := decoder.Decode(&req); err != nil {
+		response.Error(c, errcode.ErrBadRequest)
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF || len(req.MessageIDs) == 0 || len(req.MessageIDs) > 1000 {
 		response.Error(c, errcode.ErrBadRequest)
 		return
 	}
@@ -93,12 +117,22 @@ func (h *MessageHandler) AckOfflineMessages(c *gin.Context) {
 		}
 		messageIDs = append(messageIDs, messageID)
 	}
-	if err := h.msgService.AckOfflineMessages(c.Request.Context(), middleware.GetUserID(c), messageIDs); err != nil {
-		if code, ok := service.ParseBusinessError(err); ok {
-			response.Error(c, code)
-			return
-		}
-		h.logger.Error("ack offline messages failed", zap.Error(err))
+	ctx, cancel, ok := offlineRPCContext(c)
+	if !ok {
+		response.Error(c, errcode.ErrUnAuth)
+		return
+	}
+	defer cancel()
+	if h.offlineClient == nil {
+		response.Error(c, errcode.ErrInternal)
+		return
+	}
+	result, err := h.offlineClient.AckOfflineMessages(ctx, &pb.AckOfflineMessagesRequest{MessageIds: messageIDs})
+	if err != nil {
+		response.Error(c, offlineRPCErrorCode(err))
+		return
+	}
+	if result == nil {
 		response.Error(c, errcode.ErrInternal)
 		return
 	}
