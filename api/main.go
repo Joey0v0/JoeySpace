@@ -53,6 +53,11 @@ func main() {
 		{Method: http.MethodGet, Path: "/demo/multi-draft-view.js", Handler: chatDemoScriptHandler(examples.MultiDraftViewJS)},
 	})
 	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/teams/:team_id/groups/:group_id/agent-triggers/:message_id",
+		Handler: getTaskTriggerStatusHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
+	}, rest.WithTimeout(15*time.Second))
+	server.AddRoute(rest.Route{
 		Method:  http.MethodPost,
 		Path:    "/api/v1/teams/:team_id/groups/:group_id/ask",
 		Handler: askAgentHandler(agentpb.NewAgentClient(agentRPCClient.Conn())),
