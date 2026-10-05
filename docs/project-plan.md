@@ -4,7 +4,7 @@
 状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-05）：阶段6本地接线与验收准备、阶段7通知写入/本人查询/原生面板已合入**本地** main `89e2a1e`；A68显式已读39c5493、A69 Task事务Outbox及发布f6e05db均保留在当前分支历史。本批 `codex/stage7-notification-transport` 沿A70双向TLS及用户新选A71坏事件停消费、A72离线/撤权不补在线提示，完成严格事件/响应、专用TLS配置、WS当前连接权限处理器、HTTPS白名单Push客户端及独立消费组件。三个worktree无冲突整合，定向及全仓Go通过，含本机真实TLS与消费者→客户端→WS离线组合；[九步、17文件和验证限制](stage7-notification-transport-contract.md#本批实现与审查)。本批尚未接cmd/push、cmd/ws启动/证书配置或页面提醒，启动原应用不会自动启用新链；027/028/029未执行，没有合main、推送或真实环境验收。
+最新进展（2026-10-05）：阶段6本地接线与验收准备、阶段7通知写入/本人查询/原生面板已合入**本地** main `89e2a1e`；A68显式已读39c5493、Task Outbox f6e05db、提醒传输b7ba626均保留在当前分支历史。本批 `codex/stage7-notification-runtime` 沿A69—A72完成cmd/push独立提醒启动/取消等待/关闭、cmd/ws专用TLS监听/User依赖及主流程退出、两角色默认关闭YAML和可选Compose证书覆盖。三worktree无冲突整合；WS新测试作用域/工厂记录问题仅修测试，最终定向、全仓Go及Linux Push/WS编译通过，含实际本机TLS；[八步、18文件及边界](stage7-notification-runtime-contract.md#本批实现与审查)。必须显式开启并备齐配置，默认启动不会自动推送任务提醒；页面提示仍待接入，027/028/029未执行，未合main/push/实际部署或真实环境验收。
 
 ## 1. 项目目标与学习背景
 
@@ -474,7 +474,9 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] A70—A72提醒传输与消费组件（2026-10-05）：严格五字段/规范字符串ID与三种回显结果；专用双向TLS验证CA和精确Push/WS服务SAN，禁止降级/重定向。WS用当前连接Token检查User团队/同一本人，复核同一连接后非阻塞最小提醒入队，队列满503且不触发旧聊天注销。Push仅从白名单在线地址映射HTTPS；独立消费者串行Fetch/处理/同步确认，临时错重试原事件，投递后commit失败只重试commit；异常锁定停止不确认，明确offline/denied确认且通知仍在Task。共同8181f18，A a491ea0/B 2704cb2/C da8b258由root测试/保存、合入本轮工作分支，root补真实TLS客户端→生产WS离线处理器→消费确认组合；定向及全仓Go通过。[九步、全部17文件与未验收范围](stage7-notification-transport-contract.md#本批实现与审查)、[选型](architecture-decisions.md) A70—A72。只完成组件，不将实际进程/页面提醒标完成；没有新增迁移、依赖、协议生成或页面变动。
 
-当前下一步（2026-10-05）：审查传输组件，然后按已选A69—A72接入cmd/push独立Reader/Redis/客户端、cmd/ws专用TLS监听、显式启用及证书/受控地址配置、取消/等待/关闭生命周期；之后接原生页面提示和重连查询恢复。离线/失效Token/离队不补在线提示，临时故障重试，坏事件只停独立消费；页面不自动标已读，读取内容继续查当前权限。main仍89e2a1e，当前codex/stage7-notification-transport包含39c5493、f6e05db及本批三个执行分支，未合main/推送。027/028/029仍未执行，最终先迁移再升级Task；基础Compose未开启新发布/消费/监听，生产端口和证书路径尚未配置。真实环境统一验收仍按[阶段6运行验收准备](stage6-runtime-acceptance.md)及各阶段清单执行；方舟接入点/预算未定前不请求真实模型。
+- [x] A69—A72任务提醒运行接线（2026-10-05）：Push/WS分别由YAML显式开启，默认不建新资源；结构校验/TLS预检先于其他基础设施，新Push Reader独立Topic/group、同步commit，新组FirstOffset而已有组沿提交恢复；启动生产消费，坏事件只停提醒。WS新增专用TLS监听、实际绑定错误返回主流程、异常serve通道，取消/等待活动提醒后关闭User；root也接原HTTP端口同步绑定/信号关闭，不扩为旧Hub/WebSocket排空。两个main接线、默认关闭本地/容器模板及可选只读证书Compose覆盖已准备。共同7efed33、Push383f291、配置fe0045b、WS2a787f3/测试修正4b5d3f4由root审查/保存/整合；全仓Go及Linux两个目标通过。[八步和18文件审查](stage7-notification-runtime-contract.md#本批实现与审查)、[运行取舍](architecture-decisions.md)。当前电脑没有Docker命令，未验收Compose合并/挂载、真实Kafka/Redis/User/证书/信号或浏览器，不把运行接线等同于实际部署成功。
+
+当前下一步（2026-10-05）：审查已接线的通知启动组件，按既定原生页面/A69方案接入最小WebSocket提示、重复提醒合并、本人刷新及首次/重连查询恢复；不自动标已读，取得通知内容仍经Gateway→Task核对当前本人/团队权限。离线/失效Token/离队不补在线提示，临时故障重试，坏事件只停独立消费。main仍89e2a1e，当前codex/stage7-notification-runtime包含前几批及本批三个执行分支，未合main/推送。027/028/029仍未执行；最终先迁移再升级Task，并协调Task发布环境变量、Push/WS私有YAML开关、独立证书、真实Topic/group和在线地址映射。基础Compose仍不启用提醒，可选notifications覆盖也不替你开启私有YAML开关。真实环境统一验收仍按[阶段6运行验收准备](stage6-runtime-acceptance.md)及[本批部署说明](../deploy/README.md)执行；方舟接入点/预算未定前不请求真实模型。
 
 ## 10. 决策记录与文档关系
 

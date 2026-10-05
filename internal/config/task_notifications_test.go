@@ -18,6 +18,35 @@ func resetNotificationConfigForTest(t *testing.T) {
 	t.Cleanup(func() { viper.Reset(); GlobalConfig = previous })
 }
 
+func TestNotificationRepositoryTemplatesStayDisabledAndCanBeExplicitlyEnabled(t *testing.T) {
+	for _, path := range []string{"../../config/go-im.yaml", "../../deploy/docker-config.yaml"} {
+		t.Run(path, func(t *testing.T) {
+			resetNotificationConfigForTest(t)
+			cfg, err := Load(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.TaskNotifications.Push.Enabled || cfg.TaskNotifications.WS.Enabled {
+				t.Fatal("repository template enabled online reminders by default")
+			}
+			cfg.TaskNotifications.Push.Enabled = true
+			cfg.TaskNotifications.WS.Enabled = true
+			// Local template intentionally leaves private credential paths empty.
+			for _, files := range []*NotificationTLSConfig{&cfg.TaskNotifications.Push.TLS, &cfg.TaskNotifications.WS.TLS} {
+				if files.CertFile == "" {
+					*files = NotificationTLSConfig{CertFile: "cert.pem", KeyFile: "key.pem", CAFile: "ca.pem"}
+				}
+			}
+			if err := ValidateTaskNotificationPush(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := ValidateTaskNotificationWS(cfg); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func validNotificationConfigForTest() *Config {
 	return &Config{
 		WSServer: WSServerConfig{Port: 8081, RPCPort: 9091},

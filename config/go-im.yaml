@@ -27,6 +27,29 @@ kafka:
   agent_trigger_enabled: false
   topic_agent_trigger: "agent_task_triggers"
 
+# Optional stage 7 online hints. Prepare private certificates before enabling.
+task_notifications:
+  push:
+    enabled: false
+    topic: "task_notifications"
+    consumer_group: "task_notification_push_group"
+    ws_dns_name: "ws.go-im.internal"
+    routes:
+      "localhost:9091": "https://localhost:9443"
+    tls:
+      cert_file: ""
+      key_file: ""
+      ca_file: ""
+  ws:
+    enabled: false
+    listen_addr: "127.0.0.1:9443"
+    push_dns_name: "push.go-im.internal"
+    user_rpc_addr: "localhost:9001"
+    tls:
+      cert_file: ""
+      key_file: ""
+      ca_file: ""
+
 jwt:
   secret: "im_super_secret_key"
   access_expire_hours: 24

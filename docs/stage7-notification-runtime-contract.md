@@ -27,3 +27,45 @@ runtime.Start(ctx context.Context, online push.TaskNotificationOnlineLocator) er
 唯一新增internal/config/task_notifications_test.go，目录D:/zy/GoLang/go-im/.worktrees/assignee-ui，分支codex/stage7-notification-runtime-tests。测试ValidateTaskNotificationPush/WS：默认关闭无需证书/地址，不受另一个角色错误配置影响；启用缺参数/非法broker/混Topic/group/伪HTTPS/未知URL字段/服务名/端口冲突；实际临时YAML通过既有Load映射两角色全部字段及字符串路由。Viper为全局，测试不Parallel且每次Reset，不能泄露临时配置影响别的测试。仅gofmt/diffcheck，不改配置定义/模板/共同文档。
 
 root统一配置/模板/文档/Git与集中测试，现有.bases/certs/私有local.yaml不读取不修改。三个执行worktree都从本批共同提交建立；进程级替身与本机TLS不代表真实MySQL/Redis/Kafka/User容器、生产证书或浏览器验收。默认不开启消费者，因此实际first-offset策略仅对没有既有group offset的新组生效，已有组沿已提交offset恢复；首次开启前需确保独立Topic事件合法。
+
+## 本批实现与审查
+
+主agent从b7ba626建立codex/stage7-notification-runtime，共同7efed33。三个执行agent仅新增本契约指定文件，未运行test/build/Git写或部署。root审查并保存Push383f291、配置测试fe0045b、WS2a787f3及测试修正4b5d3f4，无冲突整合。root负责两个main的真实接线、模板/覆盖、现有HTTP退出测试和仓库模板读取验证。WS首次定向发现新测试变量作用域及切换真实TLS工厂后漏记录顺序的断言问题，root只修测试，保留实际清理要求；修正后WS/Push/配置定向通过。实际工作八步，所有目标都围绕本轮可选提醒启动和清理。
+
+| 步骤 | 实际改动、目的及验证 |
+| --- | --- |
+| 1 配置与契约 | 独立默认关闭角色、Topic/group/URL/端口/TLS必填校验；本地及容器模板、证书挂载可选覆盖，避免旧部署被自动开启 |
+| 2 Push运行 | TLS优先初始化，再独立同步Reader；单次Start、内部取消/等待、幂等资源关闭。替身覆盖坏事件不确认不重启、关闭不取消聊天、部分初始化及并发Close |
+| 3 WS运行 | TLS预检后普通User客户端，Start同步绑定专用ServeTLS监听；正常关闭不报故障，异常固定错误。实际本机mTLS离线请求与明文拒绝、端口占用、活动处理器/依赖关闭顺序通过 |
+| 4 配置验证 | 实际临时YAML与结构矩阵验证两角色独立、旧无块关闭、URL/服务身份/端口/Topic/group；root追加读取两份仓库模板，补凭证路径后可启用校验 |
+| 5 Push主进程 | main接prepare→Redis→通知Start，与原chat/Outbox同父signal context；退出先取消/通知Close/原worker等待关闭，初始化失败也执行defer |
+| 6 WS主进程 | main接prepare→Redis/Hub→原HTTP两端口同步绑定→专用TLS Start；主流程监听系统取消/HTTP/TLS错误后清理。root测试原第二端口失败不泄漏第一端口、HTTP活动请求结束后才返回 |
+| 7 集中验证 | 各执行包与整合cmd/ws、cmd/push、internal/config定向通过；全仓Go和Linux目标验证结果见下文 |
+| 8 文档与审查 | 更新A69—A72实施取舍、计划、协作及部署说明，列全18文件；main未合并，三个执行worktree保留 |
+
+关键调用链：Push加载自身启用配置/证书→生产TLS客户端及独立Kafka Reader→Redis在线查询→白名单HTTPS→WS专用监听/当前连接/User普通RPC资格检查→最小队列提示或offline/denied→同步commit。Task仍负责状态/通知/Outbox事务及独立Topic发布。三个开关（Task环境变量、Push YAML、WS YAML）需最终同步配置；模板不是生产密钥，也不自动执行迁移。
+
+验证范围：定向、仓库模板及`go test ./... -count=1`通过；Linux/CGO0 Push/WS两个目标编译通过、退出码0（默认模块stat缓存写有权限警告，未影响生成目标；没有执行Linux二进制）。没有JS变化，不重复上一批Node。Go测试采用真实本机TLS及生产通知handler/consumer，Kafka/Redis/User资格/客户端及HTTP请求部分使用替身；本批没有连接真实基础设施或模拟实际系统SIGTERM，也没有Docker命令可运行Compose合并/容器验收。新的通知HTTP可取消并等待handler；旧Hub/hijacked WebSocket完整停机排空未实现，不能把HTTP Shutdown当聊天送达保证。通知runtime处理器若不响应取消，关闭将返回固定超时错误，继续延后到handler退出再关闭User，不强制终止Go业务goroutine。页面提示/重复提醒合并/重连查询接线仍待下一批，当前新提醒下行不等于页面已展示或自动已读；真实证书/Topic/迁移/浏览器/云验收留最终统一执行。main仍89e2a1e，未push/部署/调用模型。
+
+全部18个实际修改文件（相对于本批基线b7ba626）：
+
+| 文件 | 作用 |
+| --- | --- |
+| [config.go](D:/zy/GoLang/go-im/internal/config/config.go) | 接入可选配置块 |
+| [task_notifications.go配置](D:/zy/GoLang/go-im/internal/config/task_notifications.go) | 两角色字段与开启校验 |
+| [task_notifications_test.go配置](D:/zy/GoLang/go-im/internal/config/task_notifications_test.go) | 临时YAML、边界与实际模板 |
+| [Push task_notifications.go](D:/zy/GoLang/go-im/cmd/push/task_notifications.go) | 独立Reader/客户端与生命周期 |
+| [Push task_notifications_test.go](D:/zy/GoLang/go-im/cmd/push/task_notifications_test.go) | 初始化/取消/失败及幂等关闭 |
+| [Push main.go](D:/zy/GoLang/go-im/cmd/push/main.go) | 启动及系统信号接线 |
+| [WS task_notifications.go](D:/zy/GoLang/go-im/cmd/ws/task_notifications.go) | 专用TLS监听/User依赖生命周期 |
+| [WS task_notifications_test.go](D:/zy/GoLang/go-im/cmd/ws/task_notifications_test.go) | 实际TLS及监听/关闭故障 |
+| [WS main.go](D:/zy/GoLang/go-im/cmd/ws/main.go) | 主流程监听失败与信号处理 |
+| [WS main_test.go](D:/zy/GoLang/go-im/cmd/ws/main_test.go) | 原HTTP启动失败清理/活动请求关闭 |
+| [go-im.yaml](D:/zy/GoLang/go-im/config/go-im.yaml) | 本地默认关闭模板 |
+| [docker-config.yaml](D:/zy/GoLang/go-im/deploy/docker-config.yaml) | 容器默认关闭模板 |
+| [docker-compose.notifications.yaml](D:/zy/GoLang/go-im/deploy/docker-compose.notifications.yaml) | Task开关/独立只读证书挂载，不映射外网端口 |
+| [部署README](D:/zy/GoLang/go-im/deploy/README.md) | 私有配置匹配与最终验收要求 |
+| [project-plan.md](D:/zy/GoLang/go-im/docs/project-plan.md) | 实际进度和下一步 |
+| [architecture-decisions.md](D:/zy/GoLang/go-im/docs/architecture-decisions.md) | 配置/offset/生命周期取舍 |
+| [worktree-collaboration-plan.md](D:/zy/GoLang/go-im/docs/worktree-collaboration-plan.md) | 三Agent边界及root修正整合 |
+| [本契约](D:/zy/GoLang/go-im/docs/stage7-notification-runtime-contract.md) | 接口/八步/全部文件及验证限制 |

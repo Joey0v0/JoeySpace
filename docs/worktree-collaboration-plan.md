@@ -464,3 +464,9 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 从f6e05db建codex/stage7-notification-transport，main89e2a1e。已选A69/A70之内先实现TLS/WS/Push传输；用户随后选A71坏事件停止/保留、A72明确离线或撤权不补发在线提示，于九步批次中加入root负责的消费组件。三个执行worktree同一共同提交，各只编辑[契约规定的两个文件](stage7-notification-transport-contract.md)；root负责共同TLS/model、文档/消费、整合验证。进程配置、实际生产启动和页面提示后续，执行agent不提交、测试/build、合main/push或部署。
 
 实际交付：共同8181f18；root逐包验证后保存WS处理器a491ea0、Push客户端2704cb2、TLS/协议测试da8b258，无冲突整合。三个执行agent各只新增两个允许文件，未自行测试/build、Git写入或部署。root新增消费组件及重试/确认/坏事件测试，再补生产TLS客户端→生产WS处理器offline→消费者确认原offset组合；定向及全仓Go通过。三worktree干净保留，root最终代码和共同文档在本轮整合分支，[九步、17文件与边界](stage7-notification-transport-contract.md#本批实现与审查)。没有cmd启动接线、页面变更、迁移/依赖/proto修改、main合并、push、真实环境或模型调用。
+
+## 38. 任务提醒运行接线批次（2026-10-05）
+
+从b7ba626建立codex/stage7-notification-runtime，共同提交7efed33定义既定A69—A72之内的独立配置与运行契约；main仍89e2a1e。三个worktree从共同提交新建Push/WS/配置验证分支，目录不变，[精确允许文件](stage7-notification-runtime-contract.md)分别两个/两个/一个；root拥有共同配置、模板/覆盖、main/HTTP退出测试及文档。整批八小步，执行agent只编辑/gofmt/diffcheck，无test/build/Git写/合main/push/部署。
+
+实际交付：root定向验证后保存Push383f291、配置fe0045b，WS初次新测试有变量作用域及替换真实TLS工厂漏记录顺序，root仅修测试并保存WS2a787f3/修正4b5d3f4；最终WS定向通过再集中回归。三个分支无冲突整合；root接两个真实main、增加旧HTTP失败/退出测试及两份实际仓库模板读取验证。定向、全仓Go及Linux/CGO0 Push/WS编译通过，含本机实际TLS；默认模块stat缓存写有权限警告但两个构建退出码0，产物为Linux目标。三个执行worktree干净保留，root最终配置/接线修订在本轮整合分支，[八步、18文件与验证边界](stage7-notification-runtime-contract.md#本批实现与审查)。没有Docker命令，未运行Compose/真实信号/数据库/证书挂载/浏览器/云/模型；页面接线后续，未合main或推送。

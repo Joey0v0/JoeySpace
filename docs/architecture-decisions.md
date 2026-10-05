@@ -350,3 +350,11 @@ Task首批实际结果：共同事件/029、状态事务、GORM待发适配和AC
 A70—A72既定方案内的实现取舍：在线地址使用构造时复制的受控host:port→HTTPS origin映射，备选直接拼接Redis地址会扩大请求目标且不能表达独立TLS端口，故不选；代价是多节点需配置每项映射。TLS1.3双向CA验证之外核对精确DNS SAN，备选仅同CA信任会允许其他服务身份，通配身份也不选。User RPC不持Hub锁，成功后短读锁比较原连接并直接非阻塞入队；备选调用旧Client.Send会走满队列注销/关闭分支，在持锁时可能阻塞，故保持旧聊天Send不变并令提醒满队列503。代价是拥塞提示等待重试；这不是新的服务边界或权限模型选择。消费逐条串行，备选此批并行处理需按分区管理连续确认，超出当前小步范围；坏事件实例锁定停止且需新reader重启，避免同实例误取后续offset越过未确认事件。
 
 实际验证：三worktree组件已由root审查、包级测试后保存/整合；root补消费规则和真实TLS/client/生产WS处理器offline组合，整合`go test ./... -count=1`通过。当前连接授权、过时在线地址、临时错/只重试commit、坏事件不确认、大ID/严格协议与错误证书均有覆盖；Kafka/Redis/User/连接队列仍为替身，没有实际进程启动/生产证书/浏览器/迁移/部署验收，页面收到提示和重连查询接线后续完成。[九步、17文件与边界](stage7-notification-transport-contract.md#本批实现与审查)。A71/A72选择均为用户明确确认，不把队列接受当浏览器送达或自动已读。
+
+### A69—A72：任务提醒运行接线实施取舍（2026-10-05）
+
+确认状态：用户继续，沿既定Topic隔离、专用mTLS及消费语义实施，不新增服务边界、数据归属或权限。选择在Push/WS已有YAML增加两个独立默认关闭角色；备选另增环境变量解析层会重复现有配置载入，直接默认开启则要求旧部署立即备齐证书/Topic。因此选YAML显式开关和可选Compose证书覆盖，代价是最终必须协调私有YAML、Task发布环境变量及两证书目录。每进程只校验自身角色，备选校验全部角色会阻止配置另一角色独立部署。
+
+Reader选择独立GroupID、同步CommitInterval0；新组FirstOffset防止消费者晚于Task发布启动时跳过已有保留事件，备选LastOffset改动同样少但会漏掉首次启动前已发布提示。既有组仍沿已提交offset；代价是首次开启可能处理较多保留事件，坏事件按A71停消费而不静默略过。事件只作在线刷新信号，不回填历史Task通知，也不声明Kafka永久保留。关闭时先取消并等待worker再释放资源；WS选择专用有超时HTTP Server、同步bind及异常通道，备选裸ListenAndServe后台fatal会绕过defer清理，故由主流程返回错误后统一关闭。Shutdown超时必要时强制Close且等待serve退出后关User，活动提醒取消/失败不能冒充queued。
+
+User资格调用继续使用现有普通User gRPC与当前连接Bearer，备选把它改为无用户Token的受限后台RPC会改变权限模型，未采用；Push→WS始终是专用mTLS，不把User普通RPC描述成已加密。现有聊天Hub/hijacked WebSocket停机不在本批扩大重构，只管理新通知HTTP与原HTTP监听的退出；HTTP服务关闭不承诺聊天已排空。[共同契约](stage7-notification-runtime-contract.md)。本批不引入新迁移/框架/语言/依赖，真实证书/容器/信号与页面验收待最终统一完成。

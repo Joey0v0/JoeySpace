@@ -1,0 +1,35 @@
+# Opt-in stage 7 online hints. Run only after migrations 027-029, private YAML
+# switches task_notifications.push/ws.enabled, and dedicated certificates exist.
+# The HTTPS listener is reachable inside Compose only; no added host ports.
+services:
+  task-rpc:
+    environment:
+      TASK_NOTIFICATION_PUBLISH_ENABLED: "true"
+      TASK_NOTIFICATION_KAFKA_BROKERS: "kafka:19092"
+      TASK_NOTIFICATION_TOPIC: "${TASK_NOTIFICATION_TOPIC:-task_notifications}"
+      TASK_NOTIFICATION_CHAT_TOPIC: "${TASK_NOTIFICATION_CHAT_TOPIC:-chat_messages}"
+      TASK_NOTIFICATION_AGENT_TOPIC: "${TASK_NOTIFICATION_AGENT_TOPIC:-agent_task_triggers}"
+
+  im-ws:
+    volumes:
+      - type: bind
+        source: "${WS_NOTIFICATION_CERT_DIR:?Set private WS_NOTIFICATION_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/ws-notification
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      user-rpc:
+        condition: service_started
+
+  im-push:
+    volumes:
+      - type: bind
+        source: "${PUSH_NOTIFICATION_CERT_DIR:?Set private PUSH_NOTIFICATION_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/push-notification
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      im-ws:
+        condition: service_started

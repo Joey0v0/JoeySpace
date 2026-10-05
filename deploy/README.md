@@ -2,7 +2,25 @@
 
 阶段7Task通知事件发布第一批（2026-10-05）：新Task在状态变化事务内同时写通知与Outbox，升级前须先027、028、029，029不回填旧通知；关闭发布也必须029。首次初始化已包含新表，现有数据卷不会因改init自动迁移。发布开关 `TASK_NOTIFICATION_PUBLISH_ENABLED` 默认false；显式启用需Task进程的 `TASK_NOTIFICATION_KAFKA_BROKERS` 和独立 `TASK_NOTIFICATION_TOPIC`，容器网络broker为kafka:19092。私有聊天/Agent Topic改名时，同时传 `TASK_NOTIFICATION_CHAT_TOPIC`/`TASK_NOTIFICATION_AGENT_TOPIC` 做隔离校验。基础Compose本批未注入发布配置，最终通过私有覆盖或下一批完整部署覆盖注入；未配置不能宣称已发布。published只表示Kafka确认。029尚未执行，真实Kafka/MySQL、证书、容器与云端仍待验收。[Task契约和审查](../docs/stage7-notification-outbox-contract.md)。
 
-阶段7提醒传输第二批：新增独立Push消费组件、HTTPS白名单客户端、双向TLS配置与WS当前连接权限处理器，已通过本机真实TLS和全仓Go测试，但尚未接进cmd/push、cmd/ws；启动现有容器不会自动新增消费者或监听。下一批需配置独立Push/WS服务证书及专用内部HTTPS地址映射，固定路径为`/internal/task-notifications`；契约中的9443仅是示例，不是已开启端口。旧聊天`/internal/push`保持原路径。无证书不降级，离线/失效Token/已离队确认消费并保留Task通知，临时错重试，坏事件停止独立提醒消费等待修复。消费/监听关闭等待、真实Topic/路由、Compose配置和页面提醒仍待接线及最终验收；[全部文件与限制](../docs/stage7-notification-transport-contract.md#本批实现与审查)。
+阶段7提醒传输第二批已完成独立Push消费组件、HTTPS白名单客户端、双向TLS配置与WS当前连接权限处理器，本机真实TLS和全仓Go测试通过；当时尚未接进程，组件范围见[传输审查](../docs/stage7-notification-transport-contract.md#本批实现与审查)。第三批运行接线见下文，页面提醒仍待接入。
+
+## 阶段7任务提醒运行接线
+
+`cmd/push`、`cmd/ws`已接入可选通知运行组件。现有/缺少新块的配置仍默认关闭；`config/go-im.yaml`及`docker-config.yaml`模板提供`task_notifications.push`、`task_notifications.ws`两角色，启用时分别检查自身配置，不要求另一角色同时在本进程可用。Push使用已有`kafka.brokers`，但必须独立Topic及消费组；Task发布Topic必须与Push相同，且不同于聊天/Agent，私有消费组也须彼此隔离。新组从Topic最早保留事件读取，已有组从提交offset恢复；029不回填旧通知。
+
+最终部署时，在现有**私有**`docker-config.local.yaml`添加模板新块，显式启用两个角色；保留原DSN、JWT、聊天/Agent配置。容器示例映射为`im-ws:9091`→`https://im-ws:9443`，WS内部监听`0.0.0.0:9443`，User普通RPC`user-rpc:9001`；左侧必须等于WS现有`WS_RPC_ADDR`写入Redis的地址。证书服务DNS配置为`ws.go-im.internal`/`push.go-im.internal`，不是任意容器名；两服务使用独立私钥，CA信任与精确SAN、ServerAuth/ClientAuth用途和有效期必须匹配。容器内路径按模板填写，真实证书不入库。
+
+可选覆盖`docker-compose.notifications.yaml`为两个容器只读挂载独立证书目录，为Task启用发布及Topic环境变量，**不替你开启私有YAML的Push/WS开关**，也不新增宿主机端口或修改基础Compose。设置本机`WS_NOTIFICATION_CERT_DIR`、`PUSH_NOTIFICATION_CERT_DIR`，目录各含cert.pem/key.pem/ca.pem；发布Topic若改名须同时改私有Push配置。若还使用bot/trigger覆盖，按既有部署清单一并合并。最终先核对执行027—029，再升级相关镜像；只更新init.sql不会升级已有数据卷。
+
+当前未执行以下检查，供最终同步时使用：
+
+```sh
+docker compose --env-file .env -f docker-compose.yaml -f docker-compose.notifications.yaml config --quiet
+```
+
+启动流程先验证结构并加载TLS材料，再准备其他基础设施；不开启时不读证书、不建通知Reader/User连接或监听。新WS监听固定`/internal/task-notifications`且只接mTLS，绑定失败返回启动错误，不降级到旧`/internal/push`。Push坏事件只停通知worker、保留未确认offset，聊天继续；修复后需重启消费，不能默认跳过坏事件。明确离线/失效Token/离队确认消费，记录仍在Task，不保证补在线提示。停止时通知worker取消/等待后关Reader/客户端，WS停止新HTTP请求并结束通知处理后关User连接。旧聊天Hub与已升级WebSocket没有新增完整逐连接排空机制，HTTP Shutdown不等于客户端已收到消息；本批不声称整套聊天停机已验收。
+
+本地运行组件及TLS测试不等于真实Kafka/Redis/User容器或系统信号验收；当前环境没有Docker命令，Compose合并、证书挂载和真实部署待最终验证。页面对新提醒的展示、去重与重连查询仍未接入，通知详情和已读继续经Gateway→Task带当前权限处理。[本批接口和审查](../docs/stage7-notification-runtime-contract.md)。
 
 2026-09-20 根据用户提供的云端 Compose、Dockerfile 和服务配置同步，并在本地补入阶段 1 的 API Gateway 与用户 RPC 容器配置。阶段 3 又补入 IM RPC 的容器接线；阶段 4 增加 Task RPC；阶段 5 准备 Agent RPC 的可选容器配置。这里只表示本地配置和程序构建检查，未连接云服务器、未重新部署、未完成真实数据库或模型联调。
 

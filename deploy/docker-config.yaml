@@ -28,6 +28,29 @@ kafka:
   agent_trigger_enabled: false
   topic_agent_trigger: "agent_task_triggers"
 
+# Optional stage 7 online hints. Enable only in private YAML with mounted certs.
+task_notifications:
+  push:
+    enabled: false
+    topic: "task_notifications"
+    consumer_group: "task_notification_push_group"
+    ws_dns_name: "ws.go-im.internal"
+    routes:
+      "im-ws:9091": "https://im-ws:9443"
+    tls:
+      cert_file: "/app/certs/push-notification/cert.pem"
+      key_file: "/app/certs/push-notification/key.pem"
+      ca_file: "/app/certs/push-notification/ca.pem"
+  ws:
+    enabled: false
+    listen_addr: "0.0.0.0:9443"
+    push_dns_name: "push.go-im.internal"
+    user_rpc_addr: "user-rpc:9001"
+    tls:
+      cert_file: "/app/certs/ws-notification/cert.pem"
+      key_file: "/app/certs/ws-notification/key.pem"
+      ca_file: "/app/certs/ws-notification/ca.pem"
+
 jwt:
   secret: "CHANGE_ME_JWT_SECRET"
   access_expire_hours: 24

@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -16,44 +17,62 @@ import (
 )
 
 func main() {
+	if err := runPush(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func runPush() error {
 	configPath := flag.String("config", "config/go-im.yaml", "config file path")
 	flag.Parse()
 
 	// 加载配置
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		log.Fatalf("load config failed: %v", err)
+		return fmt.Errorf("load config failed: %w", err)
 	}
 	// Fail before connecting infrastructure if the independent trigger topic is unsafe.
 	if err := validateAgentTriggerConfig(cfg.Kafka); err != nil {
-		log.Fatalf("invalid agent trigger config: %v", err)
+		return fmt.Errorf("invalid agent trigger config: %w", err)
+	}
+	if err := config.ValidateTaskNotificationPush(cfg); err != nil {
+		return err
 	}
 
 	// 初始化日志
 	if err := logger.Init(cfg.Log.Level, cfg.Log.Filename); err != nil {
-		log.Fatalf("init logger failed: %v", err)
+		return fmt.Errorf("init logger failed: %w", err)
 	}
 	defer logger.Sync()
 
+	// Certificates and role configuration fail before infrastructure startup.
+	notifications, err := prepareTaskNotificationPush(cfg, logger.L, taskNotificationPushFactories{})
+	if err != nil {
+		return err
+	}
+	if notifications != nil {
+		defer notifications.Close()
+	}
+
 	// 初始化 Snowflake（Push 服务持久化消息时需要生成 ID）
 	if err := snowflake.Init(cfg.App.ServerID); err != nil {
-		log.Fatalf("init snowflake failed: %v", err)
+		return fmt.Errorf("init snowflake failed: %w", err)
 	}
 
 	// 初始化 MySQL
 	if err := repository.InitMySQL(&cfg.MySQL, logger.L); err != nil {
-		log.Fatalf("init mysql failed: %v", err)
+		return fmt.Errorf("init mysql failed: %w", err)
 	}
 
 	// 初始化 Redis
 	if err := repository.InitRedis(&cfg.Redis, logger.L); err != nil {
-		log.Fatalf("init redis failed: %v", err)
+		return fmt.Errorf("init redis failed: %w", err)
 	}
 
 	// 创建 Repository
 	messaging, err := newPushMessaging(cfg.Kafka, repository.DB, logger.L, agentTriggerFactories{})
 	if err != nil {
-		log.Fatalf("init push messaging failed: %v", err)
+		return fmt.Errorf("init push messaging failed: %w", err)
 	}
 	groupRepo := repository.NewGroupRepository()
 	redisRepo := repository.NewRedisRepository()
@@ -71,8 +90,17 @@ func main() {
 	)
 
 	// 使用 context 控制优雅退出
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+	if notifications != nil {
+		if err := notifications.Start(ctx, redisRepo); err != nil {
+			_ = consumer.Close()
+			if messaging.writer != nil {
+				_ = messaging.writer.Close()
+			}
+			return err
+		}
+	}
 
 	// 启动消息消费及可选的 Outbox 发布循环
 	waitAndClose := startPushWorkers(ctx, consumer, messaging.publisher, messaging.writer)
@@ -80,14 +108,13 @@ func main() {
 	logger.L.Sugar().Info("Push service started")
 
 	// 等待退出信号
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(quit)
-	<-quit
+	<-ctx.Done()
 
 	logger.L.Sugar().Info("Push service shutting down...")
 	cancel()
-	if err := waitAndClose(); err != nil {
-		logger.L.Sugar().Errorf("close push resources failed: %v", err)
+	var notificationErr error
+	if notifications != nil {
+		notificationErr = notifications.Close()
 	}
+	return errors.Join(notificationErr, waitAndClose())
 }
