@@ -142,7 +142,10 @@ func TestPrepareTaskNotificationWSDisabledAndFactoryOrder(t *testing.T) {
 	if runtime, err = prepareTaskNotificationWS(cfg, ws.NewHub(zap.NewNop()), nil, factories); runtime != nil || !errors.Is(err, errTaskNotificationWSTLS) || len(order) != 1 || order[0] != "tls" || strings.Contains(err.Error(), "private") {
 		t.Fatalf("TLS preflight did not precede User: runtime=%v, err=%v, order=%v", runtime, err, order)
 	}
-	factories.tlsConfig = rpcauth.NewNotificationServerTLSConfig
+	factories.tlsConfig = func(files rpcauth.CertificateFiles, name string) (*tls.Config, error) {
+		order = append(order, "tls")
+		return rpcauth.NewNotificationServerTLSConfig(files, name)
+	}
 	if runtime, err = prepareTaskNotificationWS(cfg, ws.NewHub(zap.NewNop()), nil, factories); runtime != nil || !errors.Is(err, errTaskNotificationWSUser) || closer.calls.Load() != 1 || len(order) != 3 || order[1] != "tls" || order[2] != "user" || strings.Contains(err.Error(), "private") {
 		t.Fatalf("partial User resource not closed: runtime=%v, err=%v, order=%v", runtime, err, order)
 	}
