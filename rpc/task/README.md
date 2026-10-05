@@ -6,9 +6,9 @@
 
 `ListTeamTasks(team_id, after_task_id, limit)` 先通过用户与团队 RPC 核对当前团队资格，再按任务 ID 升序读取该团队任务。`after_task_id=0` 从头开始；默认 20 条、最多 100 条，`next_after_task_id=0` 表示没有下一页。未指派的任务返回 `assignee_id=0`，无来源任务的两个来源 ID 返回 0；未设置截止时间返回 `due_at_unix_ms=0`，否则返回 UTC Unix 毫秒。已有 `(team_id, id)` 索引支持分页查询；来源列需 008 迁移，截止时间列需 009 迁移。
 
-`SetTaskStatus(team_id, task_id, status)` 也先核对当前团队资格；只允许任务创建者、当前负责人或团队拥有者改状态，管理员角色本身不额外授权。状态值为 0 待办、1 进行中、2 完成，当前允许在三态之间切换；重复提交当前状态返回成功且不新增记录。状态更新与 `task_operations` 操作记录在同一 MySQL 事务中完成，记录写入失败会回滚状态更新。
+`SetTaskStatus(team_id, task_id, status)` 也先核对当前团队资格；只允许任务创建者、当前负责人或团队拥有者改状态，管理员角色本身不额外授权。状态值为 0 待办、1 进行中、2 完成，当前允许在三态之间切换；重复提交当前状态返回成功且不新增记录。真实变化时，状态更新、`task_operations` 操作记录以及给创建者和当前负责人的个人通知依据都在同一 MySQL 事务中完成；两人相同只存一条，任一写入失败则整笔回滚。此时只是通知记录落库，没有本人读取、已读或实时推送入口。
 
-Gateway 提供创建、列表和状态更新 HTTP 入口；JSON 契约见 [API 文档](../../api/README.md)。Gateway 创建与列表入口已接通截止时间，页面尚未接入。首次初始化的数据库使用 `deploy/mysql/init.sql`；已有 `go_im` 数据库须依次执行 `deploy/mysql/migrations/006_tasks.sql`、`007_task_operations.sql`、`008_task_source.sql` 和 `009_task_due_at.sql`，然后才能启动使用新字段的任务 RPC。本机启动前设置 `TASK_MYSQL_DSN`（指向 `go_im`）、`USER_RPC_ADDR`（例如 `127.0.0.1:9001`）；使用来源消息时另设 `IM_RPC_ADDR`（例如 `127.0.0.1:9002`）并启动 IM RPC，确保用户 RPC 已启动，再执行：
+Gateway 提供创建、列表和状态更新 HTTP 入口；JSON 契约见 [API 文档](../../api/README.md)。Gateway 创建与列表入口已接通截止时间，页面尚未接入。首次初始化的数据库使用 `deploy/mysql/init.sql`；已有 `go_im` 数据库须依次执行 `deploy/mysql/migrations/006_tasks.sql`、`007_task_operations.sql`、`008_task_source.sql` 和 `009_task_due_at.sql`，更新 Task RPC 前再执行一次 `027_task_status_notifications.sql`，否则状态变化会因通知表缺失而回滚。本机启动前设置 `TASK_MYSQL_DSN`（指向 `go_im`）、`USER_RPC_ADDR`（例如 `127.0.0.1:9001`）；使用来源消息时另设 `IM_RPC_ADDR`（例如 `127.0.0.1:9002`）并启动 IM RPC，确保用户 RPC 已启动，再执行：
 
 ```powershell
 go run ./rpc/task -f rpc/task/etc/task.yaml

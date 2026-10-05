@@ -424,3 +424,5 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 ## 32. 阶段7任务变更通知设计起步（2026-10-05）
 
 主 agent 从干净 main `27aec67` 建立 `codex/stage7-notification-design`。先审查既有 Task 状态事务、操作记录与 IM Push 边界，更新[项目进度](project-plan.md)和[选型记录](architecture-decisions.md) A65；当时不让执行 agent 在通知归属未确定前改业务代码。用户已选择个人通知给任务创建者和负责人，随后在 A/B 归属说明后要求继续，按推荐 A66 由 Task 服务持有。主 agent 统一准备[共同契约](stage7-task-notification-contract.md)、027/init 和决策文件；本批只让 Task 状态更新同事务保存通知依据，执行 worktree 只允许改 `rpc/task/status.go`、`rpc/task/status_test.go`。其他 worktree 保留干净，不自行合并 main、推送或部署。
+
+共同提交 `8f50616` 后，执行 worktree `D:/zy/GoLang/go-im/.worktrees/assignee-backend` 在 `codex/stage7-task-notification-write` 只改两份允许文件。执行子 agent 在文件写完后未返回报告，主 agent 停止其后续编辑并接手自查、定向测试，保存 `f7c7822`，再无冲突合入本批分支 `8fcbf0f`。Task 定向和合并后的全仓 Go 测试均通过；SQL 使用替身，真实迁移、MySQL、容器未验收。其余两个旧 worktree 保留；本批尚未合入 main、推送或执行 027，真实 MySQL/容器验收留最终统一进行。
