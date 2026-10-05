@@ -3,11 +3,12 @@
   const field = id => document.getElementById(id);
   const cards = new Map();
   let renderedRun = '', displayedRun = '', localMessage = '';
+  let reviewEpoch = 0;
   const readScope = () => { try { return taskDraftScope(); } catch (_) { return null; } };
   const equalScope = (a, b) => a === b || !!a && !!b && a.token === b.token && a.teamID === b.teamID && a.groupID === b.groupID;
   let lastScope = readScope();
   const page = new globalThis.MultiDraftController({ fetch: (...args) => fetch(...args), getScope: taskDraftScope,
-    isScopeCurrent: sameTaskDraftScope, onChange: () => render() });
+    isScopeCurrent: sameTaskDraftScope, onChange: () => { reviewEpoch++; render(); } });
   globalThis.multiDraftPage = page;
 
   function safeMessage(message, scope = page.scope) {
@@ -247,12 +248,30 @@
       page.invalidate();
     } else render();
   };
+  // A trigger-status read may only enter this panel if no intervening review
+  // action changed it. The existing controller remains the sole draft state.
+  globalThis.captureMultiDraftReviewState = () => {
+    const epoch = reviewEpoch, scope = readScope();
+    const fields = ['multiDraftRunID', 'multiDraftInstruction', 'multiDraftRequestKey'].map(id => field(id).value);
+    return () => reviewEpoch === epoch && equalScope(readScope(), scope) &&
+      fields.every((value, index) => field(['multiDraftRunID', 'multiDraftInstruction', 'multiDraftRequestKey'][index]).value === value);
+  };
+  globalThis.loadMultiDraftForTrigger = async (runID, scope, stillCurrent) => {
+    if (!validID(runID) || !equalScope(readScope(), scope) || typeof stillCurrent !== 'function' || !stillCurrent()) throw new Error('Trigger context changed; view the current source again.');
+    globalThis.invalidateMultiDraftPage();
+    if (page.busy) throw new Error('Finish the current review operation before loading another source.');
+    if (page.runID !== runID && page.items.some(item => page.dirty(item.item_index))) throw new Error('Save the current collection changes before loading another source.');
+    localMessage = '';
+    try { await page.load(runID); }
+    finally { if (equalScope(readScope(), scope)) render(); }
+  };
   field('btnMultiPrepare').onclick = () => run('prepare', field('multiDraftInstruction').value);
   field('btnMultiLoad').onclick = () => run('load', field('multiDraftRunID').value.trim());
   field('btnMultiNewKey').onclick = () => run('newRequestKey');
   field('btnMultiMembers').onclick = () => run('loadMembers', false);
   field('btnMultiMoreMembers').onclick = () => run('loadMembers', true);
-  field('multiDraftRunID').oninput = () => render();
-  field('multiDraftRequestKey').oninput = () => { if (!page.busy) { page.requestKey = field('multiDraftRequestKey').value; render(); } };
+  field('multiDraftRunID').oninput = () => { reviewEpoch++; render(); };
+  field('multiDraftInstruction').oninput = () => { reviewEpoch++; };
+  field('multiDraftRequestKey').oninput = () => { reviewEpoch++; if (!page.busy) { page.requestKey = field('multiDraftRequestKey').value; render(); } };
   render();
 })();
