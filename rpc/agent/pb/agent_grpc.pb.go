@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.31.0
-// source: rpc/agent/agent.proto
+// source: agent.proto
 
 package pb
 
@@ -36,6 +36,7 @@ const (
 	Agent_ConfirmTaskDraftItem_FullMethodName        = "/agent.Agent/ConfirmTaskDraftItem"
 	Agent_SkipTaskDraftItem_FullMethodName           = "/agent.Agent/SkipTaskDraftItem"
 	Agent_RetryTaskReplyItem_FullMethodName          = "/agent.Agent/RetryTaskReplyItem"
+	Agent_GetTaskTriggerStatus_FullMethodName        = "/agent.Agent/GetTaskTriggerStatus"
 )
 
 // AgentClient is the client API for Agent service.
@@ -76,6 +77,8 @@ type AgentClient interface {
 	SkipTaskDraftItem(ctx context.Context, in *SkipTaskDraftItemRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
 	// 本人显式重试指定成功项的固定回帖；不重建任务、不接受新正文。
 	RetryTaskReplyItem(ctx context.Context, in *GetTaskDraftItemRequest, opts ...grpc.CallOption) (*GetTaskDraftItemResponse, error)
+	// 仅原指令发起人可按已保存消息ID读取后台处理状态；每次重新核对当前团队群资格。
+	GetTaskTriggerStatus(ctx context.Context, in *GetTaskTriggerStatusRequest, opts ...grpc.CallOption) (*GetTaskTriggerStatusResponse, error)
 }
 
 type agentClient struct {
@@ -256,6 +259,16 @@ func (c *agentClient) RetryTaskReplyItem(ctx context.Context, in *GetTaskDraftIt
 	return out, nil
 }
 
+func (c *agentClient) GetTaskTriggerStatus(ctx context.Context, in *GetTaskTriggerStatusRequest, opts ...grpc.CallOption) (*GetTaskTriggerStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskTriggerStatusResponse)
+	err := c.cc.Invoke(ctx, Agent_GetTaskTriggerStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility.
@@ -294,6 +307,8 @@ type AgentServer interface {
 	SkipTaskDraftItem(context.Context, *SkipTaskDraftItemRequest) (*GetTaskDraftItemResponse, error)
 	// 本人显式重试指定成功项的固定回帖；不重建任务、不接受新正文。
 	RetryTaskReplyItem(context.Context, *GetTaskDraftItemRequest) (*GetTaskDraftItemResponse, error)
+	// 仅原指令发起人可按已保存消息ID读取后台处理状态；每次重新核对当前团队群资格。
+	GetTaskTriggerStatus(context.Context, *GetTaskTriggerStatusRequest) (*GetTaskTriggerStatusResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -354,6 +369,9 @@ func (UnimplementedAgentServer) SkipTaskDraftItem(context.Context, *SkipTaskDraf
 }
 func (UnimplementedAgentServer) RetryTaskReplyItem(context.Context, *GetTaskDraftItemRequest) (*GetTaskDraftItemResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RetryTaskReplyItem not implemented")
+}
+func (UnimplementedAgentServer) GetTaskTriggerStatus(context.Context, *GetTaskTriggerStatusRequest) (*GetTaskTriggerStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTaskTriggerStatus not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 func (UnimplementedAgentServer) testEmbeddedByValue()               {}
@@ -682,6 +700,24 @@ func _Agent_RetryTaskReplyItem_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_GetTaskTriggerStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTaskTriggerStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).GetTaskTriggerStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_GetTaskTriggerStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).GetTaskTriggerStatus(ctx, req.(*GetTaskTriggerStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -757,7 +793,11 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "RetryTaskReplyItem",
 			Handler:    _Agent_RetryTaskReplyItem_Handler,
 		},
+		{
+			MethodName: "GetTaskTriggerStatus",
+			Handler:    _Agent_GetTaskTriggerStatus_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "rpc/agent/agent.proto",
+	Metadata: "agent.proto",
 }

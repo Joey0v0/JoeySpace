@@ -39,6 +39,22 @@ service Agent {
   rpc SkipTaskDraftItem(SkipTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
   // 本人显式重试指定成功项的固定回帖；不重建任务、不接受新正文。
   rpc RetryTaskReplyItem(GetTaskDraftItemRequest) returns (GetTaskDraftItemResponse);
+  // 仅原指令发起人可按已保存消息ID读取后台处理状态；每次重新核对当前团队群资格。
+  rpc GetTaskTriggerStatus(GetTaskTriggerStatusRequest) returns (GetTaskTriggerStatusResponse);
+}
+
+message GetTaskTriggerStatusRequest {
+  int64 message_id = 1;
+}
+
+message GetTaskTriggerStatusResponse {
+  int64 message_id = 1;
+  int64 team_id = 2;
+  int64 group_id = 3;
+  // queued / running / exhausted / completed；不返回内部租约、失败次数或模型错误。
+  string status = 4;
+  // 仅 completed 时为正整数；其他状态为 0。
+  int64 run_id = 5;
 }
 
 message SkipTaskDraftItemRequest {
