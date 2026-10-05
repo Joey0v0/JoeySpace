@@ -426,3 +426,15 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 主 agent 从干净 main `27aec67` 建立 `codex/stage7-notification-design`。先审查既有 Task 状态事务、操作记录与 IM Push 边界，更新[项目进度](project-plan.md)和[选型记录](architecture-decisions.md) A65；当时不让执行 agent 在通知归属未确定前改业务代码。用户已选择个人通知给任务创建者和负责人，随后在 A/B 归属说明后要求继续，按推荐 A66 由 Task 服务持有。主 agent 统一准备[共同契约](stage7-task-notification-contract.md)、027/init 和决策文件；本批只让 Task 状态更新同事务保存通知依据，执行 worktree 只允许改 `rpc/task/status.go`、`rpc/task/status_test.go`。其他 worktree 保留干净，不自行合并 main、推送或部署。
 
 共同提交 `8f50616` 后，执行 worktree `D:/zy/GoLang/go-im/.worktrees/assignee-backend` 在 `codex/stage7-task-notification-write` 只改两份允许文件。执行子 agent 在文件写完后未返回报告，主 agent 停止其后续编辑并接手自查、定向测试，保存 `f7c7822`，再无冲突合入本批分支 `8fcbf0f`。Task 定向和合并后的全仓 Go 测试均通过；SQL 使用替身，真实迁移、MySQL、容器未验收。其余两个旧 worktree 保留；本批尚未合入 main、推送或执行 027，真实 MySQL/容器验收留最终统一进行。
+
+## 33. 个人任务通知只读查询批次（2026-10-05）
+
+用户继续后上批快进合入本地 main `8aa25a2`，未推送。用户明确选择 A67：当前团队成员且为原接收人方可读取，离队拒绝、重入后原记录可见。主 agent 从干净 main 建 `codex/stage7-notification-read`，负责[共同契约](stage7-notification-read-contract.md)、Task proto/生成代码、Gateway 路由、决策/计划、集中测试和 Git 整合；本批不改通知写入或迁移、不做已读/实时/页面。
+
+| 执行项 | 绝对目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| Task 本人查询 | D:/zy/GoLang/go-im/.worktrees/assignee-backend | codex/stage7-notification-rpc | 新 rpc/task/notification_list.go、notification_list_test.go |
+| Gateway 只读转发 | D:/zy/GoLang/go-im/.worktrees/assignee-gateway | codex/stage7-notification-gateway | 新 api/task_notifications.go、task_notifications_test.go |
+| 主 agent | D:/zy/GoLang/go-im | codex/stage7-notification-read | proto/生成、路由/共同文档、审查/合并/集中验证 |
+
+两个执行 worktree 从同一可编译共同提交建立分支，不修改彼此文件，不自行合 main/推送/部署。第三个 worktree 继续保留，页面在 API 验证后另行推进。最多九小步按整个批次计算，真实权限/数据库/浏览器联调仍待最终统一验收。

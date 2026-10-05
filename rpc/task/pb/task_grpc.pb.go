@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Task_CreateTask_FullMethodName    = "/task.Task/CreateTask"
-	Task_ListTeamTasks_FullMethodName = "/task.Task/ListTeamTasks"
-	Task_SetTaskStatus_FullMethodName = "/task.Task/SetTaskStatus"
+	Task_CreateTask_FullMethodName            = "/task.Task/CreateTask"
+	Task_ListTeamTasks_FullMethodName         = "/task.Task/ListTeamTasks"
+	Task_SetTaskStatus_FullMethodName         = "/task.Task/SetTaskStatus"
+	Task_ListTaskNotifications_FullMethodName = "/task.Task/ListTaskNotifications"
 )
 
 // TaskClient is the client API for Task service.
@@ -34,6 +35,8 @@ type TaskClient interface {
 	ListTeamTasks(ctx context.Context, in *ListTeamTasksRequest, opts ...grpc.CallOption) (*ListTeamTasksResponse, error)
 	// authorization 经 gRPC metadata 传入；仅创建者、负责人或团队拥有者可改状态。
 	SetTaskStatus(ctx context.Context, in *SetTaskStatusRequest, opts ...grpc.CallOption) (*SetTaskStatusResponse, error)
+	// authorization 经 gRPC metadata 传入；只列当前团队中自己的通知。
+	ListTaskNotifications(ctx context.Context, in *ListTaskNotificationsRequest, opts ...grpc.CallOption) (*ListTaskNotificationsResponse, error)
 }
 
 type taskClient struct {
@@ -74,6 +77,16 @@ func (c *taskClient) SetTaskStatus(ctx context.Context, in *SetTaskStatusRequest
 	return out, nil
 }
 
+func (c *taskClient) ListTaskNotifications(ctx context.Context, in *ListTaskNotificationsRequest, opts ...grpc.CallOption) (*ListTaskNotificationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTaskNotificationsResponse)
+	err := c.cc.Invoke(ctx, Task_ListTaskNotifications_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TaskServer is the server API for Task service.
 // All implementations must embed UnimplementedTaskServer
 // for forward compatibility.
@@ -84,6 +97,8 @@ type TaskServer interface {
 	ListTeamTasks(context.Context, *ListTeamTasksRequest) (*ListTeamTasksResponse, error)
 	// authorization 经 gRPC metadata 传入；仅创建者、负责人或团队拥有者可改状态。
 	SetTaskStatus(context.Context, *SetTaskStatusRequest) (*SetTaskStatusResponse, error)
+	// authorization 经 gRPC metadata 传入；只列当前团队中自己的通知。
+	ListTaskNotifications(context.Context, *ListTaskNotificationsRequest) (*ListTaskNotificationsResponse, error)
 	mustEmbedUnimplementedTaskServer()
 }
 
@@ -102,6 +117,9 @@ func (UnimplementedTaskServer) ListTeamTasks(context.Context, *ListTeamTasksRequ
 }
 func (UnimplementedTaskServer) SetTaskStatus(context.Context, *SetTaskStatusRequest) (*SetTaskStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetTaskStatus not implemented")
+}
+func (UnimplementedTaskServer) ListTaskNotifications(context.Context, *ListTaskNotificationsRequest) (*ListTaskNotificationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListTaskNotifications not implemented")
 }
 func (UnimplementedTaskServer) mustEmbedUnimplementedTaskServer() {}
 func (UnimplementedTaskServer) testEmbeddedByValue()              {}
@@ -178,6 +196,24 @@ func _Task_SetTaskStatus_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Task_ListTaskNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTaskNotificationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskServer).ListTaskNotifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Task_ListTaskNotifications_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskServer).ListTaskNotifications(ctx, req.(*ListTaskNotificationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Task_ServiceDesc is the grpc.ServiceDesc for Task service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -196,6 +232,10 @@ var Task_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetTaskStatus",
 			Handler:    _Task_SetTaskStatus_Handler,
+		},
+		{
+			MethodName: "ListTaskNotifications",
+			Handler:    _Task_ListTaskNotifications_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

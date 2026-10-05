@@ -464,7 +464,7 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 - [x] 阶段6后台恢复本地组合验证（2026-10-05）：生产Publisher/Consumer/Inbox/本人RPC组合验证completed通知重复与ACK失败仍指向原两项草稿；真实Worker/InboxStore组合验证重建、过期租约、模型预算和旧持有者隔离；生产Worker/Processor与本机mTLS来源/状态RPC组合验证首次读取前或模型期间离群后不保存草稿，并由持久退避和当前资格拦住读回。SQL/Kafka/IM/User/模型仍有替身，没有实际杀进程或连接真实数据库；三组新增测试重复5次、全仓Go通过。[契约](trigger-recovery-contract.md)、[全部文件和边界](trigger-recovery-review.md)。
 - [x] 阶段7任务通知持久化第一步（2026-10-05）：A65/A66 选个人通知、由 Task 持有；027/init 新增 `(operation_id, recipient_id)` 唯一记录，Task 状态真实变化时与操作记录同事务写创建者和当前负责人，重复状态无记录，重复接收人只一条，通知写失败整笔回滚。定向 Task 与全仓 Go 测试通过，使用 SQL 替身；尚无通知查询、已读或实时推送，不标通知已送达，真实迁移/数据库/容器未验收。[本步契约](stage7-task-notification-contract.md)。
 
-当前下一步（2026-10-05）：阶段7为 Task 持久通知增加本人只读查询，先定义按通知 ID 分页、当前团队资格和本人隔离规则，再接 Gateway/页面；已读与实时提醒后续分步。第一步仍位于 `codex/stage7-notification-design`，未合 main/推送，027 未执行。真实环境统一验收仍按[阶段6运行验收准备](stage6-runtime-acceptance.md)及各阶段清单执行；方舟接入点/预算未定前不请求真实模型。
+当前下一步（2026-10-05）：上一批通知持久化已合入本地 main `8aa25a2`，未推送。阶段7本批在 `codex/stage7-notification-read` 增加 Task 通知本人只读查询和 Gateway 转发，页面、已读与实时提醒后续分步。用户已选离队立即拒绝，重入后原记录可见；取舍见[架构记录](architecture-decisions.md) A67，[本批契约](stage7-notification-read-contract.md)定义范围和分页。027 仍未执行，真实环境统一验收按[阶段6运行验收准备](stage6-runtime-acceptance.md)及各阶段清单执行；方舟接入点/预算未定前不请求真实模型。
 
 ## 10. 决策记录与文档关系
 

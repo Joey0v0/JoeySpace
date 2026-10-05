@@ -11,6 +11,8 @@ service Task {
   rpc ListTeamTasks(ListTeamTasksRequest) returns (ListTeamTasksResponse);
   // authorization 经 gRPC metadata 传入；仅创建者、负责人或团队拥有者可改状态。
   rpc SetTaskStatus(SetTaskStatusRequest) returns (SetTaskStatusResponse);
+  // authorization 经 gRPC metadata 传入；只列当前团队中自己的通知。
+  rpc ListTaskNotifications(ListTaskNotificationsRequest) returns (ListTaskNotificationsResponse);
 }
 
 message CreateTaskRequest {
@@ -57,3 +59,23 @@ message SetTaskStatusRequest {
 }
 
 message SetTaskStatusResponse {}
+
+message ListTaskNotificationsRequest {
+  int64 team_id = 1;
+  int64 before_notification_id = 2; // 0 表示最新一页。
+  int32 limit = 3; // 0 使用默认 20，最大 100。
+}
+
+message TaskNotificationItem {
+  int64 notification_id = 1;
+  int64 task_id = 2;
+  int64 actor_id = 3;
+  int32 from_status = 4;
+  int32 to_status = 5;
+  int64 created_at_unix_ms = 6; // UTC Unix 毫秒。
+}
+
+message ListTaskNotificationsResponse {
+  repeated TaskNotificationItem notifications = 1;
+  int64 next_before_notification_id = 2; // 0 表示没有下一页。
+}
