@@ -452,3 +452,7 @@ main保持a44920c，本轮供主聊天审查；三个worktree保留，不push/�
 用户继续后通知页面已快进合入本地main `89e2a1e`，未推送。A68关键规则先讨论，用户明确选择本人逐条点击；主agent在 `codex/stage7-notification-read-state` 统一[共同接口/权限/重试契约](stage7-notification-read-state-contract.md)、028/init、proto/生成和文档。三个保留worktree同一起点新建Task、Gateway、页面分支，绝对路径/逐文件范围见契约；主agent集中测试/Git整合。整批最多八小步，执行agent不改共同文件、不测试/build/提交/合main/push/部署。
 
 实际交付：共同提交 `90789f3`；主agent定向测试并保存Task `43ebe59`、Gateway `7af2ad1`、页面 `ab9f113`，无冲突合入本批整合分支。主agent接入PUT路由、补既有HTTP/TCP列表对已读字段的验证，并审查README/迁移依赖。通知页面55项定向、全部259项Node以及全仓Go通过；[八步、全部26文件与未验证部分](stage7-notification-read-state-contract.md#本批实现与审查)。三个执行worktree干净保留，main仍 `89e2a1e`；未合main、推送、执行028、部署或调用真实模型。生成的两份Task文件由主agent按proto重新生成并保留，执行agent没有删除或修改它们。
+
+## 36. A69 Task通知事件存储与发布批次（2026-10-05）
+
+用户选A69持久事件/Kafka/WS和A70专用mTLS，主agent从39c5493创建codex/stage7-notification-outbox，保留上轮候选文档后转为已确认状态；main仍89e2a1e。本批最多八步，仅Task事件/事务/store/publisher及进程接线，不提前实现Push/WS/TLS/页面。[精确接口、三个绝对worktree目录及允许文件](stage7-notification-outbox-contract.md)。主agent负责共同model/contract、029/init、进程/runtime、文档与Git/集中测试；子agent仅允许文件编辑和格式/差异检查，不自行测试/build/提交/合main/push/部署。
