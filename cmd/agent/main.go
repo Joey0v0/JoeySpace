@@ -61,6 +61,7 @@ func runAgent(c zrpc.RpcServerConf) error {
 		return err
 	}
 	defer closeClients()
+	impl.ConfigureTaskTriggerStatus(triggerSource, agent.NewTriggerInboxStore(db))
 	inbox, err := newAgentTriggerInbox(triggerConfig, db, nil)
 	if err != nil {
 		return err

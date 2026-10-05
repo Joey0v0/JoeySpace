@@ -22,11 +22,12 @@ type Answerer interface {
 
 type Server struct {
 	pb.UnimplementedAgentServer
-	answerer    Answerer
-	draftReader *draftAccessReader
-	preparer    *draftPreparer
-	confirmer   *draftConfirmer
-	replier     *draftReplier
+	answerer      Answerer
+	draftReader   *draftAccessReader
+	preparer      *draftPreparer
+	confirmer     *draftConfirmer
+	replier       *draftReplier
+	triggerStatus *taskTriggerStatusReader
 }
 
 func NewServer(answerer Answerer) *Server {
