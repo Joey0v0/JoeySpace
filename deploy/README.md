@@ -1,5 +1,7 @@
 # Docker Compose 部署配置基线
 
+阶段7Task通知事件发布第一批（2026-10-05）：新Task在状态变化事务内同时写通知与Outbox，升级前须先027、028、029，029不回填旧通知；关闭发布也必须029。首次初始化已包含新表，现有数据卷不会因改init自动迁移。发布开关 `TASK_NOTIFICATION_PUBLISH_ENABLED` 默认false；显式启用需Task进程的 `TASK_NOTIFICATION_KAFKA_BROKERS` 和独立 `TASK_NOTIFICATION_TOPIC`，容器网络broker为kafka:19092。私有聊天/Agent Topic改名时，同时传 `TASK_NOTIFICATION_CHAT_TOPIC`/`TASK_NOTIFICATION_AGENT_TOPIC` 做隔离校验。基础Compose本批未注入发布配置，最终通过私有覆盖或下一批完整部署覆盖注入；未配置不能宣称已发布。新TLS/Push/WS接线尚未实施，不自动开启实时提醒；published只表示Kafka确认。029尚未执行，真实Kafka/MySQL、证书、容器与云端仍待验收。[Task契约和审查](../docs/stage7-notification-outbox-contract.md)。
+
 2026-09-20 根据用户提供的云端 Compose、Dockerfile 和服务配置同步，并在本地补入阶段 1 的 API Gateway 与用户 RPC 容器配置。阶段 3 又补入 IM RPC 的容器接线；阶段 4 增加 Task RPC；阶段 5 准备 Agent RPC 的可选容器配置。这里只表示本地配置和程序构建检查，未连接云服务器、未重新部署、未完成真实数据库或模型联调。
 
 2026-09-25 用户决定先完成本地开发与自动化测试，项目整体完成后统一同步云端；以下联调顺序留待届时执行。

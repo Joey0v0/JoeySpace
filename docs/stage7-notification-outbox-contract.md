@@ -28,3 +28,54 @@ SetTaskStatus真实变化时原事务依次写状态/操作，每个去重接收
 | root | D:/zy/GoLang/go-im / codex/stage7-notification-outbox | 共同model/contract、029/init、进程runtime/main、文档、必要组合验证/兼容夹具、Git/集中测试 |
 
 共同提交后再分支。子agent只编辑允许文件和gofmt/diff检查，不测试/build/提交/合main/push/部署，不调用真实数据库/Kafka/模型。缺接口先向root确认，不能擅改共同文件。集中使用SQL/Kafka替身、全Go回归；如无JS改动不重复既有259项Node。真实SQL行锁/事务、Kafka ACK、进程信号及容器上线仍待统一验收。本批不实现Push消费、TLS入口、WS权限或页面提醒。
+
+## 本批实现与审查
+
+共同d757f80、存储791f808、发布76e8f89、协议验证7caaab6由root保存并无冲突合入codex/stage7-notification-outbox；执行agent没有自行提交或合main。main仍89e2a1e，本批差异基线39c5493，root最终修订保存在整合分支。
+
+| 步骤 | 实际改动、目的及结果 |
+| --- | --- |
+| 1. 共同契约 | 用户选A69/A70，固定最小事件、通知ID、独立表、029/init与三分支边界；事件不当权限 |
+| 2. 事务写入 | 每条去重通知取得正自增ID后立即写Outbox；任一步失败回滚原状态/操作，相同状态无新事件 |
+| 3. 存储适配 | 有界升序整批校验；短SQL事务锁原事实，只在未发时写首次数据库发布时间，重放不UPDATE |
+| 4. 发布器 | 固定key/payload，整批合法才发，同步ACK后标记；失败本轮停止，间隔再试，允许重复 |
+| 5. 协议验证 | 字符串大ID、版本/type、最小字段及init029一致/无历史回填，7个测试函数通过 |
+| 6. 进程接线 | 默认关闭、启用检查独立Topic/broker，生产RequireAll同步writer，停机取消/等待/再关闭 |
+| 7. 集中验证 | 真实Task状态→GORMstore→发布器故障重建组合配SQL/Kafka替身；首次取消测试清理早于异步回滚，root只修测试等待，10次及最终全仓Go通过 |
+| 8. 部署与审查 | 标明029关闭发布也必须迁移、私有Topic匹配及已发布/收到/已读区别；23个文件如下 |
+
+调用链：Gateway既有状态PUT → Task原权限检查 → 同一SQL事务写状态/操作/通知/待发事件 → RPC返回；后台读取Task待发记录 → 同步Kafka ACK → Task短SQL事务核对固定事实并标记首次发布时间。Kafka之后的Push/WS/页面尚未接通，不能将其画为已完成。
+
+新增34个测试函数：事务/store14、发布器7、协议/迁移7、配置/生命周期5、组合1，含子场景。root定向验证及最终 `go test ./... -count=1` 全仓通过，新store超时回滚测试重复10次通过。无JS改动，不重复上一批259项Node；无新依赖，临时Go缓存、构建包并行度1。
+
+状态入口的实际本机TCP gRPC测试已随全仓回归验证新事务接线。组合用生产状态处理器/GORMstore/发布器，但SQL/Kafka/User仍是替身；取消测试等待database/sql异步回滚被观察到，没有删除回滚断言或改生产逻辑。没有实际杀进程、连接真实数据库/broker或执行029；真实时间/事务隔离/并发行锁、Kafka ACK、进程信号、浏览器/容器/云部署待验收。A70已确认但新TLS入口、Push消费、WS权限及页面提醒未实施；默认不开新发布器，published不代表浏览器已收到。
+
+### 全部实际修改文件
+
+相对39c5493共23个文件，无proto/生成代码、依赖、聊天页面或旧Push/WS修改。
+
+| 文件 | 用途 |
+| --- | --- |
+| [deploy/README.md](D:/zy/GoLang/go-im/deploy/README.md) | 029及启用/升级边界 |
+| [deploy/mysql/init.sql](D:/zy/GoLang/go-im/deploy/mysql/init.sql) | 新库Outbox |
+| [deploy/mysql/migrations/029_task_notification_outbox.sql](D:/zy/GoLang/go-im/deploy/mysql/migrations/029_task_notification_outbox.sql) | 旧库新表，不回填历史 |
+| [docs/architecture-decisions.md](D:/zy/GoLang/go-im/docs/architecture-decisions.md) | A69/A70选择与实施取舍 |
+| [docs/project-plan.md](D:/zy/GoLang/go-im/docs/project-plan.md) | 本地成果及下一步 |
+| [docs/stage7-notification-outbox-contract.md](D:/zy/GoLang/go-im/docs/stage7-notification-outbox-contract.md) | 共同契约/八步审查 |
+| [docs/stage7-notification-realtime-design.md](D:/zy/GoLang/go-im/docs/stage7-notification-realtime-design.md) | 已确认方向及备选 |
+| [docs/worktree-collaboration-plan.md](D:/zy/GoLang/go-im/docs/worktree-collaboration-plan.md) | 三分支交付/整合 |
+| [internal/model/task_notification_event.go](D:/zy/GoLang/go-im/internal/model/task_notification_event.go) | 最小事件及稳定key |
+| [internal/model/task_notification_event_test.go](D:/zy/GoLang/go-im/internal/model/task_notification_event_test.go) | 字段/大ID/非法版本 |
+| [rpc/task/README.md](D:/zy/GoLang/go-im/rpc/task/README.md) | 事务、开关、部署说明 |
+| [rpc/task/main.go](D:/zy/GoLang/go-im/rpc/task/main.go) | 运行/停机接线 |
+| [rpc/task/notification_outbox_contract.go](D:/zy/GoLang/go-im/rpc/task/notification_outbox_contract.go) | Task行和store/writer接口 |
+| [rpc/task/notification_outbox_schema_test.go](D:/zy/GoLang/go-im/rpc/task/notification_outbox_schema_test.go) | 初始化/迁移与行契约 |
+| [rpc/task/notification_outbox_store.go](D:/zy/GoLang/go-im/rpc/task/notification_outbox_store.go) | GORM读取及原事实确认 |
+| [rpc/task/notification_outbox_store_test.go](D:/zy/GoLang/go-im/rpc/task/notification_outbox_store_test.go) | 读取/重试/回滚；root修时序 |
+| [rpc/task/notification_publisher.go](D:/zy/GoLang/go-im/rpc/task/notification_publisher.go) | 有界后台同步发布 |
+| [rpc/task/notification_publisher_test.go](D:/zy/GoLang/go-im/rpc/task/notification_publisher_test.go) | ACK/确认失败、预检与取消 |
+| [rpc/task/notification_publication_flow_test.go](D:/zy/GoLang/go-im/rpc/task/notification_publication_flow_test.go) | 生产组合故障重建验证 |
+| [rpc/task/notification_runtime.go](D:/zy/GoLang/go-im/rpc/task/notification_runtime.go) | 开关、Topic与资源生命周期 |
+| [rpc/task/notification_runtime_test.go](D:/zy/GoLang/go-im/rpc/task/notification_runtime_test.go) | 配置/等待/关闭验证 |
+| [rpc/task/status.go](D:/zy/GoLang/go-im/rpc/task/status.go) | 同事务创建Outbox |
+| [rpc/task/status_test.go](D:/zy/GoLang/go-im/rpc/task/status_test.go) | 旧夹具升级及事件失败回滚 |

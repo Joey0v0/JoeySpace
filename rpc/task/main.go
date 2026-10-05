@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"log"
@@ -14,7 +15,9 @@ import (
 	"github.com/yjydist/go-im/rpc/task/pb"
 	userpb "github.com/yjydist/go-im/rpc/user/pb"
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/proc"
 	"github.com/zeromicro/go-zero/zrpc"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/driver/mysql"
@@ -27,6 +30,10 @@ func main() {
 	flag.Parse()
 	var c zrpc.RpcServerConf
 	conf.MustLoad(*configFile, &c)
+	publishConfig, err := loadTaskNotificationPublishConfig(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
+	}
 	dsn, userAddr := os.Getenv("TASK_MYSQL_DSN"), os.Getenv("USER_RPC_ADDR")
 	if dsn == "" || userAddr == "" {
 		log.Fatal("TASK_MYSQL_DSN and USER_RPC_ADDR are required")
@@ -67,6 +74,23 @@ func main() {
 		pb.RegisterTaskServer(server, impl)
 	})
 	defer s.Stop()
+	publishLogger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatal("cannot prepare task notification logger")
+	}
+	defer publishLogger.Sync()
+	publishing, err := newTaskNotificationRuntime(db, publishConfig, publishLogger, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	stopPublisher := startTaskNotificationPublisher(context.Background(), publishing)
+	stopPublishing := func() {
+		if err := stopPublisher(); err != nil {
+			log.Print(err)
+		}
+	}
+	defer stopPublishing()
+	proc.AddShutdownListener(stopPublishing)
 	s.Start()
 }
 

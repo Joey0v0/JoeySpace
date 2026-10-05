@@ -1,4 +1,4 @@
-# 阶段7：任务通知实时提醒候选方案
+# 阶段7：任务通知实时提醒方案与取舍
 
 日期：2026-10-05。状态：用户明确选择A69-A持久事件/Kafka/WebSocket和A70-A专用双向TLS；本方案方向已确认，第一批接口及范围见[Task存储与发布契约](stage7-notification-outbox-contract.md)。基线为已读整合提交39c5493；main仍89e2a1e。本人通知写入、查询及显式已读已经通过本地自动化测试，真实部署仍待统一验收。
 
@@ -42,8 +42,10 @@
 
 后续批次再接Push消费、受鉴别WS提醒、当前连接权限检查、原生页面提示与组合回归。每批最多九小步，每步开始前说明目标和文件；异常通知隔离/停止策略、离线/撤权的消费确认规则、保留/清理策略等需要变更业务或可靠性语义时另行讨论，不把本推荐扩大成未授权的自动重试/补发保证。
 
-## 本轮实际修改与验证
+## 选型讨论轮记录（确认前）
 
-本轮只核对Task事务、Push/WS聊天路径、现有Outbox发布模式与连接Token，再准备方案；没有启动子agent实现、修改业务代码、新增迁移、合main、推送或部署。所检查的现有代码定位：rpc/task/status.go、internal/push/pusher.go、internal/push/agent_trigger_publisher.go、internal/ws/server.go、internal/ws/client.go、cmd/ws/main.go。
+确认前一轮只核对Task事务、Push/WS聊天路径、现有Outbox发布模式与连接Token，再准备方案；当时没有启动子agent实现、修改业务代码、新增迁移、合main、推送或部署。所检查的现有代码定位：rpc/task/status.go、internal/push/pusher.go、internal/push/agent_trigger_publisher.go、internal/ws/server.go、internal/ws/client.go、cmd/ws/main.go。
 
 实际修改三个文件：[本候选方案](D:/zy/GoLang/go-im/docs/stage7-notification-realtime-design.md)、[架构选型记录A69/A70](D:/zy/GoLang/go-im/docs/architecture-decisions.md)、[项目计划](D:/zy/GoLang/go-im/docs/project-plan.md)。仅文档变更，不重复运行上一批已经通过的Go/Node测试；差异格式检查不等于新实时能力通过验收。
+
+用户选择两项A后已实现Task事件/存储/发布第一批并完成本地回归，实际文件与验证见[本批审查](stage7-notification-outbox-contract.md#本批实现与审查)。完整Push/WS/mTLS/页面链仍待后续，不将旧讨论轮的“仅文档”当本批状态。

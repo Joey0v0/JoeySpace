@@ -260,6 +260,20 @@ func TestNotificationOutboxStoreReadAndLockedConfirmationDeadlines(t *testing.T)
 			if err := store.MarkPublished(ctx, row); !errors.Is(err, context.DeadlineExceeded) {
 				t.Fatalf("locked confirmation deadline=%v", err)
 			}
+			// database/sql may finish its cancellation rollback on another goroutine.
+			// Wait for that observed rollback, rather than racing test cleanup.
+			deadline := time.NewTimer(time.Second)
+			ticks := time.NewTicker(time.Millisecond)
+			for mock.ExpectationsWereMet() != nil {
+				select {
+				case <-ticks.C:
+				case <-deadline.C:
+					ticks.Stop()
+					t.Fatal("cancellation rollback was not observed")
+				}
+			}
+			deadline.Stop()
+			ticks.Stop()
 		}
 	}
 }
