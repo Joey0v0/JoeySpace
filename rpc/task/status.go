@@ -54,12 +54,31 @@ func (s *taskServer) SetTaskStatus(ctx context.Context, req *pb.SetTaskStatusReq
 			return err
 		}
 		operation := struct {
+			ID         int64
 			TaskID     int64
 			ActorID    int64
 			FromStatus int8
 			ToStatus   int8
-		}{req.GetTaskId(), actorID, task.Status, newStatus}
-		return tx.Table("task_operations").Create(&operation).Error
+		}{TaskID: req.GetTaskId(), ActorID: actorID, FromStatus: task.Status, ToStatus: newStatus}
+		if err := tx.Table("task_operations").Create(&operation).Error; err != nil {
+			return err
+		}
+		recipients := []int64{task.CreatorID}
+		if task.AssigneeID != nil && *task.AssigneeID != task.CreatorID {
+			recipients = append(recipients, *task.AssigneeID)
+		}
+		for _, recipientID := range recipients {
+			notification := struct {
+				OperationID int64
+				TeamID      int64
+				TaskID      int64
+				RecipientID int64
+			}{operation.ID, req.GetTeamId(), req.GetTaskId(), recipientID}
+			if err := tx.Table("task_status_notifications").Create(&notification).Error; err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
