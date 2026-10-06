@@ -525,3 +525,7 @@ root审查验证保存A67a5960/Be7a9aba/C2fdb86f，无冲突整合838549e。root
 ## 48. 阶段7普通群读取代际保护协作（2026-10-06）
 
 root从8d2e672建codex/stage7-team-group-read-guard，先发布[共同1654cb2与三个精确执行范围](stage7-team-group-read-guard-contract.md#三个执行任务)。A在assignee-backend实现普通CheckGroupMember与测试d16531f；B在assignee-gateway只适配团队群历史/未读等5份测试9a1ab52；C在assignee-ui只适配离线/机器人实际3份测试bbe4c1c。root所有Git保存、无冲突整合、集中Go测试、审查文档；执行Agent只编辑/gofmt/diffcheck，没有越界、test/build/Git写或自行合main。三个worktree干净保留，main仍89e2a1e，未push/部署/运行迁移。全部19份实际文件与验证边界见[本批审查](stage7-team-group-read-guard-contract.md#本批实现与审查)。
+
+## 49. 阶段7后台Agent触发上下文代际保护协作（2026-10-06）
+
+root从25de3fc建codex/stage7-trigger-generation-guard，共同cef453d固定UserTrigger field3 generation、IM资格接口及[三个独立工作目录/允许文件](stage7-trigger-generation-guard-contract.md#三个执行任务)。A在assignee-backend实现User真实版本回显与测试f85434e；B在assignee-gateway实现IM专用客户端严格正版本校验595f083；C在assignee-ui实现触发上下文历史前后User同版本/IM当前群关闭核验dcd93f7。root审查后统一保存并无冲突整合，仅root执行User/IM定向和全仓Go测试、更新共同文档。三个执行Agent只编辑/gofmt/diffcheck，未test/build/Git写、越界合main/push/部署；三个worktree干净保留。全部实际文件、验证和剩余边界见[本批审查](stage7-trigger-generation-guard-contract.md#本批实现与审查)。main仍89e2a1e，031/032未执行，真实MySQL/部署未验收。
