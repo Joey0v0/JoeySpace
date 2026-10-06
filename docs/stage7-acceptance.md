@@ -14,7 +14,9 @@
 
 后续实现只围绕上述已确定目标。新增会话已读规则、运行查询边界或观测中间件属于关键选择，先讨论并记入架构决策；本页不授权新增框架或功能，也不把缺项静默移出范围。
 
-2026-10-06 A75/A76/A77全部A已确认：[资格基础](stage7-team-membership-foundation-contract.md)已准备031/032、User活动状态过滤/正版本、IM关闭事务组件；[本批写入保护](stage7-team-group-write-guard-contract.md)把正版本/关闭记录接入自行入群与建群群主写入，旧IM原始SQL中的`groups`引用已修。升级需先核对001/执行031再升级User，执行032再升级IM，不能让新版IM依赖旧User缺版本响应。退出/恢复/清理、IM读取端、Push核权仍未接线；真实MySQL语法/锁竞争未验收。MySQL8将GROUPS列为保留字，[官方关键字说明](https://dev.mysql.com/doc/refman/8.0/en/keywords.html)；sqlmock通过不能替代实库执行。
+2026-10-06 A75/A76/A77全部A已确认：[资格基础](stage7-team-membership-foundation-contract.md)已准备031/032、User活动状态过滤/正版本、IM关闭事务组件；[写入保护](stage7-team-group-write-guard-contract.md)把正版本/关闭记录接入自行入群与建群群主写入，旧IM原始SQL中的`groups`引用已修。升级需先核对001/执行031再升级User，执行032再升级IM，不能让新版IM依赖旧User缺版本响应。退出/恢复/清理、Push核权仍未接线；普通读取接线见下一段，后台读取仍后续。真实MySQL语法/锁竞争未验收。MySQL8将GROUPS列为保留字，[官方关键字说明](https://dev.mysql.com/doc/refman/8.0/en/keywords.html)；sqlmock通过不能替代实库执行。
+
+2026-10-06 [普通群读取保护](stage7-team-group-read-guard-contract.md#本批实现与审查)已在User本人/正版本核权后，重新核对当前群成员和032关闭版本；历史、未读、来源、机器人和旧离线拉取继承普通CheckGroupMember。旧群不走User/关闭行，User拒绝后不读取群正文。IM定向/全仓Go仅SQL/User替身，尚无真实MySQL/031/032/并发验收。Agent后台专用触发读取仍只用当前活动资格但无generation回显/IM关闭复核，不能将普通入口结果扩称所有读取安全；退出/清理/Push仍未完成。
 
 ## 2. 本地验证证据与边界
 

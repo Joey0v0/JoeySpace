@@ -521,3 +521,7 @@ root审查验证保存A67a5960/Be7a9aba/C2fdb86f，无冲突整合838549e。root
 ## 47. 阶段7团队群写入保护协作（2026-10-06）
 
 从共同9c37bd1在三个已有干净worktree建独立分支，精确目录/允许文件与六步范围见[本批契约](stage7-team-group-write-guard-contract.md#三个执行任务)。A为Join写入保护，B为Create写入保护，C为旧`groups`SQL引用。三位只编辑各自文件、gofmt/diffcheck；全部Git保存、合入本轮分支、Go测试和文档由root执行。C c6c6526、A 7600a17、B 83a41a6均无冲突整合；三个worktree仍保留且干净。会话在一次定向测试调用中断后，root核对工作目录并让A/B从原未提交进度续作，没有重置/删除文件；中断的测试未计通过，整合后由root重新运行。main仍89e2a1e，未合main/push/部署。实际结果、全部文件及验证边界见[集中审查](stage7-team-group-write-guard-contract.md#本批实现与审查)。
+
+## 48. 阶段7普通群读取代际保护协作（2026-10-06）
+
+root从8d2e672建codex/stage7-team-group-read-guard，先发布[共同1654cb2与三个精确执行范围](stage7-team-group-read-guard-contract.md#三个执行任务)。A在assignee-backend实现普通CheckGroupMember与测试d16531f；B在assignee-gateway只适配团队群历史/未读等5份测试9a1ab52；C在assignee-ui只适配离线/机器人实际3份测试bbe4c1c。root所有Git保存、无冲突整合、集中Go测试、审查文档；执行Agent只编辑/gofmt/diffcheck，没有越界、test/build/Git写或自行合main。三个worktree干净保留，main仍89e2a1e，未push/部署/运行迁移。全部19份实际文件与验证边界见[本批审查](stage7-team-group-read-guard-contract.md#本批实现与审查)。
