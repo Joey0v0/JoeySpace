@@ -35,7 +35,7 @@ func (f teamCreateFunc) AuthorizeTeamGroupCreation(ctx context.Context, req *use
 	if err := f(ctx, req); err != nil {
 		return nil, err
 	}
-	return &userpb.AuthorizeTeamGroupCreationResponse{}, nil
+	return &userpb.AuthorizeTeamGroupCreationResponse{UserId: 42, Generation: 1}, nil
 }
 
 func (teamCreateFunc) CheckTeamMember(context.Context, *userpb.CheckTeamMemberRequest, ...grpc.CallOption) (*userpb.CheckTeamMemberResponse, error) {

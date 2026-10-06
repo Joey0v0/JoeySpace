@@ -143,7 +143,7 @@ func (f teamCheckFunc) CheckTeamMember(ctx context.Context, req *userpb.CheckTea
 	if err := f(ctx, req); err != nil {
 		return nil, err
 	}
-	return &userpb.CheckTeamMemberResponse{}, nil
+	return &userpb.CheckTeamMemberResponse{UserId: 42, Generation: 1}, nil
 }
 
 func (teamCheckFunc) AuthorizeTeamGroupCreation(context.Context, *userpb.AuthorizeTeamGroupCreationRequest, ...grpc.CallOption) (*userpb.AuthorizeTeamGroupCreationResponse, error) {
