@@ -164,6 +164,7 @@ func TestLegacyOfflineHTTPProductionRPCPreservesStringIDsAndBotCard(t *testing.T
 		AddRow(int64(9007199254740995), "bot-card", int64(9007199254740994), 2, int64(9007199254740996), groupID, 2, model.MessageContentTaskCard, card, now))
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(groupID, int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+	expectTeamGroupReadFence(mock, groupID, 42, 200, nil, true)
 	teamCalls := 0
 	impl.teamClient = teamCheckFunc(func(ctx context.Context, req *userpb.CheckTeamMemberRequest) error {
 		teamCalls++
@@ -209,6 +210,9 @@ func TestLegacyOfflineHTTPFiltersRevokedTeamAndRestoresRetainedMessage(t *testin
 			AddRow(11, "retained-team-bot", 8, 2, 42, 302, 2, 1, "retained bot content", time.Now()))
 		mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(302), int64(42), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+		if pull == 1 {
+			expectTeamGroupReadFence(mock, 302, 42, 200, nil, true)
+		}
 		response, _ := flow.request(t, http.MethodGet, "/api/v1/message/offline", "", true)
 		messages := legacyOfflineFlowMessages(t, response)
 		if len(messages) != pull+1 || messages[0].MsgID != "direct" {
