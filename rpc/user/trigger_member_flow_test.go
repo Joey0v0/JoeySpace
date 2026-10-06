@@ -30,7 +30,7 @@ func TestTriggerMemberLookupOverProductionTLSListenerKeepsScopeAndCurrentQualifi
 		t.Fatalf("unexpected services: %#v", services)
 	}
 	client := triggerFlowClient(t, runtime.listener.Addr().String(), imFiles, "user.go-im.internal")
-	for _, scenario := range []string{"unique", "ambiguous", "empty", "inactive candidates excluded", "truncated", "revoked during lookup", "actor leaving before lookup", "actor left before lookup", "actor leaving during lookup", "actor left during lookup"} {
+	for _, scenario := range []string{"unique", "ambiguous", "empty", "inactive candidates excluded", "truncated", "revoked during lookup", "actor leaving before lookup", "actor left before lookup", "actor leaving during lookup", "actor left during lookup", "actor rejoined during lookup"} {
 		t.Run(scenario, func(t *testing.T) {
 			req := &pb.ResolveTriggerTeamMemberRequest{ActorId: triggerFlowActor, TeamId: 200, Name: "张三"}
 			beforeDenied := strings.HasSuffix(scenario, "before lookup")
@@ -63,14 +63,18 @@ func TestTriggerMemberLookupOverProductionTLSListenerKeepsScopeAndCurrentQualifi
 			finalMembership := sqlmock.NewRows([]string{"status", "generation"})
 			afterDenied := strings.HasSuffix(scenario, "during lookup")
 			if !afterDenied {
-				finalMembership.AddRow(1, 1)
+				generation := int64(1)
+				if scenario == "actor rejoined during lookup" {
+					generation = 2
+				}
+				finalMembership.AddRow(1, generation)
 			}
 			mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).WillReturnRows(finalMembership)
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", "Bearer fake", "actor-id", "99", "team-id", "999"))
 			result, err := client.ResolveTriggerTeamMember(ctx, req)
-			if afterDenied {
+			if afterDenied || scenario == "actor rejoined during lookup" {
 				if result != nil || status.Code(err) != codes.PermissionDenied {
 					t.Fatalf("revoked caller became no-match: %#v %v", result, err)
 				}
