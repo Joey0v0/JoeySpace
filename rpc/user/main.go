@@ -24,6 +24,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	leaveIMConfig, err := loadTeamLeaveIMConfig(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
+	}
+	leaveConfigured, _ := validateTeamLeaveIMConfig(leaveIMConfig)
+	if leaveConfigured && !*profileEnabled {
+		log.Fatal("User leave IM RPC requires -profile")
+	}
 	var c zrpc.RpcServerConf
 	conf.MustLoad(*configFile, &c)
 	if err := validateUserTriggerStartup(triggerConfig, *profileEnabled, c.ListenOn); err != nil {
@@ -54,6 +62,16 @@ func main() {
 			log.Fatal("invalid USER_SNOWFLAKE_NODE_ID")
 		}
 	}
+	leaveClient, err := newTeamLeaveIMClient(leaveIMConfig)
+	if err != nil {
+		if users.db != nil {
+			sqlDB, _ := users.db.DB()
+			_ = sqlDB.Close()
+		}
+		log.Fatal(err)
+	}
+	defer leaveClient.Close()
+	users.leaveIM = leaveClient
 
 	triggerRuntime, err := newUserTriggerRuntime(triggerConfig, users)
 	if err != nil {
@@ -62,6 +80,7 @@ func main() {
 			sqlDB, _ := users.db.DB()
 			_ = sqlDB.Close()
 		}
+		_ = leaveClient.Close()
 		log.Fatal(err)
 	}
 	ordinaryReady := make(chan *grpc.Server, 1)

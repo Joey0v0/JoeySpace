@@ -99,6 +99,12 @@ $env:PATH = (Join-Path (Get-Location) 'bin/rpc-tools') + ';' + $env:PATH
 
 ## 团队负责人姓名解析（2026-10-03）
 
+## 团队退出内部清理协调（2026-10-06）
+
+User可选配置`USER_LEAVE_IM_RPC_ADDR`、`USER_LEAVE_IM_TLS_CERT_FILE`、`USER_LEAVE_IM_TLS_KEY_FILE`、`USER_LEAVE_IM_TLS_CA_FILE`，四项必须同时设置，启用时需`-profile`。客户端验证IM服务端证书的精确DNS名`im.go-im.internal`，所用客户端证书须由IM专用退出监听认可为`user.go-im.internal`；普通User RPC不注册IMLeave。User只从033本人固定操作读取清理范围，在User事务外调用IM，收到持久关闭版本确认后才以新事务将成员和操作置为完成。当前只是包内方法，没有对外退出/恢复RPC，也未配置基础Compose；详见[本步审查](../../docs/stage7-team-leave-user-cleanup-contract.md)。
+
+## 团队负责人姓名解析（2026-10-03）
+
 新增内部 RPC `ResolveTeamMember(team_id, name)`，用于后续 Agent 将讨论中的称呼匹配到真实团队成员；本步尚未接 Agent 或 HTTP/页面入口。
 
 调用仍需 `authorization: Bearer <token>` metadata，先验证启用账号和当前团队成员资格，再查询本团队启用成员。输入姓名去除首尾空白后为 1—64 个 Unicode 字符，完整匹配用户名或昵称；SQL 使用 `CAST(... AS BINARY)` 比较，不按默认排序规则忽略大小写或重音，不使用模糊或通配符匹配。

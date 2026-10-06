@@ -15,6 +15,7 @@ type userServer struct {
 	db        *gorm.DB
 	jwtSecret string
 	idNode    *snowflake.Node
+	leaveIM   teamLeaveIMCloser
 }
 
 func (s *userServer) GetUserInfo(ctx context.Context, req *pb.GetUserInfoRequest) (*pb.GetUserInfoResponse, error) {

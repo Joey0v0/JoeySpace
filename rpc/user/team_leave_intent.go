@@ -15,6 +15,7 @@ import (
 
 type teamLeaveIntent struct {
 	ID         int64
+	RequestKey string
 	TeamID     int64
 	UserID     int64
 	Generation int64
@@ -98,7 +99,7 @@ func beginTeamLeaveIntent(ctx context.Context, db *gorm.DB, teamID, actorID int6
 			if existing.Status == 0 && member.MembershipState != model.TeamMembershipLeaving || existing.Status == 1 && member.MembershipState != model.TeamMembershipLeft {
 				return status.Error(codes.FailedPrecondition, "team leave operation and membership differ")
 			}
-			result = &teamLeaveIntent{ID: existing.ID, TeamID: existing.TeamID, UserID: existing.UserID, Generation: existing.Generation, Status: existing.Status}
+			result = &teamLeaveIntent{ID: existing.ID, RequestKey: requestKey, TeamID: existing.TeamID, UserID: existing.UserID, Generation: existing.Generation, Status: existing.Status}
 			return nil
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -130,7 +131,7 @@ func beginTeamLeaveIntent(ctx context.Context, db *gorm.DB, teamID, actorID int6
 		if operation.ID <= 0 {
 			return status.Error(codes.Unavailable, "team leave operation unavailable")
 		}
-		result = &teamLeaveIntent{ID: operation.ID, TeamID: teamID, UserID: actorID, Generation: member.Generation, Status: 0}
+		result = &teamLeaveIntent{ID: operation.ID, RequestKey: requestKey, TeamID: teamID, UserID: actorID, Generation: member.Generation, Status: 0}
 		return nil
 	})
 	if err != nil {
