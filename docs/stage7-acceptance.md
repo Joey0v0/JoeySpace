@@ -26,6 +26,8 @@
 
 2026-10-06 [IM专用清理处理器](stage7-team-leave-im-handler-contract.md#本批实现与审查)已有独立协议、精确User证书鉴别和032短事务调用，本机实际mTLS测试通过User/拒绝其他服务及明文；生产监听、User持久操作调用和Push核权尚未接线。SQL仍为替身，不代表已清理真实群成员。
 
+2026-10-06 [IM独立清理监听](stage7-team-leave-im-runtime-contract.md#本批实现与审查)已按四项`IM_LEAVE_*`配置默认关闭/完整启用，端口与普通IM/Bot/Trigger隔离，只注册IMLeave并固定User证书身份。本机mTLS与配置/端口测试通过；基础Compose未挂载证书或启用监听，User尚未调用，三种专用监听同时运行、真实MySQL/部署仍待验收。
+
 ## 2. 本地验证证据与边界
 
 | 验证段 | 已有证据 | 不代表什么 |

@@ -24,6 +24,8 @@ go run ./rpc/im -f rpc/im/etc/im.yaml
 
 默认仅监听 `127.0.0.1:9002`。本机直接运行 WS 需设置 `IM_RPC_ADDR=127.0.0.1:9002`；本机团队群校验及创建还需启动用户 RPC 并设置 `USER_RPC_ADDR=127.0.0.1:9001`。Compose 中分别使用 `im-rpc:9002` 和 `user-rpc:9001`。未设置 `USER_RPC_ADDR` 时旧群仍按原规则校验，团队群校验及创建拒绝放行。可用 `go test ./rpc/im ./internal/ws` 验证本地 SQL 测试替身、Token 校验、gRPC 调用和 WS 接线。Compose 已有配置但尚未实际启动，也未连接真实 MySQL、Redis 或 Kafka 做全链路联调。旧群路径仍只验 Token 和群成员记录，不查询账户是否后来被禁用。
 
+阶段7的IMLeave清理监听默认关闭。启用时须同时设置`IM_LEAVE_LISTEN_ON`（独立于普通IM、Bot和Trigger的端口）、`IM_LEAVE_TLS_CERT_FILE`、`IM_LEAVE_TLS_KEY_FILE`、`IM_LEAVE_TLS_CA_FILE`；仅接受证书DNS SAN为`user.go-im.internal`的User客户端，只注册`IMLeave.CloseTeamGroupMemberships`。缺配置、证书或端口冲突均拒绝启动，不退回明文。启用前须执行032；当前基础Compose尚未挂载该专用证书或设置上述变量，User也尚未调用，故默认部署不会执行退出清理。[本批审查与测试边界](../../docs/stage7-team-leave-im-runtime-contract.md#本批实现与审查)。
+
 2026-10-02 按 A43 贯通发送者身份：`TeamGroupMessage` 追加字段 7 `sender_type`、8 `initiator_id`，`OfflineMessage` 追加字段 9、10；原编号和 RPC 方法保持兼容。类型 1 为用户，2 为机器人，旧消息未带类型时按用户处理。IM 历史和离线查询读取新增列，Gateway 将发起人 ID 编成字符串。启用更新后的查询前，已有库必须完成[013 迁移](../../deploy/mysql/migrations/013_im_bots_and_message_sender.sql)。本地 SQL 替身与真实本机 gRPC 验证机器人及大整数发起人 ID，完整 Go 回归通过；真实数据库未执行。尚无机器人发送 RPC、生产 TLS 监听或资料配置，不能把查询支持当作已可回帖。[本轮范围](../../docs/agent-group-reply-design.md#身份字段传输与展示实现记录2026-10-02)。
 
 ## 专用机器人发送入口（阶段 6，A44—A47）

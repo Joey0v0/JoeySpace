@@ -14,6 +14,8 @@ A75退出操作存储基础增加[033_user_team_leave_operations.sql](mysql/migr
 
 后续本地批次已加入User包内退出意图函数，未来入口调用时会在同一事务把成员置为leaving并写033操作；目前未注册RPC/HTTP，生产启动不会自动调用。公开入口启用前，已有库仍须先执行033并完成真实MySQL验证；IM清理、本人显式恢复与Push核权尚未接线。[本批审查](../docs/stage7-team-leave-intent-contract.md#本批实现与审查)。
 
+IMLeave专用清理监听已接入IM进程，但默认关闭；仅完整提供`IM_LEAVE_LISTEN_ON`、`IM_LEAVE_TLS_CERT_FILE`、`IM_LEAVE_TLS_KEY_FILE`、`IM_LEAVE_TLS_CA_FILE`才启动，监听端口须不同于普通IM/Bot/Trigger，客户端证书须为`user.go-im.internal`。当前基础Compose没有注入这些变量、证书挂载或独立端口配置；不能在未执行032的旧库启用。User持久操作调用、Push核权和本人退出入口尚未接线，故这仍不是可操作的退出链。[监听审查](../docs/stage7-team-leave-im-runtime-contract.md#本批实现与审查)。
+
 2026-10-06 A73本人团队群未读：已有库先执行一次030_im_group_message_reads.sql，再升级IM RPC与Gateway；仅更新init不会升级已有卷。新表默认没有阅读记录，当前可读历史中非本人普通消息首次均未读；机器人消息也计入。不新增环境开关，不删除离线投递或旧通知。030尚未执行。页面先登录、填写团队/群并选择群聊，可手动查询计数；加载群历史后点击“将本次已加载历史页标为已读”，仅提交这页确切ID，不自动确认WS/离线/历史读取。权限/账号失效清计数与目标，普通失败可本人刷新或重试；提交后失败不保证没有写。[原实现与全部文件](../docs/stage7-team-group-unread-contract.md#本批实现与审查)。
 
 历史恢复入口已补：“刷新最新群消息”保留正在翻的旧位置；若旧分页已结束但仍有较小ID迟到消息，点击“从最新消息重新遍历”，有效成功后再点加载更早消息逐页寻找。失败/非法或旧账号/群回包不重置原位置，重新遍历不自动标已读，也不提供数据库快照。确认结果不确定时可先查计数、再本人显式重试原页确切ID，查询为0也不会擅自丢弃待确认集合。生产IM TCP恢复定向及353项Node通过；真实MySQL首次时间/重启、030迁移、浏览器/容器/云仍未验收。[本批七步与全部文件](../docs/stage7-group-unread-recovery-contract.md#本批实现与审查)。
