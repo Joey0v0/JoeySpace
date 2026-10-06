@@ -32,6 +32,7 @@ func TestCheckTeamGroupAccessOverRPC(t *testing.T) {
 	})
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+	expectTeamGroupReadFence(mock, 300, 42, 200, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -87,6 +88,9 @@ func TestCheckTeamGroupAccessRejectsWrongScope(t *testing.T) {
 		s.teamClient = teamCheckFunc(func(context.Context, *userpb.CheckTeamMemberRequest) error { return nil })
 		mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(groupTeam))
+		if groupTeam != nil {
+			expectTeamGroupReadFence(mock, 300, 42, groupTeam.(int64), nil, true)
+		}
 		mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(groupTeam))
 		result, err := s.CheckTeamGroupAccess(historyContext(t), &pb.CheckTeamGroupAccessRequest{TeamId: 200, GroupId: 300})
@@ -111,6 +115,7 @@ func TestCheckTeamGroupAccessRejectsInvalidInputAndDatabaseFailure(t *testing.T)
 	}
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+	expectTeamGroupReadFence(mock, 300, 42, 200, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 		WillReturnError(errors.New("private database detail"))
 	result, err = s.CheckTeamGroupAccess(historyContext(t), &pb.CheckTeamGroupAccessRequest{TeamId: 200, GroupId: 300})

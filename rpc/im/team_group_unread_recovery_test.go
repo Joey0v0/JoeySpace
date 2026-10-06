@@ -194,7 +194,7 @@ func TestTeamGroupUnreadTCPRecoveryAfterPostCommitRevocationAndRejoin(t *testing
 	get := &pb.GetTeamGroupUnreadRequest{TeamId: 200, GroupId: 300}
 	unreadRecoveryCommit(mock, 2)
 	// The group-members row remains. User denies the second qualification
-	// check, which SQL order proves happens after the receipt commit.
+	// check after the receipt commit, so no read-fence query is allowed here.
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(200))
 	marked, err := client.MarkTeamGroupMessagesRead(ctx, unreadRecoveryRequest())
@@ -209,8 +209,8 @@ func TestTeamGroupUnreadTCPRecoveryAfterPostCommitRevocationAndRejoin(t *testing
 		t.Fatalf("revoked reader count = %v, error = %v", denied, err)
 	}
 	assertUnreadRecoverySQL(t, mock)
-	// Restoring the User substitute models current qualification only. It
-	// makes no claim about real leave/rejoin cleanup or atomic cross-service ACLs.
+	// Restoring User plus the unreadAccess no-fence-row substitute models
+	// current qualification only, not real cleanup/rejoin or atomic ACLs.
 	revoked.Store(false)
 	unreadRecoveryGet(mock, 1)
 	recovered, err := client.GetTeamGroupUnread(ctx, get)
