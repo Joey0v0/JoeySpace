@@ -31,3 +31,8 @@ var TaskNotificationsJS string
 //
 //go:embed task-notifications-view.js
 var TaskNotificationsViewJS string
+
+// TeamGroupUnreadJS offers explicit personal read controls for a loaded history page.
+//
+//go:embed team-group-unread.js
+var TeamGroupUnreadJS string

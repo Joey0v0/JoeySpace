@@ -255,3 +255,12 @@ CREATE TABLE task_notification_outbox (
     published_at TIMESTAMP NULL DEFAULT NULL,
     KEY idx_task_notification_outbox_pending (published, notification_id)
 ) ENGINE=InnoDB;
+
+-- Personal explicit group-message reads; no message-ID high-water mark.
+CREATE TABLE im_group_message_reads (
+    user_id BIGINT NOT NULL,
+    group_id BIGINT NOT NULL,
+    message_id BIGINT NOT NULL,
+    read_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (user_id, group_id, message_id)
+) ENGINE=InnoDB;

@@ -53,6 +53,7 @@ func main() {
 		{Method: http.MethodGet, Path: "/demo/multi-draft-view.js", Handler: chatDemoScriptHandler(examples.MultiDraftViewJS)},
 		{Method: http.MethodGet, Path: "/demo/task-notifications.js", Handler: chatDemoScriptHandler(examples.TaskNotificationsJS)},
 		{Method: http.MethodGet, Path: "/demo/task-notifications-view.js", Handler: chatDemoScriptHandler(examples.TaskNotificationsViewJS)},
+		{Method: http.MethodGet, Path: "/demo/team-group-unread.js", Handler: chatDemoScriptHandler(examples.TeamGroupUnreadJS)},
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
@@ -188,6 +189,16 @@ func main() {
 		Method:  http.MethodGet,
 		Path:    "/api/v1/teams/:team_id/groups/:group_id/messages",
 		Handler: listTeamGroupMessagesHandler(impb.NewIMClient(imRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/teams/:team_id/groups/:group_id/unread",
+		Handler: getTeamGroupUnreadHandler(impb.NewIMClient(imRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodPost,
+		Path:    "/api/v1/teams/:team_id/groups/:group_id/read",
+		Handler: markTeamGroupMessagesReadHandler(impb.NewIMClient(imRPCClient.Conn())),
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,

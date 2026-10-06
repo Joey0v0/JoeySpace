@@ -1140,6 +1140,246 @@ func (*CheckTeamGroupAccessResponse) Descriptor() ([]byte, []int) {
 	return file_rpc_im_im_proto_rawDescGZIP(), []int{20}
 }
 
+type GetTeamGroupUnreadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	GroupId       int64                  `protobuf:"varint,2,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTeamGroupUnreadRequest) Reset() {
+	*x = GetTeamGroupUnreadRequest{}
+	mi := &file_rpc_im_im_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTeamGroupUnreadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTeamGroupUnreadRequest) ProtoMessage() {}
+
+func (x *GetTeamGroupUnreadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTeamGroupUnreadRequest.ProtoReflect.Descriptor instead.
+func (*GetTeamGroupUnreadRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *GetTeamGroupUnreadRequest) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *GetTeamGroupUnreadRequest) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
+type GetTeamGroupUnreadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	GroupId       int64                  `protobuf:"varint,2,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	UnreadCount   int64                  `protobuf:"varint,3,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTeamGroupUnreadResponse) Reset() {
+	*x = GetTeamGroupUnreadResponse{}
+	mi := &file_rpc_im_im_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTeamGroupUnreadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTeamGroupUnreadResponse) ProtoMessage() {}
+
+func (x *GetTeamGroupUnreadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTeamGroupUnreadResponse.ProtoReflect.Descriptor instead.
+func (*GetTeamGroupUnreadResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *GetTeamGroupUnreadResponse) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *GetTeamGroupUnreadResponse) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
+func (x *GetTeamGroupUnreadResponse) GetUnreadCount() int64 {
+	if x != nil {
+		return x.UnreadCount
+	}
+	return 0
+}
+
+type MarkTeamGroupMessagesReadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	GroupId       int64                  `protobuf:"varint,2,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	MessageIds    []int64                `protobuf:"varint,3,rep,packed,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkTeamGroupMessagesReadRequest) Reset() {
+	*x = MarkTeamGroupMessagesReadRequest{}
+	mi := &file_rpc_im_im_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkTeamGroupMessagesReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkTeamGroupMessagesReadRequest) ProtoMessage() {}
+
+func (x *MarkTeamGroupMessagesReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkTeamGroupMessagesReadRequest.ProtoReflect.Descriptor instead.
+func (*MarkTeamGroupMessagesReadRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *MarkTeamGroupMessagesReadRequest) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *MarkTeamGroupMessagesReadRequest) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
+func (x *MarkTeamGroupMessagesReadRequest) GetMessageIds() []int64 {
+	if x != nil {
+		return x.MessageIds
+	}
+	return nil
+}
+
+type MarkTeamGroupMessagesReadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	GroupId       int64                  `protobuf:"varint,2,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	MessageIds    []int64                `protobuf:"varint,3,rep,packed,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	UnreadCount   int64                  `protobuf:"varint,4,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkTeamGroupMessagesReadResponse) Reset() {
+	*x = MarkTeamGroupMessagesReadResponse{}
+	mi := &file_rpc_im_im_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkTeamGroupMessagesReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkTeamGroupMessagesReadResponse) ProtoMessage() {}
+
+func (x *MarkTeamGroupMessagesReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkTeamGroupMessagesReadResponse.ProtoReflect.Descriptor instead.
+func (*MarkTeamGroupMessagesReadResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *MarkTeamGroupMessagesReadResponse) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *MarkTeamGroupMessagesReadResponse) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
+func (x *MarkTeamGroupMessagesReadResponse) GetMessageIds() []int64 {
+	if x != nil {
+		return x.MessageIds
+	}
+	return nil
+}
+
+func (x *MarkTeamGroupMessagesReadResponse) GetUnreadCount() int64 {
+	if x != nil {
+		return x.UnreadCount
+	}
+	return 0
+}
+
 var File_rpc_im_im_proto protoreflect.FileDescriptor
 
 const file_rpc_im_im_proto_rawDesc = "" +
@@ -1216,14 +1456,34 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\x1bCheckTeamGroupAccessRequest\x12\x17\n" +
 	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
 	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\"\x1e\n" +
-	"\x1cCheckTeamGroupAccessResponse2\xf2\x05\n" +
+	"\x1cCheckTeamGroupAccessResponse\"O\n" +
+	"\x19GetTeamGroupUnreadRequest\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\"s\n" +
+	"\x1aGetTeamGroupUnreadResponse\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\x12!\n" +
+	"\funread_count\x18\x03 \x01(\x03R\vunreadCount\"w\n" +
+	" MarkTeamGroupMessagesReadRequest\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\x12\x1f\n" +
+	"\vmessage_ids\x18\x03 \x03(\x03R\n" +
+	"messageIds\"\x9b\x01\n" +
+	"!MarkTeamGroupMessagesReadResponse\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\x12\x1f\n" +
+	"\vmessage_ids\x18\x03 \x03(\x03R\n" +
+	"messageIds\x12!\n" +
+	"\funread_count\x18\x04 \x01(\x03R\vunreadCount2\xb1\a\n" +
 	"\x02IM\x12M\n" +
 	"\x10CheckGroupMember\x12\x1b.im.CheckGroupMemberRequest\x1a\x1c.im.CheckGroupMemberResponse\x12Y\n" +
 	"\x14CheckTeamGroupAccess\x12\x1f.im.CheckTeamGroupAccessRequest\x1a .im.CheckTeamGroupAccessResponse\x12J\n" +
 	"\x0fCreateTeamGroup\x12\x1a.im.CreateTeamGroupRequest\x1a\x1b.im.CreateTeamGroupResponse\x12G\n" +
 	"\x0eListTeamGroups\x12\x19.im.ListTeamGroupsRequest\x1a\x1a.im.ListTeamGroupsResponse\x12D\n" +
 	"\rJoinTeamGroup\x12\x18.im.JoinTeamGroupRequest\x1a\x19.im.JoinTeamGroupResponse\x12\\\n" +
-	"\x15ListTeamGroupMessages\x12 .im.ListTeamGroupMessagesRequest\x1a!.im.ListTeamGroupMessagesResponse\x12\\\n" +
+	"\x15ListTeamGroupMessages\x12 .im.ListTeamGroupMessagesRequest\x1a!.im.ListTeamGroupMessagesResponse\x12S\n" +
+	"\x12GetTeamGroupUnread\x12\x1d.im.GetTeamGroupUnreadRequest\x1a\x1e.im.GetTeamGroupUnreadResponse\x12h\n" +
+	"\x19MarkTeamGroupMessagesRead\x12$.im.MarkTeamGroupMessagesReadRequest\x1a%.im.MarkTeamGroupMessagesReadResponse\x12\\\n" +
 	"\x15CheckTeamGroupMessage\x12 .im.CheckTeamGroupMessageRequest\x1a!.im.CheckTeamGroupMessageResponse\x12V\n" +
 	"\x13ListOfflineMessages\x12\x1e.im.ListOfflineMessagesRequest\x1a\x1f.im.ListOfflineMessagesResponse\x12S\n" +
 	"\x12AckOfflineMessages\x12\x1d.im.AckOfflineMessagesRequest\x1a\x1e.im.AckOfflineMessagesResponseB$Z\"github.com/yjydist/go-im/rpc/im/pbb\x06proto3"
@@ -1240,33 +1500,37 @@ func file_rpc_im_im_proto_rawDescGZIP() []byte {
 	return file_rpc_im_im_proto_rawDescData
 }
 
-var file_rpc_im_im_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_rpc_im_im_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_rpc_im_im_proto_goTypes = []any{
-	(*AckOfflineMessagesRequest)(nil),     // 0: im.AckOfflineMessagesRequest
-	(*AckOfflineMessagesResponse)(nil),    // 1: im.AckOfflineMessagesResponse
-	(*ListOfflineMessagesRequest)(nil),    // 2: im.ListOfflineMessagesRequest
-	(*OfflineMessage)(nil),                // 3: im.OfflineMessage
-	(*ListOfflineMessagesResponse)(nil),   // 4: im.ListOfflineMessagesResponse
-	(*ListTeamGroupMessagesRequest)(nil),  // 5: im.ListTeamGroupMessagesRequest
-	(*TeamGroupMessage)(nil),              // 6: im.TeamGroupMessage
-	(*ListTeamGroupMessagesResponse)(nil), // 7: im.ListTeamGroupMessagesResponse
-	(*CheckTeamGroupMessageRequest)(nil),  // 8: im.CheckTeamGroupMessageRequest
-	(*CheckTeamGroupMessageResponse)(nil), // 9: im.CheckTeamGroupMessageResponse
-	(*JoinTeamGroupRequest)(nil),          // 10: im.JoinTeamGroupRequest
-	(*JoinTeamGroupResponse)(nil),         // 11: im.JoinTeamGroupResponse
-	(*ListTeamGroupsRequest)(nil),         // 12: im.ListTeamGroupsRequest
-	(*TeamGroup)(nil),                     // 13: im.TeamGroup
-	(*ListTeamGroupsResponse)(nil),        // 14: im.ListTeamGroupsResponse
-	(*CreateTeamGroupRequest)(nil),        // 15: im.CreateTeamGroupRequest
-	(*CreateTeamGroupResponse)(nil),       // 16: im.CreateTeamGroupResponse
-	(*CheckGroupMemberRequest)(nil),       // 17: im.CheckGroupMemberRequest
-	(*CheckGroupMemberResponse)(nil),      // 18: im.CheckGroupMemberResponse
-	(*CheckTeamGroupAccessRequest)(nil),   // 19: im.CheckTeamGroupAccessRequest
-	(*CheckTeamGroupAccessResponse)(nil),  // 20: im.CheckTeamGroupAccessResponse
-	(*timestamppb.Timestamp)(nil),         // 21: google.protobuf.Timestamp
+	(*AckOfflineMessagesRequest)(nil),         // 0: im.AckOfflineMessagesRequest
+	(*AckOfflineMessagesResponse)(nil),        // 1: im.AckOfflineMessagesResponse
+	(*ListOfflineMessagesRequest)(nil),        // 2: im.ListOfflineMessagesRequest
+	(*OfflineMessage)(nil),                    // 3: im.OfflineMessage
+	(*ListOfflineMessagesResponse)(nil),       // 4: im.ListOfflineMessagesResponse
+	(*ListTeamGroupMessagesRequest)(nil),      // 5: im.ListTeamGroupMessagesRequest
+	(*TeamGroupMessage)(nil),                  // 6: im.TeamGroupMessage
+	(*ListTeamGroupMessagesResponse)(nil),     // 7: im.ListTeamGroupMessagesResponse
+	(*CheckTeamGroupMessageRequest)(nil),      // 8: im.CheckTeamGroupMessageRequest
+	(*CheckTeamGroupMessageResponse)(nil),     // 9: im.CheckTeamGroupMessageResponse
+	(*JoinTeamGroupRequest)(nil),              // 10: im.JoinTeamGroupRequest
+	(*JoinTeamGroupResponse)(nil),             // 11: im.JoinTeamGroupResponse
+	(*ListTeamGroupsRequest)(nil),             // 12: im.ListTeamGroupsRequest
+	(*TeamGroup)(nil),                         // 13: im.TeamGroup
+	(*ListTeamGroupsResponse)(nil),            // 14: im.ListTeamGroupsResponse
+	(*CreateTeamGroupRequest)(nil),            // 15: im.CreateTeamGroupRequest
+	(*CreateTeamGroupResponse)(nil),           // 16: im.CreateTeamGroupResponse
+	(*CheckGroupMemberRequest)(nil),           // 17: im.CheckGroupMemberRequest
+	(*CheckGroupMemberResponse)(nil),          // 18: im.CheckGroupMemberResponse
+	(*CheckTeamGroupAccessRequest)(nil),       // 19: im.CheckTeamGroupAccessRequest
+	(*CheckTeamGroupAccessResponse)(nil),      // 20: im.CheckTeamGroupAccessResponse
+	(*GetTeamGroupUnreadRequest)(nil),         // 21: im.GetTeamGroupUnreadRequest
+	(*GetTeamGroupUnreadResponse)(nil),        // 22: im.GetTeamGroupUnreadResponse
+	(*MarkTeamGroupMessagesReadRequest)(nil),  // 23: im.MarkTeamGroupMessagesReadRequest
+	(*MarkTeamGroupMessagesReadResponse)(nil), // 24: im.MarkTeamGroupMessagesReadResponse
+	(*timestamppb.Timestamp)(nil),             // 25: google.protobuf.Timestamp
 }
 var file_rpc_im_im_proto_depIdxs = []int32{
-	21, // 0: im.OfflineMessage.created_at:type_name -> google.protobuf.Timestamp
+	25, // 0: im.OfflineMessage.created_at:type_name -> google.protobuf.Timestamp
 	3,  // 1: im.ListOfflineMessagesResponse.messages:type_name -> im.OfflineMessage
 	6,  // 2: im.ListTeamGroupMessagesResponse.messages:type_name -> im.TeamGroupMessage
 	13, // 3: im.ListTeamGroupsResponse.groups:type_name -> im.TeamGroup
@@ -1276,20 +1540,24 @@ var file_rpc_im_im_proto_depIdxs = []int32{
 	12, // 7: im.IM.ListTeamGroups:input_type -> im.ListTeamGroupsRequest
 	10, // 8: im.IM.JoinTeamGroup:input_type -> im.JoinTeamGroupRequest
 	5,  // 9: im.IM.ListTeamGroupMessages:input_type -> im.ListTeamGroupMessagesRequest
-	8,  // 10: im.IM.CheckTeamGroupMessage:input_type -> im.CheckTeamGroupMessageRequest
-	2,  // 11: im.IM.ListOfflineMessages:input_type -> im.ListOfflineMessagesRequest
-	0,  // 12: im.IM.AckOfflineMessages:input_type -> im.AckOfflineMessagesRequest
-	18, // 13: im.IM.CheckGroupMember:output_type -> im.CheckGroupMemberResponse
-	20, // 14: im.IM.CheckTeamGroupAccess:output_type -> im.CheckTeamGroupAccessResponse
-	16, // 15: im.IM.CreateTeamGroup:output_type -> im.CreateTeamGroupResponse
-	14, // 16: im.IM.ListTeamGroups:output_type -> im.ListTeamGroupsResponse
-	11, // 17: im.IM.JoinTeamGroup:output_type -> im.JoinTeamGroupResponse
-	7,  // 18: im.IM.ListTeamGroupMessages:output_type -> im.ListTeamGroupMessagesResponse
-	9,  // 19: im.IM.CheckTeamGroupMessage:output_type -> im.CheckTeamGroupMessageResponse
-	4,  // 20: im.IM.ListOfflineMessages:output_type -> im.ListOfflineMessagesResponse
-	1,  // 21: im.IM.AckOfflineMessages:output_type -> im.AckOfflineMessagesResponse
-	13, // [13:22] is the sub-list for method output_type
-	4,  // [4:13] is the sub-list for method input_type
+	21, // 10: im.IM.GetTeamGroupUnread:input_type -> im.GetTeamGroupUnreadRequest
+	23, // 11: im.IM.MarkTeamGroupMessagesRead:input_type -> im.MarkTeamGroupMessagesReadRequest
+	8,  // 12: im.IM.CheckTeamGroupMessage:input_type -> im.CheckTeamGroupMessageRequest
+	2,  // 13: im.IM.ListOfflineMessages:input_type -> im.ListOfflineMessagesRequest
+	0,  // 14: im.IM.AckOfflineMessages:input_type -> im.AckOfflineMessagesRequest
+	18, // 15: im.IM.CheckGroupMember:output_type -> im.CheckGroupMemberResponse
+	20, // 16: im.IM.CheckTeamGroupAccess:output_type -> im.CheckTeamGroupAccessResponse
+	16, // 17: im.IM.CreateTeamGroup:output_type -> im.CreateTeamGroupResponse
+	14, // 18: im.IM.ListTeamGroups:output_type -> im.ListTeamGroupsResponse
+	11, // 19: im.IM.JoinTeamGroup:output_type -> im.JoinTeamGroupResponse
+	7,  // 20: im.IM.ListTeamGroupMessages:output_type -> im.ListTeamGroupMessagesResponse
+	22, // 21: im.IM.GetTeamGroupUnread:output_type -> im.GetTeamGroupUnreadResponse
+	24, // 22: im.IM.MarkTeamGroupMessagesRead:output_type -> im.MarkTeamGroupMessagesReadResponse
+	9,  // 23: im.IM.CheckTeamGroupMessage:output_type -> im.CheckTeamGroupMessageResponse
+	4,  // 24: im.IM.ListOfflineMessages:output_type -> im.ListOfflineMessagesResponse
+	1,  // 25: im.IM.AckOfflineMessages:output_type -> im.AckOfflineMessagesResponse
+	15, // [15:26] is the sub-list for method output_type
+	4,  // [4:15] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -1306,7 +1574,7 @@ func file_rpc_im_im_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rpc_im_im_proto_rawDesc), len(file_rpc_im_im_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

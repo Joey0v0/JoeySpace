@@ -154,6 +154,16 @@
       <button onclick="doRefreshTeamGroupHistory()">刷新最新群消息</button>
       <button onclick="doLoadTeamGroupHistory()">Load older messages for the Group ID above</button>
     </div>
+    <div class="config-row">
+      <label>群未读:</label>
+      <span id="groupUnreadCount">尚未查询</span>
+      <button id="btnGroupUnreadRefresh" disabled>刷新未读数</button>
+      <button id="btnGroupReadLoaded" disabled>将本次已加载历史页标为已读</button>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <small id="groupUnreadStatus">只确认已加载的具体消息，收到消息或读取历史不会自动已读。</small>
+    </div>
   </div>
 
   <div class="step-panel">
@@ -334,7 +344,10 @@
 let ws = null;
 
 let wsIdentityGeneration = 0;
-globalThis.invalidateTaskNotificationConnection = () => { wsIdentityGeneration++; };
+globalThis.invalidateTaskNotificationConnection = () => {
+  wsIdentityGeneration++;
+  if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+};
 let msgSeq = 0;
 const seenChatIDs = new Set();
 const maxSeenChatIDs = 5000;
@@ -2004,17 +2017,20 @@ async function loadTeamGroupHistory(latest = false) {
         (data.next_before_message_id !== '0' && !validID(data.next_before_message_id))) {
       throw new Error('history failed: ' + (result.msg || 'invalid response'));
     }
+    const loadedMessageIDs = [];
     for (const message of data.messages) {
       if (!message || !validID(message.id) || typeof message.msg_id !== 'string' || !message.msg_id) {
         log('Skipped invalid history message', 'error');
         continue;
       }
+      loadedMessageIDs.push(message.id);
       if (isNewChatMessage(message)) {
         const entry = renderChatMessage('  📜 History message: ', historyDisplayMessage(message, groupId));
         attachTaskSourceButton(entry, teamId, groupId, message.id);
         attachAgentTriggerButton(entry, { token, teamID: teamId, groupID: groupId }, message, true);
       }
     }
+    if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.loaded(scope, loadedMessageIDs);
     if (!latest) {
       historyKey = key;
       historyCursor = data.next_before_message_id;
@@ -2265,6 +2281,7 @@ function doSend() {
 <script src="/demo/multi-draft-view.js"></script>
 <script src="/demo/task-notifications.js"></script>
 <script src="/demo/task-notifications-view.js"></script>
+<script src="/demo/team-group-unread.js"></script>
 
 </body>
 </html>
