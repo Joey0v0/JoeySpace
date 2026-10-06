@@ -16,7 +16,7 @@ import (
 
 const (
 	leaveMemberSQL    = "SELECT role, membership_state, generation FROM `team_members` WHERE team_id = ? AND user_id = ? LIMIT ? FOR UPDATE"
-	leaveTeamSQL      = "SELECT owner_id FROM `teams` WHERE id = ? LIMIT ?"
+	leaveTeamSQL      = "^SELECT `owner_id` FROM `teams` WHERE id = \\?"
 	leaveOperationSQL = "SELECT id, team_id, user_id, generation, status FROM `user_team_leave_operations` WHERE user_id = ? AND request_key = ? LIMIT ?"
 	leaveUpdateSQL    = "UPDATE `team_members` SET `membership_state`=? WHERE team_id = ? AND user_id = ? AND membership_state = ? AND generation = ? AND role IN (?,?)"
 )
@@ -33,7 +33,7 @@ func expectLeaveOperation(mock sqlmock.Sqlmock, key string, rows *sqlmock.Rows) 
 }
 
 func expectLeaveTeam(mock sqlmock.Sqlmock, ownerID int64) {
-	mock.ExpectQuery("^"+regexp.QuoteMeta(leaveTeamSQL)+"$").
+	mock.ExpectQuery(leaveTeamSQL).
 		WithArgs(int64(100), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"owner_id"}).AddRow(ownerID))
 }
@@ -267,7 +267,7 @@ func TestBeginTeamLeaveIntentReadFailuresRollback(t *testing.T) {
 		}, codes.Unavailable},
 		{"team missing", func(mock sqlmock.Sqlmock) {
 			expectLeaveMember(mock, 0, model.TeamMembershipActive, 7)
-			mock.ExpectQuery("^"+regexp.QuoteMeta(leaveTeamSQL)+"$").
+			mock.ExpectQuery(leaveTeamSQL).
 				WithArgs(int64(100), 1).WillReturnRows(sqlmock.NewRows([]string{"owner_id"}))
 		}, codes.Unavailable},
 		{"operation SQL failure", func(mock sqlmock.Sqlmock) {
@@ -352,7 +352,7 @@ func TestBeginTeamLeaveIntentConcurrentKeyCollisionAcrossTeamsRollsBack(t *testi
 	mock.ExpectQuery("^"+regexp.QuoteMeta(leaveMemberSQL)+"$").
 		WithArgs(int64(101), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"role", "membership_state", "generation"}).AddRow(0, model.TeamMembershipActive, 7))
-	mock.ExpectQuery("^"+regexp.QuoteMeta(leaveTeamSQL)+"$").
+	mock.ExpectQuery(leaveTeamSQL).
 		WithArgs(int64(101), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"owner_id"}).AddRow(99))
 	mock.ExpectQuery("^"+regexp.QuoteMeta(leaveOperationSQL)+"$").

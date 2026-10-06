@@ -533,3 +533,7 @@ root从25de3fc建codex/stage7-trigger-generation-guard，共同cef453d固定User
 ## 50. 阶段7后台负责人解析末次核权协作（2026-10-06）
 
 root从a88ba53建codex/stage7-trigger-resolver-final-guard，共同05da516固定[两个生产任务、一项独立双mTLS测试及三个绝对目录/文件边界](stage7-trigger-resolver-final-guard-contract.md#三个独立任务)。A在assignee-backend实现User候选查询前后版本比较e58366c；B在assignee-gateway实现IM候选前后User版本与最终群关闭核验37836e5；C在assignee-ui仅新增双mTLS组合测试1ea9101。root审查C的换代场景发现B初稿只取末次有效版本会误放行，要求B补解析前基线比较、C同步测试四次User检查，再保存并无冲突集成。root统一运行User/IM定向及全仓Go，通过后更新共同文档；执行Agent未自行test/build/Git写、越界合main/push/部署，三个worktree干净保留。main仍89e2a1e，真实MySQL/031/032及退出/Push未验收；[全部文件与边界](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)。
+
+## 51. 阶段7 User退出意图事务协作（2026-10-06）
+
+root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个执行目录及允许文件](stage7-team-leave-intent-contract.md#分工)。A在assignee-backend仅实现User包内事务函数4550d78，B在assignee-gateway仅新增对应sqlmock测试1c15b6f；C在assignee-ui只读审计拥有者、状态一致性和回滚。root统一审查、修正测试SQL匹配、运行User包与全仓Go测试，并将A/B无冲突合入当前批次分支。执行Agent未自行合main/push/部署；main仍89e2a1e。033及真实MySQL未执行，[全部文件及验证边界](stage7-team-leave-intent-contract.md#本批实现与审查)。
