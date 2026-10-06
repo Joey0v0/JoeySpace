@@ -158,12 +158,19 @@ func TestCheckGroupMemberRequiresTeamMembershipForTeamGroup(t *testing.T) {
 	}{
 		{"current team member", nil, codes.OK},
 		{"left team", status.Error(codes.PermissionDenied, "not a member"), codes.PermissionDenied},
+		{"invalid user token", status.Error(codes.Unauthenticated, "invalid token"), codes.Unauthenticated},
+		{"canceled", status.Error(codes.Canceled, "request canceled"), codes.Canceled},
+		{"deadline", status.Error(codes.DeadlineExceeded, "request expired"), codes.DeadlineExceeded},
 		{"team RPC unavailable", status.Error(codes.Unavailable, "unavailable"), codes.Unavailable},
+		{"unexpected team RPC error", status.Error(codes.Internal, "private detail"), codes.Unavailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, mock := testIMServer(t)
 			mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(100), int64(42), 1).
 				WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+			if tc.rpcErr == nil {
+				expectTeamGroupReadFence(mock, 100, 42, 200, nil, true)
+			}
 			called := false
 			token := "Bearer " + validIMToken(t)
 			s.teamClient = teamCheckFunc(func(ctx context.Context, req *userpb.CheckTeamMemberRequest) error {
@@ -178,6 +185,15 @@ func TestCheckGroupMemberRequiresTeamMembershipForTeamGroup(t *testing.T) {
 			result, err := s.CheckGroupMember(ctx, &pb.CheckGroupMemberRequest{GroupId: 100})
 			if !called || status.Code(err) != tc.want || (tc.want == codes.OK) != (result != nil) {
 				t.Fatalf("team group check: called=%t, result=%v, err=%v", called, result, err)
+			}
+			if tc.rpcErr != nil {
+				wantMessage := status.Convert(tc.rpcErr).Message()
+				if tc.want == codes.Unavailable {
+					wantMessage = "team membership check unavailable"
+				}
+				if status.Convert(err).Message() != wantMessage {
+					t.Fatalf("team RPC error must return before a fence query: %v", err)
+				}
 			}
 		})
 	}
