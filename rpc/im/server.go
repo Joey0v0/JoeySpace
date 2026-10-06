@@ -42,8 +42,8 @@ func (s *imServer) CheckGroupMember(ctx context.Context, req *pb.CheckGroupMembe
 	}
 
 	var member struct{ TeamID *int64 }
-	err = s.db.WithContext(ctx).Table("group_members").Select("groups.team_id").
-		Joins("JOIN groups ON groups.id = group_members.group_id").
+	err = s.db.WithContext(ctx).Table("group_members").Select("`groups`.team_id").
+		Joins("JOIN `groups` ON `groups`.id = group_members.group_id").
 		Where("group_members.group_id = ? AND group_members.user_id = ?", req.GetGroupId(), claimsUserID).Take(&member).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, status.Error(codes.PermissionDenied, "group membership required")

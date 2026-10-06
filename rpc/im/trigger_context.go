@@ -22,14 +22,14 @@ const triggerOutboxQuery = `SELECT message_id, action, event_version, msg_id, ac
     FROM im_agent_trigger_outbox WHERE message_id = ? LIMIT 2`
 const triggerSourceQuery = `SELECT id, msg_id, from_id, sender_type, initiator_id, to_id, chat_type, content_type, content, created_at
     FROM messages WHERE id = ? LIMIT 2`
-const triggerMembershipQuery = `SELECT groups.id, groups.team_id, group_members.user_id
-    FROM groups JOIN group_members ON group_members.group_id = groups.id
-    WHERE groups.id = ? AND groups.team_id = ? AND group_members.user_id = ? LIMIT 2`
-const triggerHistoryQuery = `SELECT m.id, m.msg_id, m.from_id, m.sender_type, m.initiator_id, m.to_id, m.chat_type, m.content_type, m.content, m.created_at
-    FROM messages AS m
-    JOIN groups ON groups.id = m.to_id AND groups.team_id = ?
-    JOIN group_members ON group_members.group_id = groups.id AND group_members.user_id = ?
-    WHERE m.to_id = ? AND m.chat_type = 2 AND m.id <= ? ORDER BY m.id DESC LIMIT 20`
+const triggerMembershipQuery = "SELECT `groups`.id, `groups`.team_id, group_members.user_id\n" +
+	"    FROM `groups` JOIN group_members ON group_members.group_id = `groups`.id\n" +
+	"    WHERE `groups`.id = ? AND `groups`.team_id = ? AND group_members.user_id = ? LIMIT 2"
+const triggerHistoryQuery = "SELECT m.id, m.msg_id, m.from_id, m.sender_type, m.initiator_id, m.to_id, m.chat_type, m.content_type, m.content, m.created_at\n" +
+	"    FROM messages AS m\n" +
+	"    JOIN `groups` ON `groups`.id = m.to_id AND `groups`.team_id = ?\n" +
+	"    JOIN group_members ON group_members.group_id = `groups`.id AND group_members.user_id = ?\n" +
+	"    WHERE m.to_id = ? AND m.chat_type = 2 AND m.id <= ? ORDER BY m.id DESC LIMIT 20"
 
 func triggerContextError(ctx context.Context, code codes.Code, message string) error {
 	if err := ctx.Err(); err != nil {
