@@ -51,6 +51,8 @@ message CheckTeamMemberRequest {
 message CheckTeamMemberResponse {
   int64 user_id = 1;
   int32 role = 2; // 0 普通成员、1 管理员、2 拥有者。
+  // 当前活动资格版本；跨服务退出/重入时不可重置，非正数不能用于版本授权。
+  int64 generation = 3;
 }
 
 message CheckTeamMemberByIDRequest {
@@ -64,7 +66,10 @@ message AuthorizeTeamGroupCreationRequest {
   int64 team_id = 1;
 }
 
-message AuthorizeTeamGroupCreationResponse {}
+message AuthorizeTeamGroupCreationResponse {
+  int64 user_id = 1;
+  int64 generation = 2;
+}
 
 message SetTeamMemberRoleRequest {
   int64 team_id = 1;

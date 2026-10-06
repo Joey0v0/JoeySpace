@@ -15,6 +15,34 @@ CREATE TABLE users (
 ) ENGINE=InnoDB;
 
 -- 好友关系表
+-- User团队基础；已有卷先按001/031迁移，不通过重新执行init升级。
+CREATE TABLE teams (
+    id BIGINT NOT NULL PRIMARY KEY,
+    name VARCHAR(64) NOT NULL,
+    owner_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_teams_owner (owner_id),
+    CONSTRAINT fk_teams_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE team_members (
+    team_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    role TINYINT NOT NULL DEFAULT 0,
+    joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    membership_state TINYINT NOT NULL DEFAULT 0 COMMENT '0 active, 1 leaving, 2 left',
+    generation BIGINT NOT NULL DEFAULT 1,
+    PRIMARY KEY (team_id, user_id),
+    INDEX idx_team_members_user (user_id, team_id),
+    CONSTRAINT fk_team_members_team FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    CONSTRAINT fk_team_members_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_team_members_role CHECK (role IN (0, 1, 2)),
+    CONSTRAINT chk_team_members_state CHECK (membership_state IN (0, 1, 2)),
+    CONSTRAINT chk_team_members_generation CHECK (generation > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 好友关系表
 CREATE TABLE friendships (
     id         BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id    BIGINT   NOT NULL,
@@ -263,4 +291,14 @@ CREATE TABLE im_group_message_reads (
     message_id BIGINT NOT NULL,
     read_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (user_id, group_id, message_id)
+) ENGINE=InnoDB;
+
+-- Permanent IM closure boundary, shared by future team joins and exit cleanup.
+CREATE TABLE IF NOT EXISTS im_team_group_fences (
+    team_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    closed_through_generation BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (team_id, user_id),
+    CONSTRAINT chk_im_team_group_fence_ids CHECK (team_id > 0 AND user_id > 0),
+    CONSTRAINT chk_im_team_group_fence_generation CHECK (closed_through_generation >= 0)
 ) ENGINE=InnoDB;
