@@ -500,3 +500,9 @@ root核实发现、提出A73/A74候选并提问，用户明确选择团队群规
 从2177d4c建立codex/stage7-team-group-unread；root共同7b5f062固定[协议/模型/030/路由/HTML与三个绝对目录、分支及唯一允许文件](stage7-team-group-unread-contract.md)。九步，IM/HTTP/页面各两个实现测试文件，执行agent不test/build/Git写/合main或部署；root拥有共同协议/生成/迁移/模型/路由/HTML、集中验证与文档，人数按三个执行角色。
 
 实际：root审查/定向验证保存A59216a1、B04d9edc、C506a78e，无冲突整合；B最初测试替换Context丢路由值，root仅修两个测试请求后通过；全页面旧测试锁全五脚本/末尾，root更新三个测试的合法清单/自身顺序。root补六项HTML/实际模块接线场景与程序改群/入群失效，最终全仓Go、325项Node通过。root运行检查修Makefile包运行，三个-h通过；030/init静态一致，首次时间/低ID非真实数据库验证。[九步及全部27文件](stage7-team-group-unread-contract.md#本批实现与审查)。三worktree干净保留，root最终接线/共同文档在整合分支；未执行030、真实浏览器/DB/容器/云/模型、main合并或push。历史重遍历/恢复控制下一轮，不夹带A16退出或新日志框架。
+
+## 44. A73历史重新遍历与未读恢复批次（2026-10-06）
+
+从73ade5b建codex/stage7-group-unread-recovery，共同eff7252仅固定本轮边界；main仍89e2a1e。三个保留worktree从同一提交建独立分支，执行目录、允许文件见[共同契约](stage7-group-unread-recovery-contract.md#三个执行任务)。A只改HTML/对应测试，B只新增页面恢复组合测试，C只新增生产IM TCP恢复测试；root拥有共同文档、审查、测试、所有Git保存和集成。执行Agent不test/build/Git写/自行合main/push/部署，最多九小步按整批计算。沿既定A73，不新增协议、表或依赖；实际结果由root集中验证后记录。
+
+实际完成七步：root审查/定向验证保存A96f81d8/Ba8daf70/Cfff1083，先把A提供B测试实际页面，再无冲突整合82ee844；root仅修JSON边界测试的固定微任务等待，改等实际进入信号。165项页面定向、24项恢复组合、两项生产IM TCP定向及最终353项Node/全仓Go通过；[全部10文件与边界](stage7-group-unread-recovery-contract.md#本批实现与审查)。三个执行worktree干净保留；本机TCP实际，SQL/User/DOM/HTTP替身。没有真实MySQL/浏览器/030/容器/云/模型验收、main合并或push，A16一致性方案仍须先讨论。

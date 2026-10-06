@@ -4,7 +4,7 @@
 状态：阶段1—6主要业务流程已有本地代码和自动化验证；阶段7任务通知、提醒链和本人团队群未读正在收尾。现有验证仍以本机连接和依赖替身为主，真实MySQL、模型、浏览器、容器和云端联调待最终统一验收，不能将本地通过视为上线完成。
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-06）：main仍89e2a1e，后续通知、日志与旧离线迁移均继承在当前分支。本批codex/stage7-team-group-unread沿已选A73，030/init与个人逐消息凭据、两个IM RPC/Gateway入口及原生显式按钮已接线；本人普通不计、机器人计入，GET不写、Mark整批核对/幂等、当前范围前后核权。共同7b5f062；A59216a1/B04d9edc/C506a78e由root审查/验证/保存并无冲突整合。定向及全仓Go、325项Node通过，root另修旧Makefile按包运行，三服务-h通过；[九步、全部27文件及边界](stage7-team-group-unread-contract.md#本批实现与审查)、[取舍](architecture-decisions.md)。首次时间/迟到小ID是SQL契约验证，真实MySQL未验收；保留旧历史游标，重遍历/恢复控制下一轮。030尚未执行，A16退出清理/Push资格、关联日志及真实环境仍后续；无新依赖、没有生成文件删除、main合并/push/部署，阶段7/整体项目未标完成。
+最新进展（2026-10-06）：main仍89e2a1e，前几批成果继承在codex/stage7-group-unread-recovery。本批沿A73增加独立“从最新消息重新遍历”入口，成功才换历史游标，失败/旧范围回包保留位置；“刷新最新”保持原行为。共同eff7252；root审查/测试并保存A96f81d8、Ba8daf70、Cfff1083，无冲突整合82ee844。定向页面165项、恢复组合24项、全部353项Node及生产IM TCP恢复定向通过；集中Go结果见[七步、全部文件与验证边界](stage7-group-unread-recovery-contract.md#本批实现与审查)，[选择理由](architecture-decisions.md)。较小ID迟到可以重新逐页找到，提交后丢响应/撤权的查询与显式同ID重试已有本地组合证据；SQL/User/DOM仍替身，真实MySQL首次时间/重启、030、浏览器与云端未验收。A16退出清理/Push资格、关联日志及真实环境仍后续；没有新协议/表/依赖或生成文件删除，没有main合并/push/部署，阶段7/整体项目未标完成。
 
 ## 1. 项目目标与学习背景
 
@@ -476,7 +476,7 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] A69—A72任务提醒运行接线（2026-10-05）：Push/WS分别由YAML显式开启，默认不建新资源；结构校验/TLS预检先于其他基础设施，新Push Reader独立Topic/group、同步commit，新组FirstOffset而已有组沿提交恢复；启动生产消费，坏事件只停提醒。WS新增专用TLS监听、实际绑定错误返回主流程、异常serve通道，取消/等待活动提醒后关闭User；root也接原HTTP端口同步绑定/信号关闭，不扩为旧Hub/WebSocket排空。两个main接线、默认关闭本地/容器模板及可选只读证书Compose覆盖已准备。共同7efed33、Push383f291、配置fe0045b、WS2a787f3/测试修正4b5d3f4由root审查/保存/整合；全仓Go及Linux两个目标通过。[八步和18文件审查](stage7-notification-runtime-contract.md#本批实现与审查)、[运行取舍](architecture-decisions.md)。当前电脑没有Docker命令，未验收Compose合并/挂载、真实Kafka/Redis/User/证书/信号或浏览器，不把运行接线等同于实际部署成功。
 
-当前下一步（2026-10-06）：补A73显式重遍历历史与未读恢复组合，核对迟到低ID、确认结果不确定、换身份/群和撤权的页面/RPC接线；保持具体ID，不让旧游标自动判已读，不擅自移除原路线单聊未读目标。随后按既定A16补退出清理/Push资格，关键跨服务一致性方案仍先讨论。后续沿A64本人状态边界补安全阶段/关联日志，不增加运行列表或公开内部错误。main仍89e2a1e，当前codex/stage7-team-group-unread继承前几批，未合main/push。027—030未执行，先核对迁移再升级Task/IM，协调发布变量、Push/WS私有开关、独立证书及Topic/group/在线地址；可选覆盖不替你开启私有YAML。最终统一验收按[阶段7清单](stage7-acceptance.md)、[阶段6准备](stage6-runtime-acceptance.md)及[部署说明](../deploy/README.md)执行；方舟接入点/预算未定前不请求真实模型。
+当前下一步（2026-10-06）：A73显式重遍历与未读恢复组合本地已补齐。接着核对既定A16退出清理/Push资格，用户团队退出与IM清理的跨服务一致性方案须先讨论，未确认前不实施受影响部分。不擅自移除原路线单聊未读目标，新增口径另行讨论。随后沿A64本人状态边界补安全阶段/关联日志，不增加运行列表或公开内部错误。main仍89e2a1e，当前codex/stage7-group-unread-recovery继承前几批，未合main/push。027—030未执行，先核对迁移再升级Task/IM，协调发布变量、Push/WS私有开关、独立证书及Topic/group/在线地址；可选覆盖不替你开启私有YAML。最终统一验收按[阶段7清单](stage7-acceptance.md)、[阶段6准备](stage6-runtime-acceptance.md)及[部署说明](../deploy/README.md)执行；方舟接入点/预算未定前不请求真实模型。
 
 - [x] A27/A69/A72原生页面任务提醒与恢复（2026-10-05）：最小WS提示只在当前连接及本人/团队范围内展示，128项内存窗口合并重复，不拼通知详情或自动已读；首次/手动重连成功查询最新页，忙时串行排队一次，刷新期间的新提示保留。Token输入/成功登录使旧身份回调失效，401/403清旧列表并阻断迟到提示。状态a9f2413、展示bc1ea5c、组合8464d04由root测试/保存/无冲突整合，root接线d328ad8；全部303项Node和Gateway API回归通过。[七步、全部12文件及边界](stage7-notification-realtime-page-contract.md#本批实现与审查)，[取舍记录](architecture-decisions.md)。只完成本地替身验证，真实浏览器/部署链、027—029及main合并/push尚未执行；阶段7整体未标完成。
 
@@ -487,6 +487,8 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 - [x] A22/A74旧离线出口收口（2026-10-05）：旧Gin读取/ACK仅经注入IM客户端，原Token重验本人/当前群团队资格，不回落旧数据库，HTTP200业务code/字符串ID/机器人/空数组兼容；32KiB和单JSON输入限制明确记录。三个执行worktree从a953968出发，root定向测试后保存A f634c31/B a1df2a1/C da7f9b6并无冲突整合；实际本机HTTP/TCP生产IM组合及全仓Go通过，SQL/User为替身。Compose地址及依赖静态解析通过，Docker/真实部署未验收。[八步及全部16文件](stage7-legacy-offline-contract.md#本批实现与审查)。没有新迁移/协议/依赖/页面，A73未读和A16清理仍后续，不标整个阶段完成。
 
 - [x] A73本人团队群未读本地接线（2026-10-06）：030/init个人逐消息主键、数据库首次时间；Get/Mark RPC及Gateway精确范围和字符串ID/count，事务整批校验、主键冲突no-op；普通本人消息排除、机器人计入，原生按钮只确认本次历史页。共同7b5f062，root保存/整合A59216a1/B04d9edc/C506a78e，定向及全仓Go、325项Node通过；修测试Context/旧脚本清单，不改相应生产语义，另补程序改群/入群失效与Makefile包运行，三个-h通过。[九步/全部27文件](stage7-team-group-unread-contract.md#本批实现与审查)。SQL/User/DOM等替身，030/真实环境未执行，低ID重遍历与恢复、A16/日志等仍后续，未合main或push。
+
+- [x] A73历史重新遍历与未读恢复本地组合（2026-10-06）：独立手动入口绕过旧结束状态，当前有效成功才替换分页位置；共享在途保护/范围世代/msg_id去重，仍只本人明确确认实际历史页。共同eff7252，A96f81d8/Ba8daf70/Cfff1083由root审查测试保存并无冲突整合；root仅修JSON等待测试的微任务假设。生产IM TCP提交后Unavailable、提交后User撤权/资格恢复及同ID重试定向通过，页面完整353项Node通过；[七步/全部文件与集中验证](stage7-group-unread-recovery-contract.md#本批实现与审查)、[实现取舍](architecture-decisions.md)。没有新协议/迁移/依赖，SQL/User/DOM/fetch为替身，真实MySQL首次时间/重启、030/浏览器/云未验收，未合main/push，不标A16清理或整个阶段完成。
 
 ## 10. 决策记录与文档关系
 
