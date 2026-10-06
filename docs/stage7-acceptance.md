@@ -14,7 +14,7 @@
 
 后续实现只围绕上述已确定目标。新增会话已读规则、运行查询边界或观测中间件属于关键选择，先讨论并记入架构决策；本页不授权新增框架或功能，也不把缺项静默移出范围。
 
-2026-10-06 A75/A76/A77全部A已确认：[资格基础](stage7-team-membership-foundation-contract.md)已准备031/032、User活动状态过滤/正版本、IM关闭事务组件，退出/恢复/清理与Push核权接线仍未完成。部署前必须检查001/031及032，未迁移不可升级User。新增SQL的`groups`已引用；旧IM原始SQL仍有同类未引用写法，后续接线前先修复，因为MySQL8将GROUPS列为保留字。[MySQL官方关键字说明](https://dev.mysql.com/doc/refman/8.0/en/keywords.html) 此项不能被sqlmock通过掩盖，实际SQL语法/锁竞争仍未验收。
+2026-10-06 A75/A76/A77全部A已确认：[资格基础](stage7-team-membership-foundation-contract.md)已准备031/032、User活动状态过滤/正版本、IM关闭事务组件；[本批写入保护](stage7-team-group-write-guard-contract.md)把正版本/关闭记录接入自行入群与建群群主写入，旧IM原始SQL中的`groups`引用已修。升级需先核对001/执行031再升级User，执行032再升级IM，不能让新版IM依赖旧User缺版本响应。退出/恢复/清理、IM读取端、Push核权仍未接线；真实MySQL语法/锁竞争未验收。MySQL8将GROUPS列为保留字，[官方关键字说明](https://dev.mysql.com/doc/refman/8.0/en/keywords.html)；sqlmock通过不能替代实库执行。
 
 ## 2. 本地验证证据与边界
 

@@ -518,3 +518,6 @@ root复核后提出A75/A76/A77候选，全部待用户确认；仅新增方案�
 用户逐项选择A75/A76/A77全部A。root从ad140b8建codex/stage7-team-membership-foundation，共同383cf62发布031/032/init/模型/User协议/生成及[精确目录、分支和允许文件](stage7-team-membership-foundation-contract.md#执行范围)。三个执行worktree分别只改普通User资格15文件、后台User资格6文件、IM未接线组件2文件；root拥有共同协议/生成/迁移/模型、文档和所有Git/集中测试。执行Agent仅编辑/gofmt/diffcheck，不test/build/Git写/合main/push或部署，整批最多八步。
 
 root审查验证保存A67a5960/Be7a9aba/C2fdb86f，无冲突整合838549e。root修C新SQL的groups引用及对应预期，再定向通过；普通User全包、后台定向、IM8个测试主题已通过。root重新按旧proto相对路径生成，最终仅必要User pb改变，不删除grpc生成文件。[全部文件与集中结果](stage7-team-membership-foundation-contract.md#本批实现与审查)。三个worktree干净保留；SQL/MySQL锁/031/032/真实部署未验收，没有页面、依赖、退出/恢复RPC、现有IM/Push接线、main合并或push。
+## 47. 阶段7团队群写入保护协作（2026-10-06）
+
+从共同9c37bd1在三个已有干净worktree建独立分支，精确目录/允许文件与六步范围见[本批契约](stage7-team-group-write-guard-contract.md#三个执行任务)。A为Join写入保护，B为Create写入保护，C为旧`groups`SQL引用。三位只编辑各自文件、gofmt/diffcheck；全部Git保存、合入本轮分支、Go测试和文档由root执行。C c6c6526、A 7600a17、B 83a41a6均无冲突整合；三个worktree仍保留且干净。会话在一次定向测试调用中断后，root核对工作目录并让A/B从原未提交进度续作，没有重置/删除文件；中断的测试未计通过，整合后由root重新运行。main仍89e2a1e，未合main/push/部署。实际结果、全部文件及验证边界见[集中审查](stage7-team-group-write-guard-contract.md#本批实现与审查)。
