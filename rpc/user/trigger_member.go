@@ -45,8 +45,12 @@ func (s *triggerTeamServer) ResolveTriggerTeamMember(ctx context.Context, req *p
 	ctx, cancel := context.WithTimeout(ctx, triggerTeamTimeout)
 	defer cancel()
 	qualification := &pb.CheckTriggerTeamMemberRequest{ActorId: actorID, TeamId: teamID}
-	if _, err := s.CheckTriggerTeamMember(ctx, qualification); err != nil {
+	before, err := s.CheckTriggerTeamMember(ctx, qualification)
+	if err != nil {
 		return nil, err
+	}
+	if before.GetGeneration() <= 0 {
+		return nil, triggerTeamStorageError(ctx)
 	}
 	rows, err := s.db.WithContext(ctx).Raw(resolveTriggerMemberQuery, teamID, model.TeamMembershipActive, name, name, teamID, actorID, model.TeamMembershipActive).Rows()
 	if err != nil {
@@ -69,8 +73,18 @@ func (s *triggerTeamServer) ResolveTriggerTeamMember(ctx context.Context, req *p
 		return nil, triggerTeamStorageError(ctx)
 	}
 	// Empty results also require a fresh check: revocation is never not_found.
-	if _, err := s.CheckTriggerTeamMember(ctx, qualification); err != nil {
+	after, err := s.CheckTriggerTeamMember(ctx, qualification)
+	if err != nil {
 		return nil, err
+	}
+	if after.GetGeneration() <= 0 {
+		return nil, triggerTeamStorageError(ctx)
+	}
+	if before.GetGeneration() != after.GetGeneration() {
+		if err := ctx.Err(); err != nil {
+			return nil, status.FromContextError(err).Err()
+		}
+		return nil, status.Error(codes.PermissionDenied, "current active team membership required")
 	}
 	truncated := len(candidates) > model.AgentTriggerMemberCandidateLimit
 	if truncated {
