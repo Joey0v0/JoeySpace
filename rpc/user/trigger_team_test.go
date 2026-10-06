@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -21,7 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const triggerTeamQuery = "SELECT users.status FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE team_members.team_id = ? AND team_members.user_id = ? LIMIT ?"
+const triggerTeamQuery = "SELECT users.status FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE team_members.team_id = ? AND team_members.user_id = ? AND team_members.membership_state = ? LIMIT ?"
 const triggerTeamIMName = "im.go-im.internal"
 
 func triggerTeamIMContext(parent context.Context) context.Context {
@@ -36,7 +37,7 @@ func TestTriggerTeamMemberReturnsOnlyExactCurrentScopeWithoutJWT(t *testing.T) {
 		users, mock := newTestUserServer(t)
 		s := &triggerTeamServer{db: users.db, imDNSName: triggerTeamIMName}
 		const teamID int64 = 9007199254740995
-		mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(teamID, actorID, 2).
+		mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(teamID, actorID, model.TeamMembershipActive, 2).
 			WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(1))
 		ctx := triggerTeamIMContext(context.Background())
 		response, err := s.CheckTriggerTeamMember(ctx, &pb.CheckTriggerTeamMemberRequest{ActorId: actorID, TeamId: teamID})
@@ -117,15 +118,17 @@ func TestTriggerTeamMemberRejectsInvalidIDsOrUnavailableConfigurationWithoutSQL(
 }
 
 func TestTriggerTeamMemberRejectsMissingDisabledAndDamagedDatabaseResults(t *testing.T) {
-	for _, name := range []string{"left team", "disabled", "zero", "negative", "NULL", "not number", "overflow", "multiple", "SQL", "row error"} {
+	for _, name := range []string{"missing membership", "leaving membership", "left membership", "disabled", "zero", "negative", "NULL", "not number", "overflow", "multiple", "SQL", "row error"} {
 		t.Run(name, func(t *testing.T) {
 			users, mock := newTestUserServer(t)
 			s := &triggerTeamServer{db: users.db, imDNSName: triggerTeamIMName}
-			query := mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), int64(42), 2)
+			query := mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), int64(42), model.TeamMembershipActive, 2)
 			rows := sqlmock.NewRows([]string{"status"})
 			want := codes.Unavailable
 			switch name {
-			case "left team":
+			case "missing membership", "leaving membership", "left membership":
+				// The exact active predicate returns no row for either retained
+				// non-active lifecycle state, even when the account is enabled.
 				want = codes.PermissionDenied
 			case "disabled":
 				rows.AddRow(2)
@@ -181,7 +184,7 @@ func TestTriggerTeamMemberHonorsCancellationAndDeadline(t *testing.T) {
 	}
 	users, mock := newTestUserServer(t)
 	s := &triggerTeamServer{db: users.db, imDNSName: triggerTeamIMName}
-	mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), int64(42), 2).
+	mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), int64(42), model.TeamMembershipActive, 2).
 		WillDelayFor(100 * time.Millisecond).WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(1))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()

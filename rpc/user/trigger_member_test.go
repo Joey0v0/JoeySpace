@@ -35,11 +35,11 @@ func triggerMemberRows() *sqlmock.Rows {
 }
 
 func expectTriggerMemberQualification(mock sqlmock.Sqlmock, req *pb.ResolveTriggerTeamMemberRequest, rows *sqlmock.Rows) {
-	mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, 2).WillReturnRows(rows)
+	mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).WillReturnRows(rows)
 }
 
 func expectTriggerMemberQuery(mock sqlmock.Sqlmock, req *pb.ResolveTriggerTeamMemberRequest) *sqlmock.ExpectedQuery {
-	return mock.ExpectQuery(regexp.QuoteMeta(resolveTriggerMemberQuery)).WithArgs(req.TeamId, req.Name, req.Name, req.TeamId, req.ActorId)
+	return mock.ExpectQuery(regexp.QuoteMeta(resolveTriggerMemberQuery)).WithArgs(req.TeamId, model.TeamMembershipActive, req.Name, req.Name, req.TeamId, req.ActorId, model.TeamMembershipActive)
 }
 
 func TestResolveTriggerMemberLiteralMatchesEchoScopeAndIgnoreMetadata(t *testing.T) {
@@ -232,7 +232,7 @@ func TestResolveTriggerMemberInvalidRequestAndConfigurationWithoutSQL(t *testing
 }
 
 func TestResolveTriggerMemberChecksQualificationBeforeAndAfterCandidateQuery(t *testing.T) {
-	for _, name := range []string{"left before", "disabled before", "left after empty", "disabled after empty", "left after match", "disabled after match", "qualification SQL before", "qualification SQL after"} {
+	for _, name := range []string{"left before", "leaving before", "disabled before", "left after empty", "leaving after empty", "disabled after empty", "left after match", "leaving after match", "disabled after match", "qualification SQL before", "qualification SQL after"} {
 		t.Run(name, func(t *testing.T) {
 			s, mock := newTriggerMemberTestServer(t)
 			req := &pb.ResolveTriggerTeamMemberRequest{ActorId: 42, TeamId: 200, Name: "张三"}
@@ -245,7 +245,7 @@ func TestResolveTriggerMemberChecksQualificationBeforeAndAfterCandidateQuery(t *
 				}
 				expectTriggerMemberQuery(mock, req).WillReturnRows(rows).RowsWillBeClosed()
 			}
-			query := mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, 2)
+			query := mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2)
 			want := codes.PermissionDenied
 			if strings.HasPrefix(name, "qualification SQL") {
 				want = codes.Unavailable
@@ -295,7 +295,7 @@ func TestResolveTriggerMemberDatabaseFailureCancellationAndDeadline(t *testing.T
 						query.WillDelayFor(100 * time.Millisecond).WillReturnRows(triggerMemberRows())
 					} else {
 						query.WillReturnRows(triggerMemberRows()).RowsWillBeClosed()
-						mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, 2).
+						mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).
 							WillDelayFor(100 * time.Millisecond).WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(1))
 					}
 				}
@@ -310,7 +310,7 @@ func TestResolveTriggerMemberDatabaseFailureCancellationAndDeadline(t *testing.T
 }
 
 func TestResolveTriggerMemberSQLKeepsCandidateAndActorRestrictions(t *testing.T) {
-	for _, clause := range []string{"team_members.team_id = ? AND users.status = 1", "CAST(users.username AS BINARY) = CAST(? AS BINARY) OR CAST(users.nickname AS BINARY) = CAST(? AS BINARY)", "EXISTS (SELECT 1", "actor_members.team_id = ? AND actor_members.user_id = ? AND actor_user.status = 1", "ORDER BY users.id ASC LIMIT 21"} {
+	for _, clause := range []string{"team_members.team_id = ? AND team_members.membership_state = ? AND users.status = 1", "CAST(users.username AS BINARY) = CAST(? AS BINARY) OR CAST(users.nickname AS BINARY) = CAST(? AS BINARY)", "EXISTS (SELECT 1", "actor_members.team_id = ? AND actor_members.user_id = ? AND actor_members.membership_state = ? AND actor_user.status = 1", "ORDER BY users.id ASC LIMIT 21"} {
 		if !strings.Contains(resolveTriggerMemberQuery, clause) {
 			t.Fatalf("missing fixed SQL restriction %q", clause)
 		}

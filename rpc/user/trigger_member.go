@@ -13,10 +13,10 @@ import (
 
 const resolveTriggerMemberQuery = `SELECT users.id, users.username, users.nickname
 FROM team_members JOIN users ON users.id = team_members.user_id
-WHERE team_members.team_id = ? AND users.status = 1
+WHERE team_members.team_id = ? AND team_members.membership_state = ? AND users.status = 1
 AND (CAST(users.username AS BINARY) = CAST(? AS BINARY) OR CAST(users.nickname AS BINARY) = CAST(? AS BINARY))
 AND EXISTS (SELECT 1 FROM team_members AS actor_members JOIN users AS actor_user ON actor_user.id = actor_members.user_id
-WHERE actor_members.team_id = ? AND actor_members.user_id = ? AND actor_user.status = 1)
+WHERE actor_members.team_id = ? AND actor_members.user_id = ? AND actor_members.membership_state = ? AND actor_user.status = 1)
 ORDER BY users.id ASC LIMIT 21`
 
 // ResolveTriggerTeamMember accepts only the IM service identity, and returns
@@ -48,7 +48,7 @@ func (s *triggerTeamServer) ResolveTriggerTeamMember(ctx context.Context, req *p
 	if _, err := s.CheckTriggerTeamMember(ctx, qualification); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.WithContext(ctx).Raw(resolveTriggerMemberQuery, teamID, name, name, teamID, actorID).Rows()
+	rows, err := s.db.WithContext(ctx).Raw(resolveTriggerMemberQuery, teamID, model.TeamMembershipActive, name, name, teamID, actorID, model.TeamMembershipActive).Rows()
 	if err != nil {
 		return nil, triggerTeamStorageError(ctx)
 	}
