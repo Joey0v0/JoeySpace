@@ -87,14 +87,19 @@ func newTriggerTeamClient(c triggerTeamClientConfig) (*triggerTeamClient, error)
 }
 
 func (c *triggerTeamClient) Check(ctx context.Context, actorID, teamID int64) error {
+	_, err := c.CheckGeneration(ctx, actorID, teamID)
+	return err
+}
+
+func (c *triggerTeamClient) CheckGeneration(ctx context.Context, actorID, teamID int64) (int64, error) {
 	if ctx == nil || actorID <= 0 || teamID <= 0 {
-		return status.Error(codes.InvalidArgument, "positive actor and team IDs and request context required")
+		return 0, status.Error(codes.InvalidArgument, "positive actor and team IDs and request context required")
 	}
 	if err := ctx.Err(); err != nil {
-		return status.FromContextError(err).Err()
+		return 0, status.FromContextError(err).Err()
 	}
 	if c == nil || c.rpc == nil || c.conn != nil && c.conn.GetState() == connectivity.Shutdown {
-		return status.Error(codes.Unavailable, "team eligibility service unavailable")
+		return 0, status.Error(codes.Unavailable, "team eligibility service unavailable")
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
@@ -102,10 +107,10 @@ func (c *triggerTeamClient) Check(ctx context.Context, actorID, teamID int64) er
 	callCtx = metadata.NewOutgoingContext(callCtx, metadata.MD{})
 	result, err := c.rpc.CheckTriggerTeamMember(callCtx, &userpb.CheckTriggerTeamMemberRequest{ActorId: actorID, TeamId: teamID})
 	if contextErr := callCtx.Err(); contextErr != nil {
-		return status.FromContextError(contextErr).Err()
+		return 0, status.FromContextError(contextErr).Err()
 	}
 	if c.conn != nil && c.conn.GetState() == connectivity.Shutdown {
-		return status.Error(codes.Unavailable, "team eligibility service unavailable")
+		return 0, status.Error(codes.Unavailable, "team eligibility service unavailable")
 	}
 	if err != nil {
 		code := status.Code(err)
@@ -116,21 +121,21 @@ func (c *triggerTeamClient) Check(ctx context.Context, actorID, teamID int64) er
 		}
 		switch code {
 		case codes.PermissionDenied:
-			return status.Error(code, "current team membership required")
+			return 0, status.Error(code, "current team membership required")
 		case codes.Unauthenticated:
-			return status.Error(code, "service authentication required")
+			return 0, status.Error(code, "service authentication required")
 		case codes.Canceled:
-			return status.Error(code, "team eligibility check canceled")
+			return 0, status.Error(code, "team eligibility check canceled")
 		case codes.DeadlineExceeded:
-			return status.Error(code, "team eligibility check timed out")
+			return 0, status.Error(code, "team eligibility check timed out")
 		default:
-			return status.Error(codes.Unavailable, "team eligibility service unavailable")
+			return 0, status.Error(codes.Unavailable, "team eligibility service unavailable")
 		}
 	}
-	if result == nil || result.GetActorId() != actorID || result.GetTeamId() != teamID {
-		return status.Error(codes.Unavailable, "invalid team eligibility response")
+	if result == nil || result.GetActorId() != actorID || result.GetTeamId() != teamID || result.GetGeneration() <= 0 {
+		return 0, status.Error(codes.Unavailable, "invalid team eligibility response")
 	}
-	return nil
+	return result.GetGeneration(), nil
 }
 
 func (c *triggerTeamClient) Close() error {

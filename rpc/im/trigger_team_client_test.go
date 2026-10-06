@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -113,7 +114,7 @@ func TestTriggerTeamCheckUsesOnlyIDsAndClearsEveryCallerMetadataKey(t *testing.T
 		if !ok || len(md) != 0 || !bounded || time.Until(deadline) > 2*time.Second || req.ActorId != 9007199254740993 || req.TeamId != 9007199254740995 {
 			t.Fatalf("request %v metadata %v deadline %v", req, md, deadline)
 		}
-		return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId}, nil
+		return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId, Generation: 1}, nil
 	})}
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("authorization", "Bearer private-token", "actor-id", "1", "service", "agent", "cookie", "session", "x-extra", "secret"))
 	if err := client.Check(ctx, 9007199254740993, 9007199254740995); err != nil {
@@ -122,12 +123,16 @@ func TestTriggerTeamCheckUsesOnlyIDsAndClearsEveryCallerMetadataKey(t *testing.T
 }
 
 func TestTriggerTeamCheckRejectsNilAndWrongEchoAndMasksServerErrors(t *testing.T) {
-	for _, response := range []*userpb.CheckTriggerTeamMemberResponse{nil, {}, {ActorId: 7, TeamId: 10}, {ActorId: 9, TeamId: 8}} {
+	for _, response := range []*userpb.CheckTriggerTeamMemberResponse{nil, {}, {ActorId: 7, TeamId: 10, Generation: 1}, {ActorId: 9, TeamId: 8, Generation: 1}, {ActorId: 9, TeamId: 10}, {ActorId: 9, TeamId: 10, Generation: -1}} {
 		client := &triggerTeamClient{rpc: triggerTeamCheckFunc(func(context.Context, *userpb.CheckTriggerTeamMemberRequest) (*userpb.CheckTriggerTeamMemberResponse, error) {
 			return response, nil
 		})}
 		if err := client.Check(context.Background(), 9, 10); status.Code(err) != codes.Unavailable {
 			t.Fatalf("response %v: %v", response, err)
+		}
+		generation, err := client.CheckGeneration(context.Background(), 9, 10)
+		if generation != 0 || status.Code(err) != codes.Unavailable || status.Convert(err).Message() != "invalid team eligibility response" {
+			t.Fatalf("invalid response %v returned generation %d: %v", response, generation, err)
 		}
 	}
 	for _, code := range []codes.Code{codes.PermissionDenied, codes.Unauthenticated, codes.Canceled, codes.DeadlineExceeded, codes.Unavailable, codes.Internal, codes.NotFound, codes.InvalidArgument, codes.Unimplemented} {
@@ -142,6 +147,27 @@ func TestTriggerTeamCheckRejectsNilAndWrongEchoAndMasksServerErrors(t *testing.T
 		if status.Code(err) != want || strings.Contains(err.Error(), "private") {
 			t.Fatalf("%s: %v", code, err)
 		}
+		generation, generationErr := client.CheckGeneration(context.Background(), 9, 10)
+		if generation != 0 || status.Code(generationErr) != want || status.Convert(generationErr).Message() != status.Convert(err).Message() {
+			t.Fatalf("%s returned generation %d: %v", code, generation, generationErr)
+		}
+	}
+}
+
+func TestTriggerTeamCheckGenerationPreservesPositiveInt64Version(t *testing.T) {
+	for _, version := range []int64{1, 9007199254740993, math.MaxInt64} {
+		calls := 0
+		client := &triggerTeamClient{rpc: triggerTeamCheckFunc(func(_ context.Context, req *userpb.CheckTriggerTeamMemberRequest) (*userpb.CheckTriggerTeamMemberResponse, error) {
+			calls++
+			return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId, Generation: version}, nil
+		})}
+		generation, err := client.CheckGeneration(context.Background(), 9, 10)
+		if err != nil || generation != version || calls != 1 {
+			t.Fatalf("version %d returned %d, calls %d: %v", version, generation, calls, err)
+		}
+		if err := client.Check(context.Background(), 9, 10); err != nil || calls != 2 {
+			t.Fatalf("compatibility Check failed for version %d, calls %d: %v", version, calls, err)
+		}
 	}
 }
 
@@ -154,23 +180,38 @@ func TestTriggerTeamCheckLocalGuardsAndCallerCancellationDoNotReachRPC(t *testin
 		if err := client.Check(context.Background(), ids[0], ids[1]); status.Code(err) != codes.InvalidArgument {
 			t.Fatal(err)
 		}
+		if generation, err := client.CheckGeneration(context.Background(), ids[0], ids[1]); generation != 0 || status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("invalid IDs returned generation %d: %v", generation, err)
+		}
 	}
 	if err := client.Check(nil, 1, 2); status.Code(err) != codes.InvalidArgument {
 		t.Fatal(err)
+	}
+	if generation, err := client.CheckGeneration(nil, 1, 2); generation != 0 || status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("nil context returned generation %d: %v", generation, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if err := client.Check(ctx, 1, 2); status.Code(err) != codes.Canceled {
 		t.Fatal(err)
 	}
+	if generation, err := client.CheckGeneration(ctx, 1, 2); generation != 0 || status.Code(err) != codes.Canceled {
+		t.Fatalf("canceled caller returned generation %d: %v", generation, err)
+	}
 	ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	defer cancel()
 	if err := client.Check(ctx, 1, 2); status.Code(err) != codes.DeadlineExceeded {
 		t.Fatal(err)
 	}
+	if generation, err := client.CheckGeneration(ctx, 1, 2); generation != 0 || status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("expired caller returned generation %d: %v", generation, err)
+	}
 	for _, client := range []*triggerTeamClient{nil, {}} {
 		if err := client.Check(context.Background(), 1, 2); status.Code(err) != codes.Unavailable {
 			t.Fatal(err)
+		}
+		if generation, err := client.CheckGeneration(context.Background(), 1, 2); generation != 0 || status.Code(err) != codes.Unavailable {
+			t.Fatalf("disabled client returned generation %d: %v", generation, err)
 		}
 		if err := client.Close(); err != nil {
 			t.Fatal(err)
@@ -181,11 +222,11 @@ func TestTriggerTeamCheckLocalGuardsAndCallerCancellationDoNotReachRPC(t *testin
 func TestTriggerTeamCheckEnforcesTwoSecondBudgetAndRejectsLateSuccess(t *testing.T) {
 	client := &triggerTeamClient{rpc: triggerTeamCheckFunc(func(ctx context.Context, req *userpb.CheckTriggerTeamMemberRequest) (*userpb.CheckTriggerTeamMemberResponse, error) {
 		<-ctx.Done()
-		return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId}, nil
+		return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId, Generation: 1}, nil
 	})}
 	started := time.Now()
-	if err := client.Check(context.Background(), 1, 2); status.Code(err) != codes.DeadlineExceeded {
-		t.Fatal(err)
+	if generation, err := client.CheckGeneration(context.Background(), 1, 2); generation != 0 || status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("late success returned generation %d: %v", generation, err)
 	}
 	if elapsed := time.Since(started); elapsed < 1900*time.Millisecond || elapsed > 3*time.Second {
 		t.Fatalf("budget: %v", elapsed)
@@ -303,7 +344,7 @@ func TestTriggerTeamClientActualMTLSPreservesIDsWithoutTokenAndDoesNotRetryDenie
 			t.Error("large IDs changed")
 		}
 		if calls.Add(1) == 1 {
-			return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId}, nil
+			return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId, Generation: 9007199254740993}, nil
 		}
 		return nil, status.Error(codes.PermissionDenied, "private revoked user details")
 	})
@@ -313,8 +354,8 @@ func TestTriggerTeamClientActualMTLSPreservesIDsWithoutTokenAndDoesNotRetryDenie
 	}
 	t.Cleanup(func() { _ = client.Close() })
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("authorization", "Bearer private-token", "actor-id", "1", "service", "agent", "x-extra", "private"))
-	if err := client.Check(ctx, 9007199254740993, 9007199254740995); err != nil {
-		t.Fatal(err)
+	if generation, err := client.CheckGeneration(ctx, 9007199254740993, 9007199254740995); err != nil || generation != 9007199254740993 {
+		t.Fatalf("mTLS generation = %d: %v", generation, err)
 	}
 	if err := client.Check(ctx, 9007199254740993, 9007199254740995); status.Code(err) != codes.PermissionDenied || strings.Contains(err.Error(), "private") {
 		t.Fatal(err)
@@ -416,8 +457,8 @@ func TestTriggerTeamClientActualTLSBoundsResponseAndCallerDeadline(t *testing.T)
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
-		response := &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId}
-		unknown := protowire.AppendTag(nil, 3, protowire.BytesType)
+		response := &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId, Generation: 1}
+		unknown := protowire.AppendTag(nil, 99, protowire.BytesType)
 		response.ProtoReflect().SetUnknown(protowire.AppendBytes(unknown, bytes.Repeat([]byte("x"), 8192)))
 		return response, nil
 	})
