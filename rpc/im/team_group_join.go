@@ -26,13 +26,17 @@ func (s *imServer) JoinTeamGroup(ctx context.Context, req *pb.JoinTeamGroupReque
 		return nil, err
 	}
 	teamCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", authorization))
-	if _, err := s.teamClient.CheckTeamMember(teamCtx, &userpb.CheckTeamMemberRequest{TeamId: req.GetTeamId()}); err != nil {
+	membership, err := s.teamClient.CheckTeamMember(teamCtx, &userpb.CheckTeamMemberRequest{TeamId: req.GetTeamId()})
+	if err != nil {
 		switch status.Code(err) {
 		case codes.PermissionDenied, codes.Unauthenticated, codes.DeadlineExceeded, codes.Canceled:
 			return nil, err
 		default:
 			return nil, status.Error(codes.Unavailable, "team membership check unavailable")
 		}
+	}
+	if err := validateTeamGroupAuthorization(userID, membership.GetUserId(), membership.GetGeneration()); err != nil {
+		return nil, err
 	}
 	var group struct{ ID int64 }
 	err = s.db.WithContext(ctx).Table("groups").Select("id").
@@ -48,20 +52,33 @@ func (s *imServer) JoinTeamGroup(ctx context.Context, req *pb.JoinTeamGroupReque
 		UserID  int64
 		Role    int8
 	}{req.GetGroupId(), userID, 0}
-	err = s.db.WithContext(ctx).Table("group_members").Create(&member).Error
-	if err == nil {
-		return &pb.JoinTeamGroupResponse{}, nil
-	}
-	var mysqlErr *mysql.MySQLError
-	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-		var existing struct{ GroupID int64 }
-		findErr := s.db.WithContext(ctx).Table("group_members").Select("group_id").
-			Where("group_id = ? AND user_id = ?", req.GetGroupId(), userID).Take(&existing).Error
-		if findErr == nil {
-			return &pb.JoinTeamGroupResponse{}, nil
+	err = withTeamGroupGeneration(ctx, s.db, req.GetTeamId(), userID, membership.GetGeneration(), func(tx *gorm.DB) error {
+		insertErr := tx.Table("group_members").Create(&member).Error
+		if insertErr == nil {
+			return nil
 		}
+		var mysqlErr *mysql.MySQLError
+		if errors.As(insertErr, &mysqlErr) && mysqlErr.Number == 1062 {
+			var existing struct{ GroupID int64 }
+			// Keep the generation lock through duplicate verification and commit.
+			if err := tx.Table("group_members").Select("group_id").
+				Where("group_id = ? AND user_id = ?", req.GetGroupId(), userID).Take(&existing).Error; err != nil {
+				return err
+			}
+			if existing.GroupID != req.GetGroupId() {
+				return status.Error(codes.Unavailable, "team group membership data unavailable")
+			}
+			return nil
+		}
+		return insertErr
+	})
+	if err != nil {
+		if status.Code(err) == codes.Unavailable {
+			return nil, joinTeamGroupDBError(ctx, err)
+		}
+		return nil, err
 	}
-	return nil, joinTeamGroupDBError(ctx, err)
+	return &pb.JoinTeamGroupResponse{}, nil
 }
 
 func joinTeamGroupDBError(ctx context.Context, err error) error {

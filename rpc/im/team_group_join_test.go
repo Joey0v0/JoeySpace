@@ -33,6 +33,7 @@ func TestJoinTeamGroupWritesOnlyCurrentMember(t *testing.T) {
 		WithArgs(int64(300), int64(200), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(300)))
 	mock.ExpectBegin()
+	fenceTestLock(mock, 0)
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `group_members`")).
 		WithArgs(int64(300), int64(42), int8(0)).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
@@ -65,7 +66,11 @@ func TestJoinTeamGroupRejectsBeforeWrite(t *testing.T) {
 		want    codes.Code
 	}{
 		{"non-member", status.Error(codes.PermissionDenied, "not a member"), codes.PermissionDenied},
+		{"unauthenticated", status.Error(codes.Unauthenticated, "invalid user token"), codes.Unauthenticated},
+		{"canceled", status.Error(codes.Canceled, "request canceled"), codes.Canceled},
+		{"deadline", status.Error(codes.DeadlineExceeded, "request expired"), codes.DeadlineExceeded},
 		{"team RPC unavailable", status.Error(codes.Unavailable, "private detail"), codes.Unavailable},
+		{"unexpected team RPC error", status.Error(codes.Internal, "private detail"), codes.Unavailable},
 		{"group outside team or legacy group", nil, codes.NotFound},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -80,6 +85,9 @@ func TestJoinTeamGroupRejectsBeforeWrite(t *testing.T) {
 			if result != nil || status.Code(err) != tc.want {
 				t.Fatalf("join: %v %v", result, err)
 			}
+			if tc.want == codes.Unavailable && status.Convert(err).Message() != "team membership check unavailable" {
+				t.Fatalf("team RPC error was not sanitized before database access: %v", err)
+			}
 		})
 	}
 }
@@ -91,13 +99,14 @@ func TestJoinTeamGroupDuplicateReturnsSuccess(t *testing.T) {
 		WithArgs(int64(300), int64(200), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(300)))
 	mock.ExpectBegin()
+	fenceTestLock(mock, 0)
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `group_members`")).
 		WithArgs(int64(300), int64(42), int8(0)).
 		WillReturnError(&mysql.MySQLError{Number: 1062, Message: "duplicate member"})
-	mock.ExpectRollback()
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT `group_id` FROM `group_members` WHERE group_id = ? AND user_id = ? LIMIT ?")).
 		WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"group_id"}).AddRow(int64(300)))
+	mock.ExpectCommit()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+validIMToken(t)))
 	result, err := s.JoinTeamGroup(ctx, &pb.JoinTeamGroupRequest{TeamId: 200, GroupId: 300})
 	if err != nil || result == nil {
