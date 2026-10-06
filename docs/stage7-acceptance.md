@@ -18,6 +18,8 @@
 
 2026-10-06 [普通群读取保护](stage7-team-group-read-guard-contract.md#本批实现与审查)已在User本人/正版本核权后，重新核对当前群成员和032关闭版本；历史、未读、来源、机器人和旧离线拉取继承普通CheckGroupMember。旧群不走User/关闭行，User拒绝后不读取群正文。随后[后台触发上下文保护](stage7-trigger-generation-guard-contract.md#本批实现与审查)使专用mTLS User资格RPC回显真实正generation；IM按持久触发范围在历史前后各复核User同版本及IM当前群成员/关闭记录，旧User零版本固定失败。[负责人解析末次保护](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)又使User候选查询前后版本一致，IM候选调用前后版本一致并最终查群关闭。User/IM定向、双mTLS组合及全仓Go通过，SQL数据库仍为替身。真实MySQL/031/032/并发、退出/清理/Push仍未完成，不能把本地读取保护说成完整团队退出链路。
 
+2026-10-06 [033 User退出操作表](stage7-team-leave-operation-schema.md)已准备，与新库init的DDL经换行标准化后静态一致；迁移不创建操作、不撤权、不清理群。后续启用退出业务前须在已有User库核对001/031并执行033一次。真实MySQL、事务竞争和退出→清理→重试仍未验收。
+
 ## 2. 本地验证证据与边界
 
 | 验证段 | 已有证据 | 不代表什么 |
