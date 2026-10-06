@@ -60,13 +60,20 @@ func (s *imServer) CheckGroupMember(ctx context.Context, req *pb.CheckGroupMembe
 			return nil, status.Error(codes.Unavailable, "team membership check is not enabled")
 		}
 		teamCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", authorization))
-		if _, err := s.teamClient.CheckTeamMember(teamCtx, &userpb.CheckTeamMemberRequest{TeamId: *member.TeamID}); err != nil {
+		membership, err := s.teamClient.CheckTeamMember(teamCtx, &userpb.CheckTeamMemberRequest{TeamId: *member.TeamID})
+		if err != nil {
 			switch status.Code(err) {
 			case codes.PermissionDenied, codes.Unauthenticated, codes.DeadlineExceeded, codes.Canceled:
 				return nil, err
 			default:
 				return nil, status.Error(codes.Unavailable, "team membership check unavailable")
 			}
+		}
+		if err := validateTeamGroupAuthorization(claimsUserID, membership.GetUserId(), membership.GetGeneration()); err != nil {
+			return nil, err
+		}
+		if err := checkTeamGroupReadGeneration(ctx, s.db, req.GetGroupId(), *member.TeamID, claimsUserID, membership.GetGeneration()); err != nil {
+			return nil, err
 		}
 	}
 	return &pb.CheckGroupMemberResponse{}, nil
