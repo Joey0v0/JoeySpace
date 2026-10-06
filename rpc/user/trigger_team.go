@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/internal/rpcauth"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
@@ -39,7 +40,7 @@ func (s *triggerTeamServer) CheckTriggerTeamMember(ctx context.Context, req *pb.
 	defer cancel()
 	rows, err := s.db.WithContext(ctx).Table("team_members").Select("users.status").
 		Joins("JOIN users ON users.id = team_members.user_id").
-		Where("team_members.team_id = ? AND team_members.user_id = ?", teamID, actorID).Limit(2).Rows()
+		Where("team_members.team_id = ? AND team_members.user_id = ? AND team_members.membership_state = ?", teamID, actorID, model.TeamMembershipActive).Limit(2).Rows()
 	if err != nil {
 		return nil, triggerTeamStorageError(ctx)
 	}

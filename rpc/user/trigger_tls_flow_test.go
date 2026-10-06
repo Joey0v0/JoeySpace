@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/internal/rpcauth"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc"
@@ -59,13 +60,15 @@ func TestTriggerMembershipOverProductionTLSListenerTracksCurrentUserState(t *tes
 		code    codes.Code
 	}{
 		{"active member", sqlmock.NewRows([]string{"status"}).AddRow(1), nil, codes.OK},
-		{"left team", sqlmock.NewRows([]string{"status"}), nil, codes.PermissionDenied},
+		{"missing membership", sqlmock.NewRows([]string{"status"}), nil, codes.PermissionDenied},
+		{"leaving membership excluded by active predicate", sqlmock.NewRows([]string{"status"}), nil, codes.PermissionDenied},
+		{"left membership excluded by active predicate", sqlmock.NewRows([]string{"status"}), nil, codes.PermissionDenied},
 		{"disabled user", sqlmock.NewRows([]string{"status"}).AddRow(0), nil, codes.PermissionDenied},
 		{"restored membership", sqlmock.NewRows([]string{"status"}).AddRow(1), nil, codes.OK},
 		{"database failure", nil, errors.New("sensitive db row credentials"), codes.Unavailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			q := mock.ExpectQuery(regexp.QuoteMeta("SELECT users.status FROM `team_members`")).WithArgs(int64(200), triggerFlowActor, 2)
+			q := mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), triggerFlowActor, model.TeamMembershipActive, 2)
 			if tc.dbError != nil {
 				q.WillReturnError(tc.dbError)
 			} else {
@@ -82,6 +85,9 @@ func TestTriggerMembershipOverProductionTLSListenerTracksCurrentUserState(t *tes
 			if tc.code == codes.OK {
 				if r == nil || r.GetActorId() != triggerFlowActor || r.GetTeamId() != 200 {
 					t.Fatalf("changed checked scope %+v", r)
+				}
+				if r.ProtoReflect().Descriptor().Fields().Len() != 2 {
+					t.Fatal("background check exposes more than the checked actor and team")
 				}
 			} else if r != nil {
 				t.Fatalf("failed check returned data %+v", r)

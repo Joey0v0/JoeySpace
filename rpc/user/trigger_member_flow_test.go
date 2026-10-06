@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -28,10 +30,24 @@ func TestTriggerMemberLookupOverProductionTLSListenerKeepsScopeAndCurrentQualifi
 		t.Fatalf("unexpected services: %#v", services)
 	}
 	client := triggerFlowClient(t, runtime.listener.Addr().String(), imFiles, "user.go-im.internal")
-	for _, scenario := range []string{"unique", "ambiguous", "empty", "truncated", "revoked during lookup"} {
+	for _, scenario := range []string{"unique", "ambiguous", "empty", "inactive candidates excluded", "truncated", "revoked during lookup", "actor leaving before lookup", "actor left before lookup", "actor leaving during lookup", "actor left during lookup"} {
 		t.Run(scenario, func(t *testing.T) {
 			req := &pb.ResolveTriggerTeamMemberRequest{ActorId: triggerFlowActor, TeamId: 200, Name: "张三"}
-			mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, 2).WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(1))
+			beforeDenied := strings.HasSuffix(scenario, "before lookup")
+			initialMembership := sqlmock.NewRows([]string{"status"})
+			if !beforeDenied {
+				initialMembership.AddRow(1)
+			}
+			mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).WillReturnRows(initialMembership)
+			if beforeDenied {
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				result, err := client.ResolveTriggerTeamMember(ctx, req)
+				if result != nil || status.Code(err) != codes.PermissionDenied {
+					t.Fatalf("non-active actor reached lookup: %#v %v", result, err)
+				}
+				return
+			}
 			rows := sqlmock.NewRows([]string{"id", "username", "nickname"})
 			switch scenario {
 			case "unique":
@@ -43,17 +59,18 @@ func TestTriggerMemberLookupOverProductionTLSListenerKeepsScopeAndCurrentQualifi
 					rows.AddRow(100+n, fmt.Sprintf("member%d", n), "张三")
 				}
 			}
-			mock.ExpectQuery(regexp.QuoteMeta(resolveTriggerMemberQuery)).WithArgs(req.TeamId, req.Name, req.Name, req.TeamId, req.ActorId).WillReturnRows(rows).RowsWillBeClosed()
+			mock.ExpectQuery(regexp.QuoteMeta(resolveTriggerMemberQuery)).WithArgs(req.TeamId, model.TeamMembershipActive, req.Name, req.Name, req.TeamId, req.ActorId, model.TeamMembershipActive).WillReturnRows(rows).RowsWillBeClosed()
 			finalMembership := sqlmock.NewRows([]string{"status"})
-			if scenario != "revoked during lookup" {
+			afterDenied := strings.HasSuffix(scenario, "during lookup")
+			if !afterDenied {
 				finalMembership.AddRow(1)
 			}
-			mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, 2).WillReturnRows(finalMembership)
+			mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).WillReturnRows(finalMembership)
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", "Bearer fake", "actor-id", "99", "team-id", "999"))
 			result, err := client.ResolveTriggerTeamMember(ctx, req)
-			if scenario == "revoked during lookup" {
+			if afterDenied {
 				if result != nil || status.Code(err) != codes.PermissionDenied {
 					t.Fatalf("revoked caller became no-match: %#v %v", result, err)
 				}
@@ -62,7 +79,7 @@ func TestTriggerMemberLookupOverProductionTLSListenerKeepsScopeAndCurrentQualifi
 			if err != nil || result.GetActorId() != req.ActorId || result.GetTeamId() != req.TeamId || result.GetName() != req.Name {
 				t.Fatalf("scope changed: %#v %v", result, err)
 			}
-			want := map[string]int{"unique": 1, "ambiguous": 2, "empty": 0, "truncated": 20}[scenario]
+			want := map[string]int{"unique": 1, "ambiguous": 2, "empty": 0, "inactive candidates excluded": 0, "truncated": 20}[scenario]
 			if len(result.GetCandidates()) != want || result.GetTruncated() != (scenario == "truncated") {
 				t.Fatalf("candidate shape wrong: %#v", result)
 			}
