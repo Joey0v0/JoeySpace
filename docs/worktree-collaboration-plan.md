@@ -506,3 +506,9 @@ root核实发现、提出A73/A74候选并提问，用户明确选择团队群规
 从73ade5b建codex/stage7-group-unread-recovery，共同eff7252仅固定本轮边界；main仍89e2a1e。三个保留worktree从同一提交建独立分支，执行目录、允许文件见[共同契约](stage7-group-unread-recovery-contract.md#三个执行任务)。A只改HTML/对应测试，B只新增页面恢复组合测试，C只新增生产IM TCP恢复测试；root拥有共同文档、审查、测试、所有Git保存和集成。执行Agent不test/build/Git写/自行合main/push/部署，最多九小步按整批计算。沿既定A73，不新增协议、表或依赖；实际结果由root集中验证后记录。
 
 实际完成七步：root审查/定向验证保存A96f81d8/Ba8daf70/Cfff1083，先把A提供B测试实际页面，再无冲突整合82ee844；root仅修JSON边界测试的固定微任务等待，改等实际进入信号。165项页面定向、24项恢复组合、两项生产IM TCP定向及最终353项Node/全仓Go通过；[全部10文件与边界](stage7-group-unread-recovery-contract.md#本批实现与审查)。三个执行worktree干净保留；本机TCP实际，SQL/User/DOM/HTTP替身。没有真实MySQL/浏览器/030/容器/云/模型验收、main合并或push，A16一致性方案仍须先讨论。
+
+## 45. A16团队退出一致性只读审查（2026-10-06）
+
+root从22640d8建codex/stage7-team-leave-design，三个子Agent只读相同root绝对目录D:/zy/GoLang/go-im：legacy_offline_handler审查User生命周期，legacy_offline_startup审查后台Push核权，audit_failure_observability审查IM并发清理/重入。属于选型前审查，不在旧执行worktree实现；没有任何允许编辑文件、不test/build/Git动作。已有三个worktree/分支保持干净保留。
+
+root复核后提出A75/A76/A77候选，全部待用户确认；仅新增方案、更新架构/计划及本记录，共4份文档，[证据及具体修改](stage7-team-leave-design.md#6-本轮只读审查与实际修改)。没有业务代码、协议/迁移/依赖或新测试，没有main合并/push/部署。确认后才发布下一批共同接口/提交，固定每个执行Agent的绝对worktree目录与唯一允许文件，不依据本轮只读审查启动整个退出实现。
