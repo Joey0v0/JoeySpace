@@ -16,7 +16,9 @@ A75退出操作存储基础增加[033_user_team_leave_operations.sql](mysql/migr
 
 IMLeave专用清理监听已接入IM进程，但默认关闭；仅完整提供`IM_LEAVE_LISTEN_ON`、`IM_LEAVE_TLS_CERT_FILE`、`IM_LEAVE_TLS_KEY_FILE`、`IM_LEAVE_TLS_CA_FILE`才启动，监听端口须不同于普通IM/Bot/Trigger，客户端证书须为`user.go-im.internal`。User包内已能从固定033操作通过可选专用mTLS客户端调用IM并确认退出完成，须提供四项`USER_LEAVE_IM_RPC_ADDR`/`USER_LEAVE_IM_TLS_*_FILE`配置才启用。当前基础Compose没有注入这些变量、证书挂载或独立端口配置；不能在未执行031—033的旧库启用。A76的UserPush专用监听已接入User进程，但Push投递尚未调用；本人退出入口仍未开放，故这仍不是可操作的退出链。[清理协调](../docs/stage7-team-leave-user-cleanup-contract.md#本步实现与审查)、[Push资格协议](../docs/stage7-push-user-eligibility-contract.md#本步实现与审查)。
 
-UserPush现有可选独立mTLS监听，默认关闭；完整配置`USER_PUSH_LISTEN_ON`与`USER_PUSH_TLS_CERT_FILE`、`USER_PUSH_TLS_KEY_FILE`、`USER_PUSH_TLS_CA_FILE`并使用`-profile`才启动。客户端证书须为`push.go-im.internal`，该端口不能与普通User或Agent Trigger共用。基础Compose未注入变量/证书，Push尚未调用；上线前必须先完成IM群资格核对及在线/离线投递接线。[监听审查](../docs/stage7-push-user-listener-contract.md#本步实现与审查)。
+UserPush现有可选独立mTLS监听，默认关闭；完整配置`USER_PUSH_LISTEN_ON`与`USER_PUSH_TLS_CERT_FILE`、`USER_PUSH_TLS_KEY_FILE`、`USER_PUSH_TLS_CA_FILE`并使用`-profile`才启动。客户端证书须为`push.go-im.internal`，该端口不能与普通User或Agent Trigger共用。基础Compose未注入变量/证书；该监听批次尚未连接Push投递，现已由下段批次接线。[监听审查](../docs/stage7-push-user-listener-contract.md#本步实现与审查)。
+
+后续A76投递批次已在Push代码中接入团队群逐接收人双重核权；配置`PUSH_USER_RPC_ADDR`、`PUSH_USER_TLS_CERT_FILE`、`PUSH_USER_TLS_KEY_FILE`、`PUSH_USER_TLS_CA_FILE`，Push客户端证书须为`push.go-im.internal`，并信任User服务端精确`user.go-im.internal`。四项全空时旧单聊和非团队群可继续处理，团队群消息会报错并保留Kafka重试；缺项则启动失败。当前基础Compose仍未注入这些变量/证书，User端监听也默认关闭；启用前先执行031/032并验证真实MySQL与证书、启动UserPush监听后再启动Push，否则团队群消息会持续重试。在线失败转离线会重新核权，仍不保证已入队WS消息可撤回。[投递审查](../docs/stage7-push-team-delivery-guard-contract.md#三个小步骤与审查)。
 
 2026-10-06 A73本人团队群未读：已有库先执行一次030_im_group_message_reads.sql，再升级IM RPC与Gateway；仅更新init不会升级已有卷。新表默认没有阅读记录，当前可读历史中非本人普通消息首次均未读；机器人消息也计入。不新增环境开关，不删除离线投递或旧通知。030尚未执行。页面先登录、填写团队/群并选择群聊，可手动查询计数；加载群历史后点击“将本次已加载历史页标为已读”，仅提交这页确切ID，不自动确认WS/离线/历史读取。权限/账号失效清计数与目标，普通失败可本人刷新或重试；提交后失败不保证没有写。[原实现与全部文件](../docs/stage7-team-group-unread-contract.md#本批实现与审查)。
 

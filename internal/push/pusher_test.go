@@ -34,9 +34,28 @@ func (r *groupDeliveryRedisStub) GetOnline(_ context.Context, userID int64) (str
 
 type groupDeliveryGroupStub struct {
 	repository.GroupRepository
-	members []int64
-	err     error
-	calls   int
+	members                                                   []int64
+	err                                                       error
+	calls                                                     int
+	teamID                                                    *int64
+	groupErr                                                  error
+	allowed                                                   bool
+	checkErr                                                  error
+	checkCalls                                                int
+	checkedGroup, checkedTeam, checkedUser, checkedGeneration int64
+}
+
+func (r *groupDeliveryGroupStub) GetByID(_ context.Context, groupID int64) (*model.Group, error) {
+	if r.groupErr != nil {
+		return nil, r.groupErr
+	}
+	return &model.Group{ID: groupID, TeamID: r.teamID}, nil
+}
+
+func (r *groupDeliveryGroupStub) CheckTeamGroupMemberGeneration(_ context.Context, groupID, teamID, userID, generation int64) (bool, error) {
+	r.checkCalls++
+	r.checkedGroup, r.checkedTeam, r.checkedUser, r.checkedGeneration = groupID, teamID, userID, generation
+	return r.allowed, r.checkErr
 }
 
 func (r *groupDeliveryGroupStub) ListMemberIDs(context.Context, int64) ([]int64, error) {

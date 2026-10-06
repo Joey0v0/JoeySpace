@@ -23,11 +23,16 @@ const (
 
 // Pusher 消息路由与推送
 type Pusher struct {
-	messageRepo repository.MessageRepository
-	groupRepo   repository.GroupRepository
-	redisRepo   repository.RedisRepository
-	httpClient  *http.Client
-	logger      *zap.Logger
+	messageRepo     repository.MessageRepository
+	groupRepo       repository.GroupRepository
+	teamEligibility TeamEligibility
+	redisRepo       repository.RedisRepository
+	httpClient      *http.Client
+	logger          *zap.Logger
+}
+
+func (p *Pusher) SetTeamEligibility(eligibility TeamEligibility) {
+	p.teamEligibility = eligibility
 }
 
 // NewPusher 创建 Pusher
@@ -122,6 +127,19 @@ func (p *Pusher) pushToUser(ctx context.Context, toID, fromID int64, msg *model.
 
 // pushToGroup 群聊推送：获取群成员，逐个推送
 func (p *Pusher) pushToGroup(ctx context.Context, groupID, fromID int64, msg *model.Message) error {
+	group, err := p.groupRepo.GetByID(ctx, groupID)
+	if err != nil {
+		return fmt.Errorf("get group delivery scope failed: %w", err)
+	}
+	if group == nil || group.ID != groupID {
+		return errors.New("invalid group delivery scope")
+	}
+	if group.TeamID != nil && *group.TeamID <= 0 {
+		return errors.New("invalid team group delivery scope")
+	}
+	if group.TeamID != nil && p.teamEligibility == nil {
+		return errors.New("team eligibility service unavailable")
+	}
 	// 每次投递读取当前群成员，避免成员加入或退出后继续使用旧缓存名单。
 	memberIDs, err := p.groupRepo.ListMemberIDs(ctx, groupID)
 	if err != nil {
@@ -135,7 +153,13 @@ func (p *Pusher) pushToGroup(ctx context.Context, groupID, fromID int64, msg *mo
 			continue // 跳过发送者自己
 		}
 
-		if err := p.pushToUser(ctx, memberID, fromID, msg); err != nil {
+		var err error
+		if group.TeamID != nil {
+			err = p.pushToTeamMember(ctx, groupID, *group.TeamID, memberID, msg)
+		} else {
+			err = p.pushToUser(ctx, memberID, fromID, msg)
+		}
+		if err != nil {
 			p.logger.Error("push to group member failed",
 				zap.Int64("group_id", groupID),
 				zap.Int64("member_id", memberID),
@@ -148,6 +172,50 @@ func (p *Pusher) pushToGroup(ctx context.Context, groupID, fromID int64, msg *mo
 	}
 
 	return deliveryErr
+}
+
+func (p *Pusher) checkTeamDelivery(ctx context.Context, groupID, teamID, userID int64) (bool, error) {
+	if p.teamEligibility == nil {
+		return false, errors.New("team eligibility service unavailable")
+	}
+	generation, eligible, err := p.teamEligibility.CheckCurrentTeamMember(ctx, teamID, userID)
+	if err != nil || !eligible {
+		return false, err
+	}
+	if generation <= 0 {
+		return false, errors.New("invalid team eligibility generation")
+	}
+	return p.groupRepo.CheckTeamGroupMemberGeneration(ctx, groupID, teamID, userID, generation)
+}
+
+func (p *Pusher) pushToTeamMember(ctx context.Context, groupID, teamID, userID int64, msg *model.Message) error {
+	// Redis is only a destination lookup. Authorization happens immediately
+	// before each externally visible online or offline delivery attempt.
+	wsAddr, err := p.redisRepo.GetOnline(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get online status failed: %w", err)
+	}
+	allowed, err := p.checkTeamDelivery(ctx, groupID, teamID, userID)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return nil
+	}
+	if wsAddr != "" {
+		if err := p.sendPush(ctx, wsAddr, userID, msg); err == nil {
+			return nil
+		}
+		p.logger.Warn("team group online push failed; rechecking before offline save", zap.Int64("user_id", userID))
+		allowed, err = p.checkTeamDelivery(ctx, groupID, teamID, userID)
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			return nil
+		}
+	}
+	return p.saveOffline(ctx, userID, msg.ID)
 }
 
 // sendPush 向 WS 网关发起内部 HTTP 推送

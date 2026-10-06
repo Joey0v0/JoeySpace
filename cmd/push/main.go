@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"os/signal"
 	"syscall"
 
@@ -38,6 +39,15 @@ func runPush() error {
 	if err := config.ValidateTaskNotificationPush(cfg); err != nil {
 		return err
 	}
+	eligibilityConfig, err := push.LoadTeamEligibilityClientConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
+	eligibility, err := push.NewTeamEligibilityClient(eligibilityConfig)
+	if err != nil {
+		return err
+	}
+	defer eligibility.Close()
 
 	// 初始化日志
 	if err := logger.Init(cfg.Log.Level, cfg.Log.Filename); err != nil {
@@ -79,6 +89,7 @@ func runPush() error {
 
 	// 创建 Pusher
 	pusher := push.NewPusher(messaging.messages, groupRepo, redisRepo, logger.L)
+	pusher.SetTeamEligibility(eligibility)
 
 	// 创建 Kafka Consumer
 	consumer := push.NewConsumer(

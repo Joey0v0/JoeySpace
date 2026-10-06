@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/yjydist/go-im/internal/model"
@@ -16,6 +17,7 @@ type GroupRepository interface {
 	GetMember(ctx context.Context, groupID, userID int64) (*model.GroupMember, error)
 	ListMembers(ctx context.Context, groupID int64) ([]model.GroupMember, error)
 	ListMemberIDs(ctx context.Context, groupID int64) ([]int64, error)
+	CheckTeamGroupMemberGeneration(ctx context.Context, groupID, teamID, userID, generation int64) (bool, error)
 	ListMyGroups(ctx context.Context, userID int64) ([]model.Group, error)
 }
 
@@ -93,6 +95,43 @@ func (r *groupRepository) ListMemberIDs(ctx context.Context, groupID int64) ([]i
 		return nil, fmt.Errorf("list group member ids failed: %w", err)
 	}
 	return ids, nil
+}
+
+// CheckTeamGroupMemberGeneration rechecks current IM membership and the
+// permanent closure fence after User has returned an active generation.
+func (r *groupRepository) CheckTeamGroupMemberGeneration(ctx context.Context, groupID, teamID, userID, generation int64) (bool, error) {
+	if ctx == nil || groupID <= 0 || teamID <= 0 || userID <= 0 || generation <= 0 {
+		return false, fmt.Errorf("invalid team group delivery scope")
+	}
+	const query = "SELECT gm.group_id, f.closed_through_generation FROM group_members AS gm " +
+		"JOIN `groups` AS g ON g.id = gm.group_id " +
+		"LEFT JOIN im_team_group_fences AS f ON f.team_id = g.team_id AND f.user_id = gm.user_id " +
+		"WHERE gm.group_id = ? AND gm.user_id = ? AND g.team_id = ? LIMIT 2"
+	rows, err := r.db.WithContext(ctx).Raw(query, groupID, userID, teamID).Rows()
+	if err != nil {
+		return false, fmt.Errorf("check team group delivery membership: %w", err)
+	}
+	defer rows.Close()
+	found := false
+	var closed int64
+	for rows.Next() {
+		var actualGroup int64
+		var stored sql.NullInt64
+		if found || rows.Scan(&actualGroup, &stored) != nil || actualGroup != groupID || stored.Valid && stored.Int64 < 0 {
+			return false, fmt.Errorf("invalid team group delivery membership row")
+		}
+		if stored.Valid {
+			closed = stored.Int64
+		}
+		found = true
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("read team group delivery membership: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	return found && generation > closed, nil
 }
 
 func (r *groupRepository) ListMyGroups(ctx context.Context, userID int64) ([]model.Group, error) {
