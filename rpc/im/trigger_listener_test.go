@@ -25,6 +25,13 @@ func (f triggerListenerTeamsFunc) Check(ctx context.Context, actor, team int64) 
 	return f(ctx, actor, team)
 }
 
+func (f triggerListenerTeamsFunc) CheckGeneration(ctx context.Context, actor, team int64) (int64, error) {
+	if err := f(ctx, actor, team); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
 func imTriggerListenerEnv() map[string]string {
 	return map[string]string{
 		"IM_TRIGGER_LISTEN_ON": "0.0.0.0:9006", "IM_TRIGGER_AGENT_DNS_NAME": "agent.go-im.internal",

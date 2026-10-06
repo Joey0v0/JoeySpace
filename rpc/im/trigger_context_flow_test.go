@@ -27,7 +27,7 @@ type triggerReadFlow struct {
 	mock       sqlmock.Sqlmock
 	client     *agent.TriggerContextClient
 	runtime    *imTriggerRuntime
-	userMode   atomic.Int32 // 0 active, 1 left, 2 unavailable
+	userMode   atomic.Int32 // 0 active, 1 left, 2 unavailable, 3 legacy zero, 4 generation changed, 5 final revocation
 	userCalls  atomic.Int32
 	outbox     model.AgentTriggerOutbox
 	source     model.Message
@@ -54,14 +54,24 @@ func newTriggerReadFlow(t *testing.T) *triggerReadFlow {
 			t.Errorf("User received caller credentials or wrong persisted scope: %v %v", md, req)
 			return nil, status.Error(codes.Internal, "bad persisted scope")
 		}
-		f.userCalls.Add(1)
+		call := f.userCalls.Add(1)
 		switch f.userMode.Load() {
 		case 1:
 			return nil, status.Error(codes.PermissionDenied, "private membership detail")
 		case 2:
 			return nil, status.Error(codes.Internal, "private database detail")
+		case 3:
+			return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId}, nil
+		case 5:
+			if call%2 == 0 {
+				return nil, status.Error(codes.PermissionDenied, "private membership detail")
+			}
 		}
-		return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId}, nil
+		generation := int64(1)
+		if f.userMode.Load() == 4 && call%2 == 0 {
+			generation++
+		}
+		return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.ActorId, TeamId: req.TeamId, Generation: generation}, nil
 	})
 	teams, err := newTriggerTeamClient(triggerTeamClientConfig{Addr: userAddr, ServerDNSName: "user.go-im.internal", Files: userFiles["im.go-im.internal"]})
 	if err != nil {
@@ -123,7 +133,10 @@ func (f *triggerReadFlow) expectHistory(accessible bool) {
 		rows = flowTriggerMessageRows(f.source, older)
 	}
 	r := f.outbox
-	f.mock.ExpectQuery(regexp.QuoteMeta(triggerHistoryQuery)).WithArgs(r.TeamID, r.ActorID, r.GroupID, r.MessageID).WillReturnRows(rows)
+	expectTriggerContextHistory(f.mock, r, rows)
+	if accessible {
+		expectTeamGroupReadFence(f.mock, r.GroupID, r.ActorID, r.TeamID, nil, true)
+	}
 }
 
 func TestTriggerReadFlowActualTLSUsesPersistedScopeAndRechecksCurrentTeam(t *testing.T) {
@@ -133,7 +146,7 @@ func TestTriggerReadFlowActualTLSUsesPersistedScopeAndRechecksCurrentTeam(t *tes
 		name string
 		mode int32
 		want codes.Code
-	}{{"active", 0, codes.OK}, {"left team", 1, codes.PermissionDenied}, {"User unavailable", 2, codes.Unavailable}, {"restored", 0, codes.OK}} {
+	}{{"active", 0, codes.OK}, {"left team", 1, codes.PermissionDenied}, {"User unavailable", 2, codes.Unavailable}, {"legacy User zero", 3, codes.Unavailable}, {"restored", 0, codes.OK}} {
 		t.Run(step.name, func(t *testing.T) {
 			f.userMode.Store(step.mode)
 			f.expectSource(true)
@@ -153,7 +166,7 @@ func TestTriggerReadFlowActualTLSUsesPersistedScopeAndRechecksCurrentTeam(t *tes
 			}
 		})
 	}
-	if f.userCalls.Load() != 4 {
+	if f.userCalls.Load() != 7 {
 		t.Fatalf("qualification cached or retried: %d", f.userCalls.Load())
 	}
 }

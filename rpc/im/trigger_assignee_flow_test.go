@@ -50,7 +50,7 @@ func (s *assigneeFlowUserServer) CheckTriggerTeamMember(ctx context.Context, req
 		return nil, err
 	}
 	s.flow.userCalls.Add(1)
-	return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.GetActorId(), TeamId: req.GetTeamId()}, nil
+	return &userpb.CheckTriggerTeamMemberResponse{ActorId: req.GetActorId(), TeamId: req.GetTeamId(), Generation: 1}, nil
 }
 
 func (s *assigneeFlowUserServer) ResolveTriggerTeamMember(ctx context.Context, req *userpb.ResolveTriggerTeamMemberRequest) (*userpb.ResolveTriggerTeamMemberResponse, error) {
@@ -120,6 +120,7 @@ func (f *triggerAssigneeFlow) expectLookup(finalGroup bool) {
 	f.t.Helper()
 	f.expectSource(true)
 	expectTriggerContextHistory(f.mock, f.outbox, triggerContextMessageRows(f.source))
+	expectTeamGroupReadFence(f.mock, f.outbox.GroupID, f.outbox.ActorID, f.outbox.TeamID, nil, true)
 	if finalGroup {
 		expectTriggerContextMembership(f.mock, f.outbox)
 	} else {
@@ -149,7 +150,7 @@ func TestTriggerAssigneeFlowActualAgentIMUserTLSKeepsSourceScopeAndMatchingOutco
 				t.Fatalf("saved scope was lost: %#v %v", result, err)
 			}
 			want := map[int32]int{0: 1, 1: 0, 2: 2, 3: 20}[mode]
-			if len(result.GetCandidates()) != want || result.GetTruncated() != (mode == 3) || f.lookupCalls.Load() != 1 || f.userCalls.Load() != 1 {
+			if len(result.GetCandidates()) != want || result.GetTruncated() != (mode == 3) || f.lookupCalls.Load() != 1 || f.userCalls.Load() != 2 {
 				t.Fatalf("wrong lookup outcome %#v", result)
 			}
 			if mode == 3 && proto.Size(result) <= 4096 {
@@ -168,6 +169,7 @@ func TestTriggerAssigneeFlowRejectsUserFailureChangedEchoAndGroupRevocation(t *t
 			f := newTriggerAssigneeFlow(t)
 			f.expectSource(true)
 			expectTriggerContextHistory(f.mock, f.outbox, triggerContextMessageRows(f.source))
+			expectTeamGroupReadFence(f.mock, f.outbox.GroupID, f.outbox.ActorID, f.outbox.TeamID, nil, true)
 			want := codes.Unavailable
 			switch scenario {
 			case "bad User echo":
@@ -203,6 +205,7 @@ func TestTriggerAssigneeFlowRequiresSavedAuthorizedLiteralAndTrustedCertificate(
 				want = codes.InvalidArgument
 				f.expectSource(true)
 				expectTriggerContextHistory(f.mock, f.outbox, triggerContextMessageRows(f.source))
+				expectTeamGroupReadFence(f.mock, f.outbox.GroupID, f.outbox.ActorID, f.outbox.TeamID, nil, true)
 			case "left group":
 				f.expectSource(false)
 			case "wrong certificate":

@@ -123,6 +123,21 @@ func sameTriggerSource(left, right model.Message) bool {
 		left.ContentType == right.ContentType && left.Content == right.Content && left.CreatedAt.Equal(right.CreatedAt)
 }
 
+func (s *triggerContextServer) currentTriggerGeneration(ctx context.Context, outbox model.AgentTriggerOutbox) (int64, error) {
+	generation, err := s.teams.CheckGeneration(ctx, outbox.ActorID, outbox.TeamID)
+	if err != nil {
+		code := status.Code(err)
+		if code != codes.PermissionDenied && code != codes.Canceled && code != codes.DeadlineExceeded {
+			code = codes.Unavailable
+		}
+		return 0, triggerContextError(ctx, code, "current trigger team qualification unavailable")
+	}
+	if generation <= 0 || ctx.Err() != nil {
+		return 0, triggerContextError(ctx, codes.Unavailable, "current trigger team generation unavailable")
+	}
+	return generation, nil
+}
+
 func (s *triggerContextServer) ReadTaskTriggerContext(ctx context.Context, req *pb.ReadTaskTriggerContextRequest) (*pb.ReadTaskTriggerContextResponse, error) {
 	if ctx == nil {
 		return nil, status.Error(codes.Unauthenticated, "verified service TLS identity required")
@@ -169,12 +184,12 @@ func (s *triggerContextServer) ReadTaskTriggerContext(ctx context.Context, req *
 	if err := checkTriggerGroup(ctx, s.db, outbox); err != nil {
 		return nil, err
 	}
-	if err := s.teams.Check(ctx, outbox.ActorID, outbox.TeamID); err != nil {
-		code := status.Code(err)
-		if code != codes.PermissionDenied && code != codes.Canceled && code != codes.DeadlineExceeded {
-			code = codes.Unavailable
-		}
-		return nil, triggerContextError(ctx, code, "current trigger team qualification unavailable")
+	generation, err := s.currentTriggerGeneration(ctx, outbox)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkTeamGroupReadGeneration(ctx, s.db, outbox.GroupID, outbox.TeamID, outbox.ActorID, generation); err != nil {
+		return nil, err
 	}
 	messages, err := readTriggerMessages(ctx, s.db, triggerHistoryQuery, 20, outbox.TeamID, outbox.ActorID, outbox.GroupID, outbox.MessageID)
 	if err != nil {
@@ -199,6 +214,16 @@ func (s *triggerContextServer) ReadTaskTriggerContext(ctx context.Context, req *
 	}
 	if proto.Size(response) > triggerContextMaxBytes || ctx.Err() != nil {
 		return nil, triggerContextError(ctx, codes.Unavailable, "trigger context exceeds its response limit")
+	}
+	currentGeneration, err := s.currentTriggerGeneration(ctx, outbox)
+	if err != nil {
+		return nil, err
+	}
+	if currentGeneration != generation {
+		return nil, triggerContextError(ctx, codes.PermissionDenied, "trigger team generation changed while reading")
+	}
+	if err := checkTeamGroupReadGeneration(ctx, s.db, outbox.GroupID, outbox.TeamID, outbox.ActorID, currentGeneration); err != nil {
+		return nil, err
 	}
 	return response, nil
 }
