@@ -35,7 +35,8 @@ func (s *imServer) CreateTeamGroup(ctx context.Context, req *pb.CreateTeamGroupR
 		return nil, status.Error(codes.InvalidArgument, "invalid idempotency key")
 	}
 	teamCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", authorization))
-	if _, err := s.teamClient.AuthorizeTeamGroupCreation(teamCtx, &userpb.AuthorizeTeamGroupCreationRequest{TeamId: req.GetTeamId()}); err != nil {
+	authorized, err := s.teamClient.AuthorizeTeamGroupCreation(teamCtx, &userpb.AuthorizeTeamGroupCreationRequest{TeamId: req.GetTeamId()})
+	if err != nil {
 		switch status.Code(err) {
 		case codes.PermissionDenied, codes.Unauthenticated, codes.DeadlineExceeded, codes.Canceled:
 			return nil, err
@@ -43,9 +44,12 @@ func (s *imServer) CreateTeamGroup(ctx context.Context, req *pb.CreateTeamGroupR
 			return nil, status.Error(codes.Unavailable, "team authorization unavailable")
 		}
 	}
+	if err := validateTeamGroupAuthorization(creatorID, authorized.GetUserId(), authorized.GetGeneration()); err != nil {
+		return nil, err
+	}
 
 	groupID := s.idNode.Generate().Int64()
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = withTeamGroupGeneration(ctx, s.db, req.GetTeamId(), creatorID, authorized.GetGeneration(), func(tx *gorm.DB) error {
 		group := struct {
 			ID         int64
 			Name       string
@@ -54,7 +58,29 @@ func (s *imServer) CreateTeamGroup(ctx context.Context, req *pb.CreateTeamGroupR
 			RequestKey string
 		}{groupID, name, creatorID, req.GetTeamId(), keys[0]}
 		if err := tx.Table("groups").Create(&group).Error; err != nil {
-			return err
+			var mysqlErr *mysql.MySQLError
+			if !errors.As(err, &mysqlErr) || mysqlErr.Number != 1062 {
+				return err
+			}
+			// Resolve only a groups insert conflict, while still holding the
+			// generation lock. A replay never recreates the owner membership.
+			var previous struct {
+				ID     int64
+				TeamID int64
+				Name   string
+			}
+			if err := tx.Table("groups").Select("id, team_id, name").
+				Where("owner_id = ? AND request_key = ?", creatorID, keys[0]).Take(&previous).Error; err != nil {
+				return err
+			}
+			if previous.TeamID != req.GetTeamId() || previous.Name != name {
+				return status.Error(codes.AlreadyExists, "idempotency key used for another group request")
+			}
+			if previous.ID <= 0 {
+				return status.Error(codes.Unavailable, "IM database unavailable")
+			}
+			groupID = previous.ID
+			return nil
 		}
 		owner := struct {
 			GroupID int64
@@ -64,27 +90,8 @@ func (s *imServer) CreateTeamGroup(ctx context.Context, req *pb.CreateTeamGroupR
 		return tx.Table("group_members").Create(&owner).Error
 	})
 	if err != nil {
-		if ctx.Err() != nil {
-			return nil, status.FromContextError(ctx.Err()).Err()
-		}
-		var mysqlErr *mysql.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
-			var previous struct {
-				ID     int64
-				TeamID int64
-				Name   string
-			}
-			findErr := s.db.WithContext(ctx).Table("groups").Select("id, team_id, name").
-				Where("owner_id = ? AND request_key = ?", creatorID, keys[0]).Take(&previous).Error
-			if findErr == nil {
-				if previous.TeamID != req.GetTeamId() || previous.Name != name {
-					return nil, status.Error(codes.AlreadyExists, "idempotency key used for another group request")
-				}
-				return &pb.CreateTeamGroupResponse{GroupId: previous.ID}, nil
-			}
-		}
 		logx.WithContext(ctx).Errorf("create team group failed: %v", err)
-		return nil, status.Error(codes.Unavailable, "IM database unavailable")
+		return nil, err
 	}
 	return &pb.CreateTeamGroupResponse{GroupId: groupID}, nil
 }

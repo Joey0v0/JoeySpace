@@ -55,6 +55,7 @@ func teamGroupServer(t *testing.T) (*imServer, sqlmock.Sqlmock) {
 
 func expectTeamGroupInsert(mock sqlmock.Sqlmock, ownerErr error) {
 	mock.ExpectBegin()
+	fenceTestLock(mock, 0)
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `groups`")).
 		WithArgs("Planning", int64(42), int64(200), "request-123", imPositiveID{}).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -149,13 +150,18 @@ func TestCreateTeamGroupDuplicateRequest(t *testing.T) {
 			s, mock := teamGroupServer(t)
 			s.teamClient = teamCreateFunc(func(context.Context, *userpb.AuthorizeTeamGroupCreationRequest) error { return nil })
 			mock.ExpectBegin()
+			fenceTestLock(mock, 0)
 			mock.ExpectExec(regexp.QuoteMeta("INSERT INTO `groups`")).
 				WithArgs("Planning", int64(42), int64(200), "request-123", imPositiveID{}).
 				WillReturnError(&mysql.MySQLError{Number: 1062, Message: "duplicate"})
-			mock.ExpectRollback()
 			mock.ExpectQuery(regexp.QuoteMeta("SELECT id, team_id, name FROM `groups` WHERE owner_id = ? AND request_key = ?")).
 				WithArgs(int64(42), "request-123", 1).
 				WillReturnRows(sqlmock.NewRows([]string{"id", "team_id", "name"}).AddRow(int64(999), tc.previousTeam, tc.previousName))
+			if tc.want == codes.OK {
+				mock.ExpectCommit()
+			} else {
+				mock.ExpectRollback()
+			}
 			ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+validIMToken(t), "idempotency-key", "request-123"))
 			result, err := s.CreateTeamGroup(ctx, &pb.CreateTeamGroupRequest{TeamId: 200, Name: "Planning"})
 			if status.Code(err) != tc.want || tc.want == codes.OK && result.GetGroupId() != 999 {
