@@ -20,6 +20,9 @@ message CheckTriggerTeamMemberResponse {
   // Echo only the checked scope. An empty or different result is not success.
   int64 actor_id = 1;
   int64 team_id = 2;
+  // Current active membership generation, checked by IM against its closure.
+  // Missing or non-positive values must never be treated as generation 1.
+  int64 generation = 3;
 }
 
 message ResolveTriggerTeamMemberRequest {

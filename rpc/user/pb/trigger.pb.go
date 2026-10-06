@@ -77,8 +77,11 @@ func (x *CheckTriggerTeamMemberRequest) GetTeamId() int64 {
 type CheckTriggerTeamMemberResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Echo only the checked scope. An empty or different result is not success.
-	ActorId       int64 `protobuf:"varint,1,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
-	TeamId        int64 `protobuf:"varint,2,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	ActorId int64 `protobuf:"varint,1,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	TeamId  int64 `protobuf:"varint,2,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	// Current active membership generation, checked by IM against its closure.
+	// Missing or non-positive values must never be treated as generation 1.
+	Generation    int64 `protobuf:"varint,3,opt,name=generation,proto3" json:"generation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -123,6 +126,13 @@ func (x *CheckTriggerTeamMemberResponse) GetActorId() int64 {
 func (x *CheckTriggerTeamMemberResponse) GetTeamId() int64 {
 	if x != nil {
 		return x.TeamId
+	}
+	return 0
+}
+
+func (x *CheckTriggerTeamMemberResponse) GetGeneration() int64 {
+	if x != nil {
+		return x.Generation
 	}
 	return 0
 }
@@ -331,10 +341,13 @@ const file_rpc_user_trigger_proto_rawDesc = "" +
 	"\x16rpc/user/trigger.proto\x12\x04user\"S\n" +
 	"\x1dCheckTriggerTeamMemberRequest\x12\x19\n" +
 	"\bactor_id\x18\x01 \x01(\x03R\aactorId\x12\x17\n" +
-	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\"T\n" +
+	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\"t\n" +
 	"\x1eCheckTriggerTeamMemberResponse\x12\x19\n" +
 	"\bactor_id\x18\x01 \x01(\x03R\aactorId\x12\x17\n" +
-	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\"i\n" +
+	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\x12\x1e\n" +
+	"\n" +
+	"generation\x18\x03 \x01(\x03R\n" +
+	"generation\"i\n" +
 	"\x1fResolveTriggerTeamMemberRequest\x12\x19\n" +
 	"\bactor_id\x18\x01 \x01(\x03R\aactorId\x12\x17\n" +
 	"\ateam_id\x18\x02 \x01(\x03R\x06teamId\x12\x12\n" +
