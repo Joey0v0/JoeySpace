@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -28,7 +29,7 @@ func (s *userServer) ListTeamMembers(ctx context.Context, req *pb.ListTeamMember
 	}
 	var membership struct{ UserID int64 }
 	err = s.db.WithContext(ctx).Table("team_members").Select("user_id").
-		Where("team_id = ? AND user_id = ?", req.GetTeamId(), operator.GetId()).Take(&membership).Error
+		Where("team_id = ? AND user_id = ? AND membership_state = ?", req.GetTeamId(), operator.GetId(), model.TeamMembershipActive).Take(&membership).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, status.Error(codes.PermissionDenied, "team membership required")
 	}
@@ -45,7 +46,7 @@ func (s *userServer) ListTeamMembers(ctx context.Context, req *pb.ListTeamMember
 	err = s.db.WithContext(ctx).Table("team_members").
 		Select("team_members.user_id AS user_id, users.username, users.nickname, team_members.role").
 		Joins("JOIN users ON users.id = team_members.user_id").
-		Where("team_members.team_id = ? AND team_members.user_id > ?", req.GetTeamId(), req.GetAfterUserId()).
+		Where("team_members.team_id = ? AND team_members.user_id > ? AND team_members.membership_state = ?", req.GetTeamId(), req.GetAfterUserId(), model.TeamMembershipActive).
 		Order("team_members.user_id ASC").Limit(limit + 1).Find(&rows).Error
 	if err != nil {
 		return nil, teamMemberDBError(ctx, err)

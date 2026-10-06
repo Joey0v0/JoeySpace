@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,7 +25,7 @@ func (s *userServer) SetTeamMemberRole(ctx context.Context, req *pb.SetTeamMembe
 	}
 	var operatorMember struct{ Role int8 }
 	err = s.db.WithContext(ctx).Table("team_members").Select("role").
-		Where("team_id = ? AND user_id = ?", req.GetTeamId(), operator.GetId()).Take(&operatorMember).Error
+		Where("team_id = ? AND user_id = ? AND membership_state = ?", req.GetTeamId(), operator.GetId(), model.TeamMembershipActive).Take(&operatorMember).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || err == nil && operatorMember.Role != 2 {
 		return nil, status.Error(codes.PermissionDenied, "team owner required")
 	}
@@ -37,7 +38,7 @@ func (s *userServer) SetTeamMemberRole(ctx context.Context, req *pb.SetTeamMembe
 
 	var target struct{ Role int8 }
 	err = s.db.WithContext(ctx).Table("team_members").Select("role").
-		Where("team_id = ? AND user_id = ?", req.GetTeamId(), req.GetUserId()).Take(&target).Error
+		Where("team_id = ? AND user_id = ? AND membership_state = ?", req.GetTeamId(), req.GetUserId(), model.TeamMembershipActive).Take(&target).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, status.Error(codes.NotFound, "team member not found")
 	}
@@ -51,7 +52,7 @@ func (s *userServer) SetTeamMemberRole(ctx context.Context, req *pb.SetTeamMembe
 		return &pb.SetTeamMemberRoleResponse{}, nil
 	}
 	update := s.db.WithContext(ctx).Table("team_members").
-		Where("team_id = ? AND user_id = ? AND role IN ?", req.GetTeamId(), req.GetUserId(), []int8{0, 1}).
+		Where("team_id = ? AND user_id = ? AND role IN ? AND membership_state = ?", req.GetTeamId(), req.GetUserId(), []int8{0, 1}, model.TeamMembershipActive).
 		Update("role", req.GetRole())
 	if update.Error != nil {
 		return nil, teamMemberDBError(ctx, update.Error)

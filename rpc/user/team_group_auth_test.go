@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,7 +19,8 @@ import (
 func TestAuthorizeTeamGroupCreationOwnerOverRPC(t *testing.T) {
 	s, mock := newTestUserServer(t)
 	expectTeamCreator(mock)
-	expectMemberRole(mock, 42, 2)
+	const generation int64 = 9007199254740993
+	expectTeamMembership(mock, true, 2, generation)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -39,7 +39,7 @@ func TestAuthorizeTeamGroupCreationOwnerOverRPC(t *testing.T) {
 	defer cancel()
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", metadata.ValueFromIncomingContext(teamContext(t), "authorization")[0]))
 	result, err := pb.NewUserClient(conn).AuthorizeTeamGroupCreation(ctx, &pb.AuthorizeTeamGroupCreationRequest{TeamId: 100})
-	if err != nil || result == nil {
+	if err != nil || result == nil || result.GetUserId() != 42 || result.GetGeneration() != generation {
 		t.Fatalf("authorize team group creation RPC: %v, %v", result, err)
 	}
 }
@@ -62,7 +62,7 @@ func TestAuthorizeTeamGroupCreationRequiresOwner(t *testing.T) {
 	for _, role := range []int8{0, 1} {
 		s, mock := newTestUserServer(t)
 		expectTeamCreator(mock)
-		expectMemberRole(mock, 42, role)
+		expectTeamMembership(mock, true, role)
 		result, err := s.AuthorizeTeamGroupCreation(teamContext(t), &pb.AuthorizeTeamGroupCreationRequest{TeamId: 100})
 		if result != nil || status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("operator role %d: %v, %v", role, result, err)
@@ -71,8 +71,7 @@ func TestAuthorizeTeamGroupCreationRequiresOwner(t *testing.T) {
 	t.Run("non-member", func(t *testing.T) {
 		s, mock := newTestUserServer(t)
 		expectTeamCreator(mock)
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
-			WillReturnRows(sqlmock.NewRows([]string{"role"}))
+		expectTeamMembership(mock, false, 0)
 		result, err := s.AuthorizeTeamGroupCreation(teamContext(t), &pb.AuthorizeTeamGroupCreationRequest{TeamId: 100})
 		if result != nil || status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("non-member: %v, %v", result, err)
@@ -83,7 +82,7 @@ func TestAuthorizeTeamGroupCreationRequiresOwner(t *testing.T) {
 func TestAuthorizeTeamGroupCreationDatabaseFailure(t *testing.T) {
 	s, mock := newTestUserServer(t)
 	expectTeamCreator(mock)
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeTeamMembershipQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 		WillReturnError(errors.New("database unavailable"))
 	result, err := s.AuthorizeTeamGroupCreation(teamContext(t), &pb.AuthorizeTeamGroupCreationRequest{TeamId: 100})
 	if result != nil || status.Code(err) != codes.Unavailable {

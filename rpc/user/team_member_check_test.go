@@ -17,19 +17,26 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func expectTeamMembership(mock sqlmock.Sqlmock, present bool, role int8) {
-	rows := sqlmock.NewRows([]string{"user_id", "role"})
-	if present {
-		rows.AddRow(int64(42), role)
+const activeTeamMembershipQuery = "SELECT user_id, role, generation FROM `team_members` WHERE team_id = ? AND user_id = ? AND membership_state = ? LIMIT ?"
+
+func expectTeamMembership(mock sqlmock.Sqlmock, present bool, role int8, generation ...int64) {
+	version := int64(1)
+	if len(generation) > 0 {
+		version = generation[0]
 	}
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT user_id, role FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+	rows := sqlmock.NewRows([]string{"user_id", "role", "generation"})
+	if present {
+		rows.AddRow(int64(42), role, version)
+	}
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeTeamMembershipQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 		WillReturnRows(rows)
 }
 
 func TestCheckTeamMemberOverRPC(t *testing.T) {
 	s, mock := newTestUserServer(t)
 	expectTeamCreator(mock)
-	expectTeamMembership(mock, true, 2)
+	const generation int64 = 9007199254740993
+	expectTeamMembership(mock, true, 2, generation)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -48,7 +55,7 @@ func TestCheckTeamMemberOverRPC(t *testing.T) {
 	defer cancel()
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", metadata.ValueFromIncomingContext(teamContext(t), "authorization")[0]))
 	result, err := pb.NewUserClient(conn).CheckTeamMember(ctx, &pb.CheckTeamMemberRequest{TeamId: 100})
-	if err != nil || result == nil || result.GetUserId() != 42 || result.GetRole() != 2 {
+	if err != nil || result == nil || result.GetUserId() != 42 || result.GetRole() != 2 || result.GetGeneration() != generation {
 		t.Fatalf("check team member RPC: %v, %v", result, err)
 	}
 }
@@ -59,7 +66,7 @@ func TestCheckTeamMemberReturnsVerifiedRole(t *testing.T) {
 		expectTeamCreator(mock)
 		expectTeamMembership(mock, true, role)
 		result, err := s.CheckTeamMember(teamContext(t), &pb.CheckTeamMemberRequest{TeamId: 100})
-		if err != nil || result == nil || result.GetUserId() != 42 || result.GetRole() != int32(role) {
+		if err != nil || result == nil || result.GetUserId() != 42 || result.GetRole() != int32(role) || result.GetGeneration() != 1 {
 			t.Fatalf("role %d: %v, %v", role, result, err)
 		}
 	}
@@ -94,7 +101,7 @@ func TestCheckTeamMemberRejectsNonMemberAndDatabaseFailure(t *testing.T) {
 			if tc.queryErr == nil {
 				expectTeamMembership(mock, false, 0)
 			} else {
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT user_id, role FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+				mock.ExpectQuery("^"+regexp.QuoteMeta(activeTeamMembershipQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 					WillReturnError(tc.queryErr)
 			}
 			result, err := s.CheckTeamMember(teamContext(t), &pb.CheckTeamMemberRequest{TeamId: 100})

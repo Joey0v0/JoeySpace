@@ -16,15 +16,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const activeMemberRoleQuery = "SELECT `role` FROM `team_members` WHERE team_id = ? AND user_id = ? AND membership_state = ? LIMIT ?"
+const activeMemberRoleUpdate = "UPDATE `team_members` SET `role`=? WHERE team_id = ? AND user_id = ? AND role IN (?,?) AND membership_state = ?"
+
 func expectMemberRole(mock sqlmock.Sqlmock, userID int64, role int8) {
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), userID, 1).
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeMemberRoleQuery)+"$").WithArgs(int64(100), userID, int64(0), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"role"}).AddRow(role))
 }
 
 func expectRoleUpdate(mock sqlmock.Sqlmock, userID int64, role int32, affected int64) {
 	mock.ExpectBegin()
-	mock.ExpectExec("UPDATE `team_members` SET `role`=").
-		WithArgs(role, int64(100), userID, int64(0), int64(1)).
+	mock.ExpectExec("^"+regexp.QuoteMeta(activeMemberRoleUpdate)+"$").
+		WithArgs(role, int64(100), userID, int64(0), int64(1), int64(0)).
 		WillReturnResult(sqlmock.NewResult(0, affected))
 	mock.ExpectCommit()
 }
@@ -90,7 +93,7 @@ func TestSetTeamMemberRoleRequiresOwner(t *testing.T) {
 	t.Run("non-member", func(t *testing.T) {
 		s, mock := newTestUserServer(t)
 		expectTeamCreator(mock)
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+		mock.ExpectQuery("^"+regexp.QuoteMeta(activeMemberRoleQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"role"}))
 		result, err := s.SetTeamMemberRole(teamContext(t), &pb.SetTeamMemberRoleRequest{TeamId: 100, UserId: 7, Role: 1})
 		if result != nil || status.Code(err) != codes.PermissionDenied {
@@ -113,7 +116,7 @@ func TestSetTeamMemberRoleProtectsOwnerAndMissingTarget(t *testing.T) {
 		s, mock := newTestUserServer(t)
 		expectTeamCreator(mock)
 		expectMemberRole(mock, 42, 2)
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), int64(7), 1).
+		mock.ExpectQuery("^"+regexp.QuoteMeta(activeMemberRoleQuery)+"$").WithArgs(int64(100), int64(7), int64(0), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"role"}))
 		result, err := s.SetTeamMemberRole(teamContext(t), &pb.SetTeamMemberRoleRequest{TeamId: 100, UserId: 7, Role: 1})
 		if result != nil || status.Code(err) != codes.NotFound {

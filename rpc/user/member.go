@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	driver "github.com/go-sql-driver/mysql"
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
@@ -26,7 +27,7 @@ func (s *userServer) AddTeamMember(ctx context.Context, req *pb.AddTeamMemberReq
 	}
 	var membership struct{ Role int8 }
 	err = s.db.WithContext(ctx).Table("team_members").Select("role").
-		Where("team_id = ? AND user_id = ?", req.GetTeamId(), operator.GetId()).Take(&membership).Error
+		Where("team_id = ? AND user_id = ? AND membership_state = ?", req.GetTeamId(), operator.GetId(), model.TeamMembershipActive).Take(&membership).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || err == nil && membership.Role != 2 {
 		return nil, status.Error(codes.PermissionDenied, "team owner required")
 	}

@@ -19,7 +19,7 @@ import (
 )
 
 func expectOperatorRole(mock sqlmock.Sqlmock, role int8) {
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeMemberRoleQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"role"}).AddRow(role))
 }
 
@@ -88,7 +88,7 @@ func TestAddTeamMemberRequiresOwner(t *testing.T) {
 			s, mock := newTestUserServer(t)
 			expectTeamCreator(mock)
 			if !tc.hasMembership {
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+				mock.ExpectQuery("^"+regexp.QuoteMeta(activeMemberRoleQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 					WillReturnRows(sqlmock.NewRows([]string{"role"}))
 			} else {
 				expectOperatorRole(mock, tc.role)
@@ -129,7 +129,7 @@ func TestAddTeamMemberRejectsDisabledAndDuplicate(t *testing.T) {
 	t.Run("database failure", func(t *testing.T) {
 		s, mock := newTestUserServer(t)
 		expectTeamCreator(mock)
-		mock.ExpectQuery(regexp.QuoteMeta("SELECT `role` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+		mock.ExpectQuery("^"+regexp.QuoteMeta(activeMemberRoleQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 			WillReturnError(errors.New("database disconnected"))
 		result, err := s.AddTeamMember(teamContext(t), &pb.AddTeamMemberRequest{TeamId: 100, UserId: 7})
 		if result != nil || status.Code(err) != codes.Unavailable {

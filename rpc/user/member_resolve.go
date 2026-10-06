@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,7 +37,7 @@ func (s *userServer) ResolveTeamMember(ctx context.Context, req *pb.ResolveTeamM
 	err := s.db.WithContext(ctx).Table("team_members").
 		Select("team_members.user_id AS user_id, users.username, users.nickname, team_members.role").
 		Joins("JOIN users ON users.id = team_members.user_id").
-		Where("team_members.team_id = ? AND users.status = ?", req.GetTeamId(), 1).
+		Where("team_members.team_id = ? AND users.status = ? AND team_members.membership_state = ?", req.GetTeamId(), 1, model.TeamMembershipActive).
 		Where("(CAST(users.username AS BINARY) = CAST(? AS BINARY) OR CAST(users.nickname AS BINARY) = CAST(? AS BINARY))", name, name).
 		Order("team_members.user_id ASC").Limit(maxResolvedTeamMembers + 1).Find(&rows).Error
 	if err != nil {

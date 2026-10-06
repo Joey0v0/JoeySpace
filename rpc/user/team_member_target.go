@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +26,7 @@ func (s *userServer) CheckTeamMemberByID(ctx context.Context, req *pb.CheckTeamM
 	var target struct{ Status int8 }
 	err := s.db.WithContext(ctx).Table("team_members").Select("users.status").
 		Joins("JOIN users ON users.id = team_members.user_id").
-		Where("team_members.team_id = ? AND team_members.user_id = ?", req.GetTeamId(), req.GetUserId()).
+		Where("team_members.team_id = ? AND team_members.user_id = ? AND team_members.membership_state = ?", req.GetTeamId(), req.GetUserId(), model.TeamMembershipActive).
 		Take(&target).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, status.Error(codes.NotFound, "team member not found")

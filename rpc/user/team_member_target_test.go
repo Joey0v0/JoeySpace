@@ -17,9 +17,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const activeTargetTeamMemberQuery = "SELECT users.status FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE team_members.team_id = ? AND team_members.user_id = ? AND team_members.membership_state = ? LIMIT ?"
+
 func expectTargetTeamMember(mock sqlmock.Sqlmock, targetStatus *int8, queryErr error) {
-	query := mock.ExpectQuery(regexp.QuoteMeta("SELECT users.status FROM `team_members` JOIN users ON users.id = team_members.user_id"))
-	query.WithArgs(int64(100), int64(77), 1)
+	query := mock.ExpectQuery("^" + regexp.QuoteMeta(activeTargetTeamMemberQuery) + "$")
+	query.WithArgs(int64(100), int64(77), int64(0), 1)
 	if queryErr != nil {
 		query.WillReturnError(queryErr)
 		return

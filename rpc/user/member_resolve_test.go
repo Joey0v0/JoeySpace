@@ -21,13 +21,13 @@ import (
 
 // The complete predicate guards team/status scope, OR grouping, parameterized
 // names, and binary comparison; sqlmock does not execute MySQL collations.
-const resolveMemberQuery = "SELECT team_members.user_id AS user_id, users.username, users.nickname, team_members.role FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE (team_members.team_id = ? AND users.status = ?) AND ((CAST(users.username AS BINARY) = CAST(? AS BINARY) OR CAST(users.nickname AS BINARY) = CAST(? AS BINARY))) ORDER BY team_members.user_id ASC LIMIT ?"
+const resolveMemberQuery = "SELECT team_members.user_id AS user_id, users.username, users.nickname, team_members.role FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE (team_members.team_id = ? AND users.status = ? AND team_members.membership_state = ?) AND ((CAST(users.username AS BINARY) = CAST(? AS BINARY) OR CAST(users.nickname AS BINARY) = CAST(? AS BINARY))) ORDER BY team_members.user_id ASC LIMIT ?"
 
 func expectMemberResolution(mock sqlmock.Sqlmock, name string) *sqlmock.ExpectedQuery {
 	expectTeamCreator(mock)
 	expectTeamMembership(mock, true, 0)
 	return mock.ExpectQuery("^"+regexp.QuoteMeta(resolveMemberQuery)+"$").
-		WithArgs(int64(100), 1, name, name, 21)
+		WithArgs(int64(100), 1, int64(0), name, name, 21)
 }
 
 func resolvedMemberRows() *sqlmock.Rows {

@@ -16,8 +16,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const activeListMembershipQuery = "SELECT `user_id` FROM `team_members` WHERE team_id = ? AND user_id = ? AND membership_state = ? LIMIT ?"
+const activeMembersListQuery = "SELECT team_members.user_id AS user_id, users.username, users.nickname, team_members.role FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE team_members.team_id = ? AND team_members.user_id > ? AND team_members.membership_state = ? ORDER BY team_members.user_id ASC LIMIT ?"
+
 func expectListMembership(mock sqlmock.Sqlmock) {
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT `user_id` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeListMembershipQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"user_id"}).AddRow(42))
 }
 
@@ -41,8 +44,8 @@ func TestListTeamMembersOverRPC(t *testing.T) {
 	s, mock := newTestUserServer(t)
 	expectTeamCreator(mock)
 	expectListMembership(mock)
-	mock.ExpectQuery("SELECT team_members.user_id AS user_id, users.username, users.nickname, team_members.role FROM `team_members`").
-		WithArgs(int64(100), int64(0), 3).
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeMembersListQuery)+"$").
+		WithArgs(int64(100), int64(0), int64(0), 3).
 		WillReturnRows(sqlmock.NewRows([]string{"user_id", "username", "nickname", "role"}).
 			AddRow(5, "bob", "Bob", 0).AddRow(7, "carol", "Carol", 1).AddRow(42, "alice", "Alice", 2))
 
@@ -71,7 +74,7 @@ func TestListTeamMembersOverRPC(t *testing.T) {
 func TestListTeamMembersDeniesNonMemberBeforeListing(t *testing.T) {
 	s, mock := newTestUserServer(t)
 	expectTeamCreator(mock)
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT `user_id` FROM `team_members`")).WithArgs(int64(100), int64(42), 1).
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeListMembershipQuery)+"$").WithArgs(int64(100), int64(42), int64(0), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"user_id"}))
 	result, err := s.ListTeamMembers(teamContext(t), &pb.ListTeamMembersRequest{TeamId: 100})
 	if result != nil || status.Code(err) != codes.PermissionDenied {
@@ -83,8 +86,8 @@ func TestListTeamMembersLastPage(t *testing.T) {
 	s, mock := newTestUserServer(t)
 	expectTeamCreator(mock)
 	expectListMembership(mock)
-	mock.ExpectQuery("SELECT team_members.user_id AS user_id, users.username, users.nickname, team_members.role FROM `team_members`").
-		WithArgs(int64(100), int64(7), 3).
+	mock.ExpectQuery("^"+regexp.QuoteMeta(activeMembersListQuery)+"$").
+		WithArgs(int64(100), int64(7), int64(0), 3).
 		WillReturnRows(sqlmock.NewRows([]string{"user_id", "username", "nickname", "role"}).AddRow(42, "alice", "Alice", 2))
 	result, err := s.ListTeamMembers(teamContext(t), &pb.ListTeamMembersRequest{TeamId: 100, AfterUserId: 7, Limit: 2})
 	if err != nil || len(result.GetMembers()) != 1 || result.GetMembers()[0].GetUserId() != 42 || result.GetNextAfterUserId() != 0 {
