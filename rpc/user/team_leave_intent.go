@@ -6,6 +6,7 @@ import (
 
 	driver "github.com/go-sql-driver/mysql"
 	"github.com/yjydist/go-im/internal/model"
+	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -37,6 +38,16 @@ type teamLeaveOperationRow struct {
 	RequestKey string `gorm:"column:request_key"`
 	Generation int64  `gorm:"column:generation"`
 	Status     int8   `gorm:"column:status"`
+}
+
+// beginOwnTeamLeaveIntent is kept inside User until IM cleanup and Push
+// authorization are connected. The caller cannot supply an actor ID.
+func (s *userServer) beginOwnTeamLeaveIntent(ctx context.Context, teamID int64, requestKey string) (*teamLeaveIntent, error) {
+	actor, err := s.GetMyInfo(ctx, &pb.GetMyInfoRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return beginTeamLeaveIntent(ctx, s.db, teamID, actor.GetId(), requestKey)
 }
 
 func beginTeamLeaveIntent(ctx context.Context, db *gorm.DB, teamID, actorID int64, requestKey string) (*teamLeaveIntent, error) {

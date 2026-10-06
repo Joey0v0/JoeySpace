@@ -10,7 +10,9 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/go-sql-driver/mysql"
 	"github.com/yjydist/go-im/internal/model"
+	pkgjwt "github.com/yjydist/go-im/internal/pkg/jwt"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -52,6 +54,66 @@ func expectLeaveInsert(mock sqlmock.Sqlmock, key string, id int64) {
 	mock.ExpectExec("^INSERT INTO `user_team_leave_operations` ").
 		WithArgs(int64(100), int64(42), key, int64(7), int8(0)).
 		WillReturnResult(sqlmock.NewResult(id, 1))
+}
+
+func TestBeginOwnTeamLeaveIntentUsesVerifiedActorAndSameKeyRetry(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		state int8
+		rows  *sqlmock.Rows
+	}{
+		{"first request", model.TeamMembershipActive, emptyLeaveOperations()},
+		{"same-key retry", model.TeamMembershipLeaving, emptyLeaveOperations().AddRow(89, 100, 42, 7, 0)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, mock := newTestUserServer(t)
+			mock.ExpectQuery("^"+regexp.QuoteMeta(profileQuery)+"$").WithArgs(int64(42), 1).
+				WillReturnRows(sqlmock.NewRows([]string{"id", "username", "nickname", "status"}).AddRow(42, "alice", "Alice", 1))
+			mock.ExpectBegin()
+			expectLeaveMember(mock, 0, tc.state, 7)
+			expectLeaveTeam(mock, 99)
+			expectLeaveOperation(mock, "fixed-key", tc.rows)
+			if tc.state == model.TeamMembershipActive {
+				expectLeaveUpdate(mock, 7, 1)
+				expectLeaveInsert(mock, "fixed-key", 89)
+			}
+			mock.ExpectCommit()
+			token, err := pkgjwt.GenerateToken(42, profileTestSecret, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A forged metadata user_id must never become the actor.
+			ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+token, "user_id", "99"))
+			got, err := s.beginOwnTeamLeaveIntent(ctx, 100, "fixed-key")
+			if err != nil || got == nil || got.ID != 89 || got.UserID != 42 || got.TeamID != 100 || got.Generation != 7 || got.Status != 0 {
+				t.Fatalf("authenticated leave = %+v, %v", got, err)
+			}
+		})
+	}
+}
+
+func TestBeginOwnTeamLeaveIntentRejectsUnverifiedActorBeforeWriting(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ctx  func(*testing.T) context.Context
+		code codes.Code
+	}{
+		{"missing token", func(*testing.T) context.Context { return context.Background() }, codes.Unauthenticated},
+		{"spoofed id only", func(*testing.T) context.Context {
+			return metadata.NewIncomingContext(context.Background(), metadata.Pairs("user_id", "42"))
+		}, codes.Unauthenticated},
+		{"invalid token", func(*testing.T) context.Context {
+			return metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer invalid"))
+		}, codes.Unauthenticated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, _ := newTestUserServer(t) // No SQL expectations: invalid identity must not reach the write transaction.
+			got, err := s.beginOwnTeamLeaveIntent(tc.ctx(t), 100, "fixed-key")
+			if got != nil || status.Code(err) != tc.code {
+				t.Fatalf("unauthorized leave = %+v, %v", got, err)
+			}
+		})
+	}
 }
 
 func TestBeginTeamLeaveIntentCommitsBothWrites(t *testing.T) {

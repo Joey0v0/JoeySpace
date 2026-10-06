@@ -22,6 +22,8 @@
 
 2026-10-06 [User退出意图事务](stage7-team-leave-intent-contract.md#本批实现与审查)在包内把成员变为leaving与插入033操作放在同一短事务，支持同键回显，真实拥有者拒绝退出；User包与全仓Go测试通过。没有公开的本人Token入口，没有IM清理或Push核权；033、真实MySQL并发/重启仍未验收，不算完整退出功能。
 
+2026-10-06 [本人鉴别边界](stage7-team-leave-auth-boundary-contract.md#本步实现与审查)已在User包内复用GetMyInfo的Token和账户状态验证，拒绝伪造metadata身份；仍没有对外退出RPC、IM清理或Push核权。仅本地SQL替身验证，不把该准备工作算成用户可操作的退出流程。
+
 ## 2. 本地验证证据与边界
 
 | 验证段 | 已有证据 | 不代表什么 |
