@@ -38,7 +38,7 @@ func (s *triggerTeamServer) CheckTriggerTeamMember(ctx context.Context, req *pb.
 	}
 	ctx, cancel := context.WithTimeout(ctx, triggerTeamTimeout)
 	defer cancel()
-	rows, err := s.db.WithContext(ctx).Table("team_members").Select("users.status").
+	rows, err := s.db.WithContext(ctx).Table("team_members").Select("users.status, team_members.generation").
 		Joins("JOIN users ON users.id = team_members.user_id").
 		Where("team_members.team_id = ? AND team_members.user_id = ? AND team_members.membership_state = ?", teamID, actorID, model.TeamMembershipActive).Limit(2).Rows()
 	if err != nil {
@@ -47,11 +47,12 @@ func (s *triggerTeamServer) CheckTriggerTeamMember(ctx context.Context, req *pb.
 	defer rows.Close()
 	found := false
 	var userStatus int8
+	var generation int64
 	for rows.Next() {
 		if found {
-			return nil, status.Error(codes.Unavailable, "trigger team database returned invalid membership")
+			return nil, triggerTeamStorageError(ctx)
 		}
-		if err := rows.Scan(&userStatus); err != nil {
+		if err := rows.Scan(&userStatus, &generation); err != nil || generation <= 0 {
 			return nil, triggerTeamStorageError(ctx)
 		}
 		found = true
@@ -62,7 +63,7 @@ func (s *triggerTeamServer) CheckTriggerTeamMember(ctx context.Context, req *pb.
 	if !found || userStatus != 1 {
 		return nil, status.Error(codes.PermissionDenied, "current active team membership required")
 	}
-	return &pb.CheckTriggerTeamMemberResponse{ActorId: actorID, TeamId: teamID}, nil
+	return &pb.CheckTriggerTeamMemberResponse{ActorId: actorID, TeamId: teamID, Generation: generation}, nil
 }
 
 func triggerTeamStorageError(ctx context.Context) error {

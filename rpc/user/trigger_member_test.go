@@ -64,9 +64,9 @@ func TestResolveTriggerMemberLiteralMatchesEchoScopeAndIgnoreMetadata(t *testing
 				want[0] = math.MaxInt64
 				rows.AddRow(want[0], req.Name, strings.Repeat("三", 64))
 			}
-			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status"}).AddRow(1))
+			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 			expectTriggerMemberQuery(mock, req).WillReturnRows(rows).RowsWillBeClosed()
-			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status"}).AddRow(1))
+			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 			ctx := metadata.NewIncomingContext(triggerTeamIMContext(context.Background()), metadata.Pairs("authorization", "Bearer fake", "actor_id", "11", "team_id", "12", "name", "evil"))
 			response, err := s.ResolveTriggerTeamMember(ctx, req)
 			if err != nil || response.GetActorId() != req.ActorId || response.GetTeamId() != req.TeamId || response.GetName() != req.Name || response.GetTruncated() || len(response.GetCandidates()) != len(want) {
@@ -93,9 +93,9 @@ func TestResolveTriggerMemberTwentyOneRowsOnlyMarksTruncated(t *testing.T) {
 			for i := 1; i <= count; i++ {
 				rows.AddRow(i, "username", req.Name)
 			}
-			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status"}).AddRow(1))
+			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 			expectTriggerMemberQuery(mock, req).WillReturnRows(rows).RowsWillBeClosed()
-			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status"}).AddRow(1))
+			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 			response, err := s.ResolveTriggerTeamMember(triggerTeamIMContext(context.Background()), req)
 			if err != nil || len(response.GetCandidates()) != 20 || response.GetTruncated() != (count == 21) || response.GetCandidates()[19].UserId != 20 {
 				t.Fatalf("count=%d response=%v err=%v", count, response, err)
@@ -156,7 +156,7 @@ func TestResolveTriggerMemberRejectsEveryMalformedCandidateIncludingLast(t *test
 			case "row error":
 				rows.AddRow(1, req.Name, "").RowError(0, errors.New("private name and SQL"))
 			}
-			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status"}).AddRow(1))
+			expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 			expectTriggerMemberQuery(mock, req).WillReturnRows(rows).RowsWillBeClosed()
 			response, err := s.ResolveTriggerTeamMember(triggerTeamIMContext(context.Background()), req)
 			if response != nil || status.Code(err) != codes.Unavailable || strings.Contains(status.Convert(err).Message(), req.Name) || strings.Contains(status.Convert(err).Message(), "private") {
@@ -238,7 +238,7 @@ func TestResolveTriggerMemberChecksQualificationBeforeAndAfterCandidateQuery(t *
 			req := &pb.ResolveTriggerTeamMemberRequest{ActorId: 42, TeamId: 200, Name: "张三"}
 			before := strings.HasSuffix(name, "before")
 			if !before {
-				expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status"}).AddRow(1))
+				expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 				rows := triggerMemberRows()
 				if strings.HasSuffix(name, "match") {
 					rows.AddRow(1, req.Name, "")
@@ -251,9 +251,9 @@ func TestResolveTriggerMemberChecksQualificationBeforeAndAfterCandidateQuery(t *
 				want = codes.Unavailable
 				query.WillReturnError(errors.New("private SQL and name"))
 			} else {
-				rows := sqlmock.NewRows([]string{"status"})
+				rows := sqlmock.NewRows([]string{"status", "generation"})
 				if strings.HasPrefix(name, "disabled") {
-					rows.AddRow(2)
+					rows.AddRow(2, 1)
 				}
 				query.WillReturnRows(rows)
 			}
@@ -284,7 +284,7 @@ func TestResolveTriggerMemberDatabaseFailureCancellationAndDeadline(t *testing.T
 				req.ActorId = 0
 				want = codes.DeadlineExceeded
 			default:
-				expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status"}).AddRow(1))
+				expectTriggerMemberQualification(mock, req, sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 				query := expectTriggerMemberQuery(mock, req)
 				if name == "SQL" {
 					query.WillReturnError(errors.New("private SQL " + req.Name))
@@ -296,7 +296,7 @@ func TestResolveTriggerMemberDatabaseFailureCancellationAndDeadline(t *testing.T
 					} else {
 						query.WillReturnRows(triggerMemberRows()).RowsWillBeClosed()
 						mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).
-							WillDelayFor(100 * time.Millisecond).WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(1))
+							WillDelayFor(100 * time.Millisecond).WillReturnRows(sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 					}
 				}
 			}

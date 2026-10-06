@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const triggerTeamQuery = "SELECT users.status FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE team_members.team_id = ? AND team_members.user_id = ? AND team_members.membership_state = ? LIMIT ?"
+const triggerTeamQuery = "SELECT users.status, team_members.generation FROM `team_members` JOIN users ON users.id = team_members.user_id WHERE team_members.team_id = ? AND team_members.user_id = ? AND team_members.membership_state = ? LIMIT ?"
 const triggerTeamIMName = "im.go-im.internal"
 
 func triggerTeamIMContext(parent context.Context) context.Context {
@@ -33,19 +33,21 @@ func triggerTeamIMContext(parent context.Context) context.Context {
 }
 
 func TestTriggerTeamMemberReturnsOnlyExactCurrentScopeWithoutJWT(t *testing.T) {
-	for _, actorID := range []int64{42, 9007199254740993, math.MaxInt64} {
+	for _, tc := range []struct{ actorID, generation int64 }{
+		{42, 9007199254740993}, {9007199254740993, 7}, {math.MaxInt64, math.MaxInt64},
+	} {
 		users, mock := newTestUserServer(t)
 		s := &triggerTeamServer{db: users.db, imDNSName: triggerTeamIMName}
 		const teamID int64 = 9007199254740995
-		mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(teamID, actorID, model.TeamMembershipActive, 2).
-			WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(1))
+		mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(teamID, tc.actorID, model.TeamMembershipActive, 2).
+			WillReturnRows(sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, tc.generation))
 		ctx := triggerTeamIMContext(context.Background())
-		response, err := s.CheckTriggerTeamMember(ctx, &pb.CheckTriggerTeamMemberRequest{ActorId: actorID, TeamId: teamID})
-		if err != nil || response.GetActorId() != actorID || response.GetTeamId() != teamID {
+		response, err := s.CheckTriggerTeamMember(ctx, &pb.CheckTriggerTeamMemberRequest{ActorId: tc.actorID, TeamId: teamID})
+		if err != nil || response.GetActorId() != tc.actorID || response.GetTeamId() != teamID || response.GetGeneration() != tc.generation {
 			t.Fatalf("scope=%v err=%v", response, err)
 		}
-		if fields := response.ProtoReflect().Descriptor().Fields(); fields.Len() != 2 {
-			t.Fatal("trigger response exposes fields beyond the checked scope")
+		if fields := response.ProtoReflect().Descriptor().Fields(); fields.Len() != 3 || fields.ByName("generation").Number() != 3 {
+			t.Fatal("trigger response must expose only checked scope and field 3 generation")
 		}
 	}
 }
@@ -118,12 +120,12 @@ func TestTriggerTeamMemberRejectsInvalidIDsOrUnavailableConfigurationWithoutSQL(
 }
 
 func TestTriggerTeamMemberRejectsMissingDisabledAndDamagedDatabaseResults(t *testing.T) {
-	for _, name := range []string{"missing membership", "leaving membership", "left membership", "disabled", "zero", "negative", "NULL", "not number", "overflow", "multiple", "SQL", "row error"} {
+	for _, name := range []string{"missing membership", "leaving membership", "left membership", "disabled", "zero", "negative", "NULL", "not number", "overflow", "multiple", "SQL", "row error", "zero generation", "negative generation", "NULL generation", "invalid generation", "generation overflow", "missing generation column"} {
 		t.Run(name, func(t *testing.T) {
 			users, mock := newTestUserServer(t)
 			s := &triggerTeamServer{db: users.db, imDNSName: triggerTeamIMName}
 			query := mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), int64(42), model.TeamMembershipActive, 2)
-			rows := sqlmock.NewRows([]string{"status"})
+			rows := sqlmock.NewRows([]string{"status", "generation"})
 			want := codes.Unavailable
 			switch name {
 			case "missing membership", "leaving membership", "left membership":
@@ -131,24 +133,36 @@ func TestTriggerTeamMemberRejectsMissingDisabledAndDamagedDatabaseResults(t *tes
 				// non-active lifecycle state, even when the account is enabled.
 				want = codes.PermissionDenied
 			case "disabled":
-				rows.AddRow(2)
+				rows.AddRow(2, 1)
 				want = codes.PermissionDenied
 			case "zero":
-				rows.AddRow(0)
+				rows.AddRow(0, 1)
 				want = codes.PermissionDenied
 			case "negative":
-				rows.AddRow(-1)
+				rows.AddRow(-1, 1)
 				want = codes.PermissionDenied
 			case "NULL":
-				rows.AddRow(nil)
+				rows.AddRow(nil, 1)
 			case "not number":
-				rows.AddRow("active")
+				rows.AddRow("active", 1)
 			case "overflow":
-				rows.AddRow(999)
+				rows.AddRow(999, 1)
 			case "multiple":
-				rows.AddRow(1).AddRow(1)
+				rows.AddRow(1, 1).AddRow(1, 1)
 			case "row error":
-				rows.AddRow(1).RowError(0, errors.New("private password / SQL data"))
+				rows.AddRow(1, 1).RowError(0, errors.New("private password / SQL data"))
+			case "zero generation":
+				rows.AddRow(1, 0)
+			case "negative generation":
+				rows.AddRow(1, -1)
+			case "NULL generation":
+				rows.AddRow(1, nil)
+			case "invalid generation":
+				rows.AddRow(1, "private invalid generation")
+			case "generation overflow":
+				rows.AddRow(1, "9223372036854775808")
+			case "missing generation column":
+				rows = sqlmock.NewRows([]string{"status"}).AddRow(1)
 			}
 			if name == "SQL" {
 				query.WillReturnError(errors.New("private password / SQL data"))
@@ -158,6 +172,9 @@ func TestTriggerTeamMemberRejectsMissingDisabledAndDamagedDatabaseResults(t *tes
 			response, err := s.CheckTriggerTeamMember(triggerTeamIMContext(context.Background()), &pb.CheckTriggerTeamMemberRequest{ActorId: 42, TeamId: 200})
 			if response != nil || status.Code(err) != want || strings.Contains(status.Convert(err).Message(), "private") {
 				t.Fatalf("database=%v err=%v want=%v", response, err, want)
+			}
+			if want == codes.Unavailable && status.Convert(err).Message() != "trigger team database unavailable" {
+				t.Fatalf("damaged storage response must be fixed: %v", err)
 			}
 		})
 	}
@@ -185,7 +202,7 @@ func TestTriggerTeamMemberHonorsCancellationAndDeadline(t *testing.T) {
 	users, mock := newTestUserServer(t)
 	s := &triggerTeamServer{db: users.db, imDNSName: triggerTeamIMName}
 	mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), int64(42), model.TeamMembershipActive, 2).
-		WillDelayFor(100 * time.Millisecond).WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(1))
+		WillDelayFor(100 * time.Millisecond).WillReturnRows(sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	response, err := s.CheckTriggerTeamMember(triggerTeamIMContext(ctx), &pb.CheckTriggerTeamMemberRequest{ActorId: 42, TeamId: 200})
