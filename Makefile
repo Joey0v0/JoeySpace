@@ -15,13 +15,13 @@ build:
 
 # 本地启动三个服务（在不同终端运行）
 run-api:
-	go run cmd/api/main.go
+	go run ./cmd/api
 
 run-ws:
-	go run cmd/ws/main.go
+	go run ./cmd/ws
 
 run-push:
-	go run cmd/push/main.go
+	go run ./cmd/push
 
 # 运行测试
 test:

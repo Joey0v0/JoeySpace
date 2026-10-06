@@ -49,7 +49,7 @@ function boot(handler = async () => notifications()) {
   vm.createContext(context);
   vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context, { filename: 'chat-inline.js' });
   const files = [...html.matchAll(/<script src="\/demo\/([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(files, ['multi-draft-core.js', 'multi-draft-actions.js', 'multi-draft-view.js', 'task-notifications.js', 'task-notifications-view.js']);
+  assert.deepEqual(files, ['multi-draft-core.js', 'multi-draft-actions.js', 'multi-draft-view.js', 'task-notifications.js', 'task-notifications-view.js', 'team-group-unread.js']);
   for (const file of files) vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context, { filename: file });
   function input(id, value) {
     fields[id].value = value;

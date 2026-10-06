@@ -79,7 +79,7 @@ test('HTML provides a separate accessible panel and same-origin scripts in contr
   assert.ok(html.indexOf('id="taskNotificationsPanel"') < html.indexOf('Step 6 — Ask AI'));
   assert.match(html, /id="taskNotificationsStatus" role="status" aria-live="polite"/);
   const urls = [...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(urls.slice(-2), scripts.map(name => '/demo/' + name));
+  assert.deepEqual(urls.filter(url => scripts.some(name => url === '/demo/' + name)), scripts.map(name => '/demo/' + name));
   assert.ok(urls.indexOf('/demo/multi-draft-view.js') < urls.indexOf('/demo/task-notifications.js'));
   const view = fs.readFileSync(path.join(__dirname, scripts[1]), 'utf8');
   assert.doesNotMatch(view, /\.innerHTML\s*=/);

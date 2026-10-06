@@ -1,10 +1,10 @@
 # 简化版飞书：微服务与 Agent 学习项目方案
 
-更新日期：2026-10-05
-状态：阶段 1—4 的主要业务代码按小步推进中，阶段 5 已接入 Eino 只读工具、独立 Agent RPC、Gateway 显式问答入口和演示页操作；阶段 6 已有单项草稿生成、读取、标题/说明编辑，以及接入 Agent 进程的同步确认 RPC。草稿版本已贯通 Agent、Gateway 和页面文字编辑/确认；确认先比较本人读取的版本、冻结内容和请求键，再调用 Task 并保存任务 ID，本地替身测试通过；Gateway/页面确认和任务结果展示已接入；Agent 已接入独立 mTLS 回帖客户端、持久意图及同步尝试/本人显式重试 RPC，Gateway/页面已接入独立回帖状态与本人先重读后显式重试操作。现有能力仅完成相应本地自动化验证，真实 MySQL、模型、浏览器、容器和云端联调待最终统一验收。  
+更新日期：2026-10-06
+状态：阶段1—6主要业务流程已有本地代码和自动化验证；阶段7任务通知、提醒链和本人团队群未读正在收尾。现有验证仍以本机连接和依赖替身为主，真实MySQL、模型、浏览器、容器和云端联调待最终统一验收，不能将本地通过视为上线完成。
 用途：后续需求、架构、开发与验收的共同依据。
 
-最新进展（2026-10-05）：阶段6本地接线与验收准备、阶段7通知写入/本人查询/原生面板已合入**本地** main `89e2a1e`；后续通知链/组合验证及RPC统计正文修复继承在当前分支历史。本批 `codex/stage7-legacy-offline-bridge` 沿已选A22/A74完成旧Gin离线GET/ACK转发IM：原Token核权、无本地库回落、3秒总上限，旧路径/HTTP200业务code/字符串ID和机器人格式保留；ACK增加32KiB及单JSON限制。共同a953968，三个worktree A f634c31/B a1df2a1/C da7f9b6由root定向验证后保存并无冲突整合；四项实际本机HTTP→Gin认证→TCP gRPC→生产IM组合及最终全仓`go test ./... -count=1`通过，SQL/User仍替身。[八步、全部16文件及边界](stage7-legacy-offline-contract.md#本批实现与审查)，[取舍](architecture-decisions.md)。Compose静态解析通过，当前无Docker；A73未读存储/页面、A16退出清理、关联日志和真实环境仍待完成，没有新迁移/协议/依赖/页面改动，未合main/push/部署，阶段7/整个项目未标完成。
+最新进展（2026-10-06）：main仍89e2a1e，后续通知、日志与旧离线迁移均继承在当前分支。本批codex/stage7-team-group-unread沿已选A73，030/init与个人逐消息凭据、两个IM RPC/Gateway入口及原生显式按钮已接线；本人普通不计、机器人计入，GET不写、Mark整批核对/幂等、当前范围前后核权。共同7b5f062；A59216a1/B04d9edc/C506a78e由root审查/验证/保存并无冲突整合。定向及全仓Go、325项Node通过，root另修旧Makefile按包运行，三服务-h通过；[九步、全部27文件及边界](stage7-team-group-unread-contract.md#本批实现与审查)、[取舍](architecture-decisions.md)。首次时间/迟到小ID是SQL契约验证，真实MySQL未验收；保留旧历史游标，重遍历/恢复控制下一轮。030尚未执行，A16退出清理/Push资格、关联日志及真实环境仍后续；无新依赖、没有生成文件删除、main合并/push/部署，阶段7/整体项目未标完成。
 
 ## 1. 项目目标与学习背景
 
@@ -476,7 +476,7 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] A69—A72任务提醒运行接线（2026-10-05）：Push/WS分别由YAML显式开启，默认不建新资源；结构校验/TLS预检先于其他基础设施，新Push Reader独立Topic/group、同步commit，新组FirstOffset而已有组沿提交恢复；启动生产消费，坏事件只停提醒。WS新增专用TLS监听、实际绑定错误返回主流程、异常serve通道，取消/等待活动提醒后关闭User；root也接原HTTP端口同步绑定/信号关闭，不扩为旧Hub/WebSocket排空。两个main接线、默认关闭本地/容器模板及可选只读证书Compose覆盖已准备。共同7efed33、Push383f291、配置fe0045b、WS2a787f3/测试修正4b5d3f4由root审查/保存/整合；全仓Go及Linux两个目标通过。[八步和18文件审查](stage7-notification-runtime-contract.md#本批实现与审查)、[运行取舍](architecture-decisions.md)。当前电脑没有Docker命令，未验收Compose合并/挂载、真实Kafka/Redis/User/证书/信号或浏览器，不把运行接线等同于实际部署成功。
 
-当前下一步（2026-10-05）：A74旧离线出口本地已收口，继续按已选A73固定未读迁移/RPC/HTTP共同契约，安排三个执行worktree实现后端/转发/原生页面；离线ACK不是会话已读，现有消息ID不是提交顺序。A16退出清理/Push资格缺口仍需小步补齐。已核对Agent现有记录，后续沿A64本人状态边界和既定日志设施补安全阶段/关联字段，不增加运行列表或公开内部错误。通知分段组合已通过本地验证，详情/已读仍经Gateway→Task当前核权，默认开关不会自动推送。main仍89e2a1e，当前codex/stage7-legacy-offline-bridge继承前几批，未合main/推送。027—029未执行，最终先核对迁移再升级Task，协调发布变量、Push/WS私有YAML开关、独立证书及Topic/group/在线地址；可选覆盖不替你开启私有YAML。最终统一验收按[阶段7清单](stage7-acceptance.md)、[阶段6运行准备](stage6-runtime-acceptance.md)及[部署说明](../deploy/README.md)执行；方舟接入点/预算未定前不请求真实模型。
+当前下一步（2026-10-06）：补A73显式重遍历历史与未读恢复组合，核对迟到低ID、确认结果不确定、换身份/群和撤权的页面/RPC接线；保持具体ID，不让旧游标自动判已读，不擅自移除原路线单聊未读目标。随后按既定A16补退出清理/Push资格，关键跨服务一致性方案仍先讨论。后续沿A64本人状态边界补安全阶段/关联日志，不增加运行列表或公开内部错误。main仍89e2a1e，当前codex/stage7-team-group-unread继承前几批，未合main/push。027—030未执行，先核对迁移再升级Task/IM，协调发布变量、Push/WS私有开关、独立证书及Topic/group/在线地址；可选覆盖不替你开启私有YAML。最终统一验收按[阶段7清单](stage7-acceptance.md)、[阶段6准备](stage6-runtime-acceptance.md)及[部署说明](../deploy/README.md)执行；方舟接入点/预算未定前不请求真实模型。
 
 - [x] A27/A69/A72原生页面任务提醒与恢复（2026-10-05）：最小WS提示只在当前连接及本人/团队范围内展示，128项内存窗口合并重复，不拼通知详情或自动已读；首次/手动重连成功查询最新页，忙时串行排队一次，刷新期间的新提示保留。Token输入/成功登录使旧身份回调失效，401/403清旧列表并阻断迟到提示。状态a9f2413、展示bc1ea5c、组合8464d04由root测试/保存/无冲突整合，root接线d328ad8；全部303项Node和Gateway API回归通过。[七步、全部12文件及边界](stage7-notification-realtime-page-contract.md#本批实现与审查)，[取舍记录](architecture-decisions.md)。只完成本地替身验证，真实浏览器/部署链、027—029及main合并/push尚未执行；阶段7整体未标完成。
 
@@ -485,6 +485,8 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 - [x] 阶段7缺口审查、RPC统计正文修复及A74 IM离线核权（2026-10-05）：三个只读agent分别核对IM/Agent/故障记录，A73/A74用户已明确选择；四个zrpc启动点由ServiceDesc设置IgnoreContentMethods，旧私有YAML无需新增字段，慢调用记录保留。IM按每个群当前资格过滤，临时故障不返回部分结果，拉取不删投递、ACK不变。真实框架日志对照、IM/API离线定向及最终全仓Go通过。[八步、全部15文件](stage7-experience-gap-design.md#本批实现与审查)。旧Gin离线直查仍待收口，不标A74全部出口、聊天未读、关联日志或真实部署完成。
 
 - [x] A22/A74旧离线出口收口（2026-10-05）：旧Gin读取/ACK仅经注入IM客户端，原Token重验本人/当前群团队资格，不回落旧数据库，HTTP200业务code/字符串ID/机器人/空数组兼容；32KiB和单JSON输入限制明确记录。三个执行worktree从a953968出发，root定向测试后保存A f634c31/B a1df2a1/C da7f9b6并无冲突整合；实际本机HTTP/TCP生产IM组合及全仓Go通过，SQL/User为替身。Compose地址及依赖静态解析通过，Docker/真实部署未验收。[八步及全部16文件](stage7-legacy-offline-contract.md#本批实现与审查)。没有新迁移/协议/依赖/页面，A73未读和A16清理仍后续，不标整个阶段完成。
+
+- [x] A73本人团队群未读本地接线（2026-10-06）：030/init个人逐消息主键、数据库首次时间；Get/Mark RPC及Gateway精确范围和字符串ID/count，事务整批校验、主键冲突no-op；普通本人消息排除、机器人计入，原生按钮只确认本次历史页。共同7b5f062，root保存/整合A59216a1/B04d9edc/C506a78e，定向及全仓Go、325项Node通过；修测试Context/旧脚本清单，不改相应生产语义，另补程序改群/入群失效与Makefile包运行，三个-h通过。[九步/全部27文件](stage7-team-group-unread-contract.md#本批实现与审查)。SQL/User/DOM等替身，030/真实环境未执行，低ID重遍历与恢复、A16/日志等仍后续，未合main或push。
 
 ## 10. 决策记录与文档关系
 

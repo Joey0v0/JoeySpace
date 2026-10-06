@@ -1,5 +1,9 @@
 # Docker Compose 部署配置基线
 
+2026-10-06 A73本人团队群未读：已有库先执行一次030_im_group_message_reads.sql，再升级IM RPC与Gateway；仅更新init不会升级已有卷。新表默认没有阅读记录，当前可读历史中非本人普通消息首次均未读；机器人消息也计入。不新增环境开关，不删除离线投递或旧通知。030尚未执行。页面先登录、填写团队/群并选择群聊，可手动查询计数；加载群历史后点击“将本次已加载历史页标为已读”，仅提交这页确切ID，不自动确认WS/离线/历史读取。权限/账号失效清计数与目标，普通失败可本人刷新或重试；提交后失败不保证没有写。保留旧历史游标，低ID迟到且不在最新页时需重开历史遍历，恢复控制下一轮补。本地全仓Go/325项Node通过，实际MySQL/浏览器/容器和云待验收。[九步与全部文件](../docs/stage7-team-group-unread-contract.md#本批实现与审查)。
+
+Makefile的run-api/run-ws/run-push现以包运行，包含重构后的全部辅助Go文件；三个`go run ./cmd/{api,ws,push} -h`仅验证编译与帮助入口，通过但没有启动服务或读取真实数据库。
+
 阶段7Task通知事件发布第一批（2026-10-05）：新Task在状态变化事务内同时写通知与Outbox，升级前须先027、028、029，029不回填旧通知；关闭发布也必须029。首次初始化已包含新表，现有数据卷不会因改init自动迁移。发布开关 `TASK_NOTIFICATION_PUBLISH_ENABLED` 默认false；显式启用需Task进程的 `TASK_NOTIFICATION_KAFKA_BROKERS` 和独立 `TASK_NOTIFICATION_TOPIC`，容器网络broker为kafka:19092。私有聊天/Agent Topic改名时，同时传 `TASK_NOTIFICATION_CHAT_TOPIC`/`TASK_NOTIFICATION_AGENT_TOPIC` 做隔离校验。基础Compose本批未注入发布配置，最终通过私有覆盖或下一批完整部署覆盖注入；未配置不能宣称已发布。published只表示Kafka确认。029尚未执行，真实Kafka/MySQL、证书、容器与云端仍待验收。[Task契约和审查](../docs/stage7-notification-outbox-contract.md)。
 
 阶段7提醒传输第二批已完成独立Push消费组件、HTTPS白名单客户端、双向TLS配置与WS当前连接权限处理器，本机真实TLS和全仓Go测试通过；当时尚未接进程，组件范围见[传输审查](../docs/stage7-notification-transport-contract.md#本批实现与审查)。第三批运行接线见下文，第四批页面提示/重连查询已完成本地替身验证，见[页面审查](../docs/stage7-notification-realtime-page-contract.md#本批实现与审查)。

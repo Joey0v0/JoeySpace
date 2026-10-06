@@ -1763,6 +1763,7 @@ async function createTeamGroup() {
     document.getElementById('chatType').value = '2';
     clearAIAnswer();
     clearTaskDraftResult();
+    if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
     log('Created team group ' + groupID + '; keep this request key for retries', 'info');
   } finally {
     creatingTeamGroup = false;
@@ -1842,9 +1843,13 @@ function selectTeamGroup() {
   const groupID = document.getElementById('teamGroupSelect').value;
   clearAIAnswer();
   clearTaskDraftResult();
-  if (!validID(groupID)) return;
+  if (!validID(groupID)) {
+    if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+    return;
+  }
   document.getElementById('toUserId').value = groupID;
   document.getElementById('chatType').value = '2';
+  if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
 }
 
 async function joinTeamGroup() {
@@ -1861,6 +1866,8 @@ async function joinTeamGroup() {
   const result = await resp.json();
   if (result.code !== 0) throw new Error('group join failed: ' + (result.msg || 'unknown error'));
   document.getElementById('chatType').value = '2';
+  if (typeof teamGroupUnreadPage !== 'undefined' && token === document.getElementById('token').value &&
+      teamID === document.getElementById('teamId').value.trim() && groupID === document.getElementById('toUserId').value.trim()) teamGroupUnreadPage.invalidate();
   log('Joined team group ' + groupID, 'info');
 }
 
@@ -2008,7 +2015,10 @@ async function loadTeamGroupHistory(latest = false) {
       headers: { Authorization: 'Bearer ' + token }
     });
     if (!current()) return;
-    if (!resp.ok) throw new Error('history HTTP ' + resp.status);
+    if (!resp.ok) {
+      if ((resp.status === 401 || resp.status === 403) && typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+      throw new Error('history HTTP ' + resp.status);
+    }
     const result = await resp.json();
     if (!current()) return;
     const data = result.data;

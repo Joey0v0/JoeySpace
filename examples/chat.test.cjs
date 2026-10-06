@@ -7,6 +7,98 @@ const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, 'chat.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 
+test('history only supplies exact loaded message IDs to explicit group-read controls', async () => {
+  const calls = [], loaded = [];
+  const { context, fields } = page(async (url, options) => {
+    calls.push({ url, options });
+    return reply({ code: 0, data: { messages: [
+      { id: '9007199254740993', msg_id: 'first' },
+      { id: '0', msg_id: 'invalid' },
+      { id: '9', msg_id: 'second' }
+    ], next_before_message_id: '0' } });
+  });
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  context.teamGroupUnreadPage = { loaded: (scope, ids) => loaded.push({ scope, ids: Array.from(ids) }), invalidate() {} };
+  await context.loadTeamGroupHistory();
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/messages\?limit=20$/);
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0].scope.teamID, '200'); assert.equal(loaded[0].scope.groupID, '300');
+  assert.equal(loaded[0].scope.token, 'test-token');
+  assert.deepEqual(loaded[0].ids, ['9007199254740993', '9']);
+});
+
+test('history denial and connection identity invalidation clear group-read targets', async () => {
+  let invalidations = 0;
+  const { context, fields } = page(async () => ({ ok: false, status: 403 }));
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  context.teamGroupUnreadPage = { loaded: () => assert.fail('denied history must not set read targets'), invalidate: () => { invalidations++; } };
+  await assert.rejects(context.loadTeamGroupHistory(), /history HTTP 403/);
+  assert.equal(invalidations, 1);
+  context.invalidateTaskNotificationConnection();
+  assert.equal(invalidations, 2);
+});
+
+test('a stale history response cannot set the new group read targets', async () => {
+  let release;
+  const paused = new Promise(resolve => { release = resolve; });
+  const { context, fields } = page(async () => { await paused; return reply({ code: 0, data: { messages: [{ id: '9', msg_id: 'old' }], next_before_message_id: '0' } }); });
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  context.teamGroupUnreadPage = { loaded: () => assert.fail('stale history reached current read controls'), invalidate() {} };
+  const pending = context.loadTeamGroupHistory();
+  fields.toUserId.value = '301'; context.clearTaskDraftResult();
+  release(); await pending;
+});
+
+test('the real group-read module confirms only IDs supplied by the actual history page hook', async () => {
+  const calls = [];
+  const { context, fields } = page(async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith('/read')) {
+      const ids = JSON.parse(options.body).message_ids;
+      return reply({ code: 0, data: { team_id: '200', group_id: '300', unread_count: '0', message_ids: ids } });
+    }
+    return reply({ code: 0, data: { messages: [{ id: '9007199254740993', msg_id: 'loaded' }], next_before_message_id: '0' } });
+  });
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  for (const id of ['groupUnreadCount', 'groupUnreadStatus', 'btnGroupUnreadRefresh', 'btnGroupReadLoaded']) fields[id] = { textContent: '', disabled: true };
+  for (const id of ['token', 'teamId', 'toUserId', 'chatType', 'teamGroupSelect']) fields[id].addEventListener = () => {};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'team-group-unread.js'), 'utf8'), context);
+  assert.equal(calls.length, 0);
+  await context.loadTeamGroupHistory();
+  assert.equal(calls.length, 1);
+  assert.equal(fields.btnGroupReadLoaded.disabled, false);
+  await fields.btnGroupReadLoaded.onclick();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, '/api/v1/teams/200/groups/300/read');
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer test-token');
+  assert.deepEqual(JSON.parse(calls[1].options.body), { message_ids: ['9007199254740993'] });
+  assert.equal(fields.groupUnreadCount.textContent, '0');
+  assert.equal(fields.btnGroupReadLoaded.disabled, true);
+});
+
+test('programmatic group selection and successful join invalidate personal read targets without querying', async () => {
+  const calls = [], scopes = [];
+  const { context, fields } = page(async url => { calls.push(url); return reply({ code: 0 }); });
+  fields.teamId.value = '200'; fields.teamGroupSelect.value = '300';
+  context.teamGroupUnreadPage = { invalidate: () => scopes.push(fields.toUserId.value) };
+  context.selectTeamGroup();
+  assert.deepEqual(scopes, ['300']);
+  assert.equal(calls.length, 0);
+  await context.joinTeamGroup();
+  assert.deepEqual(scopes, ['300', '300']);
+  assert.deepEqual(calls, ['/api/v1/teams/200/groups/300/join']);
+});
+
+test('successful group creation invalidates read targets after selecting the new group', async () => {
+  const scopes = [];
+  const { context, fields } = page(async () => reply({ code: 0, data: { group_id: '400' } }));
+  fields.teamId.value = '200'; fields.newGroupName.value = 'Group';
+  context.teamGroupUnreadPage = { invalidate: () => scopes.push(fields.toUserId.value) };
+  await context.createTeamGroup();
+  assert.deepEqual(scopes, ['400']);
+});
+
 test('replaced socket callbacks cannot query offline messages or overwrite the current connection', async () => {
   const calls = [];
   const { context, fields } = page(async url => { calls.push(url); return reply({ code: 0, data: [] }); });

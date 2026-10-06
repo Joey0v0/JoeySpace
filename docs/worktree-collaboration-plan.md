@@ -494,3 +494,9 @@ root核实发现、提出A73/A74候选并提问，用户明确选择团队群规
 从c6394e8建立codex/stage7-legacy-offline-bridge；root共同a953968准备接口、构造器/路由签名及[契约、三个精确目录/分支和允许文件](stage7-legacy-offline-contract.md)。共八步，三个执行worktree分别负责Handler、启动、生产IM组合，不固定按旧worktree名称分服务边界；root拥有共同文档/接口/router/Compose、全部测试和Git动作。执行agent只编辑/gofmt/diffcheck，不test/build/commit/合main/push/部署。
 
 实际交付：root定向验证保存A f634c31、B a1df2a1（最终IPv6目标补项后重测）、C da7f9b6。root先快进A到C，让组合测试执行实际转发Handler；三分支无冲突整合，四项真实本机HTTP→Gin认证→TCP gRPC→生产IM及最终全仓Go通过。SQL/User仍替身，PyYAML解析实际Compose的地址/依赖通过；三个worktree干净保留，主目录保存最终共同文档/Compose。[八步及全部16文件](stage7-legacy-offline-contract.md#本批实现与审查)。ACK新增32KiB/单JSON边界明确记录；没有页面/协议/迁移/依赖/生成文件删除，没有Docker/云/真实模型验收、main合并或push。A73未读及A16退出清理仍需后续小步。
+
+## 43. A73本人团队群未读批次（2026-10-06）
+
+从2177d4c建立codex/stage7-team-group-unread；root共同7b5f062固定[协议/模型/030/路由/HTML与三个绝对目录、分支及唯一允许文件](stage7-team-group-unread-contract.md)。九步，IM/HTTP/页面各两个实现测试文件，执行agent不test/build/Git写/合main或部署；root拥有共同协议/生成/迁移/模型/路由/HTML、集中验证与文档，人数按三个执行角色。
+
+实际：root审查/定向验证保存A59216a1、B04d9edc、C506a78e，无冲突整合；B最初测试替换Context丢路由值，root仅修两个测试请求后通过；全页面旧测试锁全五脚本/末尾，root更新三个测试的合法清单/自身顺序。root补六项HTML/实际模块接线场景与程序改群/入群失效，最终全仓Go、325项Node通过。root运行检查修Makefile包运行，三个-h通过；030/init静态一致，首次时间/低ID非真实数据库验证。[九步及全部27文件](stage7-team-group-unread-contract.md#本批实现与审查)。三worktree干净保留，root最终接线/共同文档在整合分支；未执行030、真实浏览器/DB/容器/云/模型、main合并或push。历史重遍历/恢复控制下一轮，不夹带A16退出或新日志框架。

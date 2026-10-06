@@ -37,7 +37,7 @@ root拥有chat.html/嵌入/路由，新增groupUnreadCount、btnGroupUnreadRefre
 4 B实现Gateway解析/回包/错误合同及HTTP→TCP RPC替身测试。
 5 C实现原生模块、范围世代/显式操作和Node测试。
 6 root审查保存并整合三分支，修实际问题。
-7 root验证实际HTML历史接线/同源嵌入和schema一致性。
+7 root验证实际HTML历史接线/同源嵌入和schema一致性；运行入口发现旧Makefile单文件命令漏辅助文件，修正为按包运行。
 8 root定向及全仓Go/相关与全页面Node回归。
 9 root决策/进度/协作/验收/部署和全部实际文件审查。
 
@@ -51,4 +51,46 @@ root拥有chat.html/嵌入/路由，新增groupUnreadCount、btnGroupUnreadRefre
 
 ## 本批实现与审查
 
-共同准备及最终三分支、全部实际文件、测试结果/未验收范围由root交付前补充。真实MySQL/模型/浏览器/容器及030迁移未执行，不删除生成文件，main/push/云端均由用户后续审查决定。
+共同7b5f062；root审查/定向验证后保存A IM59216a1、B Gateway04d9edc、C页面506a78e，无冲突合入codex/stage7-team-group-unread。执行agent各只改两份允许文件，没有测试/build/Git写或自行合main；root补HTML接线、同源嵌入/完整页面组合、测试修正及全部文档。三个worktree干净保留，main89e2a1e未变。
+
+九步实际结果：先审查A73与旧历史；共同协议/生成/模型/DDL和拒绝占位；三个独立实现；root审查/定向/保存/整合；HTML/DDL/运行入口检查；Go/Node集中回归；最终决策/进度/协作/验收/部署记录。root没有执行真实迁移、部署或模型，不删除生成文件。
+
+调用链：页面手动GET/POST → Gateway校验路径/具体字符串ID → IM原Token派生本人 → 群资格和User当前团队资格 → 只读COUNT或短事务整批验证/个人凭据 → 再核权及安全范围回显 → 页面接受当前世代结果。读取历史、WS到达、离线ACK不写凭据，UI只确认本次历史页。正常本人消息不计，机器人同数字发送者仍计。read_at靠数据库初值，重复写唯一键no-op；提交后失败可已保存，页面只提示本人查询/重试。
+
+root另补成功新建、选择群和当前范围成功入群后invalidate，防止程序修改输入未触发DOM事件而残留旧计数/阻断；已拒绝的历史401/403清目标，迟到历史不能设置新目标。Get/Mark大数始终字符串，脚本仅textContent，不增加自动查询或自动ACK。
+
+全部实际修改文件（27个）：
+
+| 文件 | 目的 |
+| --- | --- |
+| [IM协议](../rpc/im/im.proto) | 独立只读统计与具体ID确认 |
+| [生成消息](../rpc/im/pb/im.pb.go) | root正常生成新字段，未删除文件 |
+| [生成RPC](../rpc/im/pb/im_grpc.pb.go) | 新Client/Server方法与描述符 |
+| [凭据模型](../internal/model/group_message_read.go) | 本人/群/消息唯一键、数据库首次时间只读 |
+| [030迁移](../deploy/mysql/migrations/030_im_group_message_reads.sql) | 已有库新增表，零回填 |
+| [初始化](../deploy/mysql/init.sql) | 新库同一表定义 |
+| [IM实现](../rpc/im/team_group_unread.go) | 当前资格、逐消息排除、事务确认/幂等 |
+| [IM测试](../rpc/im/team_group_unread_test.go) | 12函数含SQL/User替身及实际TCP RPC |
+| [Gateway实现](../api/team_group_unread.go) | 有界解析、原Token、精确范围/集合回显 |
+| [Gateway测试](../api/team_group_unread_test.go) | 7函数含解析/取消及真实HTTP→TCP替身 |
+| [Gateway路由](../api/main.go) | 两业务路由与固定同源脚本 |
+| [嵌入测试](../api/chat_demo_test.go) | 页面DOM与嵌入脚本检查 |
+| [嵌入声明](../examples/chat.go) | 新脚本打包进入Gateway |
+| [页面接线](../examples/chat.html) | 控件、合法历史ID、身份/群变化失效 |
+| [未读模块](../examples/team-group-unread.js) | 手动操作、世代/阻断/重试/字符串校验 |
+| [模块测试](../examples/team-group-unread.test.cjs) | 16项VM/DOM/fetch场景 |
+| [旧页面组合](../examples/chat.test.cjs) | 六项新增实际脚本/历史/范围接线验证 |
+| [多草稿布局测试](../examples/multi-draft-view.test.cjs) | 只校验自身脚本顺序，兼容合法新模块 |
+| [提醒布局测试](../examples/task-notifications-view.test.cjs) | 保留控制器/展示顺序，不锁定全页末尾 |
+| [提醒完整页面测试](../examples/task-notifications-realtime.test.cjs) | 新六脚本真实装载，保持聊天/通知回归 |
+| [Makefile](../Makefile) | 三服务go run按包编译，避免遗漏拆出的辅助文件 |
+| [本契约](stage7-team-group-unread-contract.md) | 共同起点、九步、精确边界与全部文件 |
+| [架构决策](architecture-decisions.md) | 已选A73内实现取舍与代价 |
+| [项目进度](project-plan.md) | 已验证能力及下一轮恢复/权限补项 |
+| [协作记录](worktree-collaboration-plan.md) | 三worktree和root整合责任 |
+| [阶段7验收](stage7-acceptance.md) | 新本地证据与真实验收待项 |
+| [部署说明](../deploy/README.md) | 先030再升级IM/Gateway和手动使用方式 |
+
+验证：共同Go检查通过；A定向12函数通过，B首轮截止/取消测试误用WithContext丢pathvar，root只修两处测试请求保留路径值后7函数通过；C16项通过。root新增六项HTML接线/实际模块组合，首次全页面因三份旧测试锁定全页五脚本或末尾失败，更新合法装载与自身相对顺序后最终全部325项Node通过；全仓`go test ./... -count=1 -timeout=90s`通过。030/init表定义静态一致；三项`go run ./cmd/{api,ws,push} -h`退出0，未初始化数据库/启动服务。没有新依赖。
+
+边界：SQL/User及页面DOM/fetch仍替身，部分HTTP/TCP为实际本机连接，不是浏览器→真实MySQL的完整链。首次时间及迟到小ID是SQL结构/回放验证，不冒称真实数据库提交顺序已测。030未执行，真实MySQL/模型/浏览器/Compose/云未验收，无main合并/push。保留既有“刷新最新历史不改变旧分页游标”，若迟到低ID不在最新20条、旧分页已结束，需要重新开始历史遍历；下一轮补显式重遍历/恢复组合，不把该消息自动判已读。A16退出清理/Push资格、Agent/通知关联日志及原路线单聊未读仍在后续清单。

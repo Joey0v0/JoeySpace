@@ -18,6 +18,7 @@ func TestChatDemoServesEmbeddedPage(t *testing.T) {
 	for _, expected := range []string{
 		`/api/v1/user/login`, `/api/v1/message/offline`, `/api/v1/message/offline/ack`,
 		`/api/v1/teams/`, `doLoadTeamGroupHistory`, `Step 5 — Team Tasks`, `doCreateTask`, `doLoadTaskSource`,
+		`id="groupUnreadCount"`, `id="btnGroupUnreadRefresh"`, `id="btnGroupReadLoaded"`, `id="groupUnreadStatus"`,
 	} {
 		if !strings.Contains(w.Body.String(), expected) {
 			t.Fatalf("embedded page missing %q", expected)
@@ -46,6 +47,7 @@ func TestTaskNotificationDemoServesSameOriginEmbeddedScripts(t *testing.T) {
 	for _, asset := range []struct{ path, body string }{
 		{"/demo/task-notifications.js", examples.TaskNotificationsJS},
 		{"/demo/task-notifications-view.js", examples.TaskNotificationsViewJS},
+		{"/demo/team-group-unread.js", examples.TeamGroupUnreadJS},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
 			w := httptest.NewRecorder()
