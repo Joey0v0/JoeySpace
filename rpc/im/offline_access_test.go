@@ -50,6 +50,9 @@ func TestOfflinePullFiltersRevokedGroupsAndRechecksAfterRejoin(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}))
 		mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(302), int64(42), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(200))
+		if pull != 1 {
+			expectTeamGroupReadFence(mock, 302, 42, 200, nil, true)
+		}
 		result, err := s.ListOfflineMessages(ctx, &pb.ListOfflineMessagesRequest{})
 		want := 4
 		if pull == 1 {

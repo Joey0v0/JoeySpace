@@ -33,6 +33,7 @@ func botAgentContext(t *testing.T) context.Context {
 func expectBotAccess(mock sqlmock.Sqlmock) {
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(200))
+	expectTeamGroupReadFence(mock, 300, 42, 200, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(200))
 }
