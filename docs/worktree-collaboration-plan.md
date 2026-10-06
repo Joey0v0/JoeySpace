@@ -512,3 +512,9 @@ root核实发现、提出A73/A74候选并提问，用户明确选择团队群规
 root从22640d8建codex/stage7-team-leave-design，三个子Agent只读相同root绝对目录D:/zy/GoLang/go-im：legacy_offline_handler审查User生命周期，legacy_offline_startup审查后台Push核权，audit_failure_observability审查IM并发清理/重入。属于选型前审查，不在旧执行worktree实现；没有任何允许编辑文件、不test/build/Git动作。已有三个worktree/分支保持干净保留。
 
 root复核后提出A75/A76/A77候选，全部待用户确认；仅新增方案、更新架构/计划及本记录，共4份文档，[证据及具体修改](stage7-team-leave-design.md#6-本轮只读审查与实际修改)。没有业务代码、协议/迁移/依赖或新测试，没有main合并/push/部署。确认后才发布下一批共同接口/提交，固定每个执行Agent的绝对worktree目录与唯一允许文件，不依据本轮只读审查启动整个退出实现。
+
+## 46. A75资格基础及IM关闭组件（2026-10-06）
+
+用户逐项选择A75/A76/A77全部A。root从ad140b8建codex/stage7-team-membership-foundation，共同383cf62发布031/032/init/模型/User协议/生成及[精确目录、分支和允许文件](stage7-team-membership-foundation-contract.md#执行范围)。三个执行worktree分别只改普通User资格15文件、后台User资格6文件、IM未接线组件2文件；root拥有共同协议/生成/迁移/模型、文档和所有Git/集中测试。执行Agent仅编辑/gofmt/diffcheck，不test/build/Git写/合main/push或部署，整批最多八步。
+
+root审查验证保存A67a5960/Be7a9aba/C2fdb86f，无冲突整合838549e。root修C新SQL的groups引用及对应预期，再定向通过；普通User全包、后台定向、IM8个测试主题已通过。root重新按旧proto相对路径生成，最终仅必要User pb改变，不删除grpc生成文件。[全部文件与集中结果](stage7-team-membership-foundation-contract.md#本批实现与审查)。三个worktree干净保留；SQL/MySQL锁/031/032/真实部署未验收，没有页面、依赖、退出/恢复RPC、现有IM/Push接线、main合并或push。

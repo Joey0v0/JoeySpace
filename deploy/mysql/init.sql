@@ -14,7 +14,6 @@ CREATE TABLE users (
     INDEX idx_username (username)
 ) ENGINE=InnoDB;
 
--- 好友关系表
 -- User团队基础；已有卷先按001/031迁移，不通过重新执行init升级。
 CREATE TABLE teams (
     id BIGINT NOT NULL PRIMARY KEY,
