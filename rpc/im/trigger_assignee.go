@@ -72,6 +72,13 @@ func (s *triggerContextServer) ResolveTaskTriggerMember(ctx context.Context, req
 	if !triggerMemberMention(source, name) {
 		return nil, triggerContextError(ctx, codes.InvalidArgument, "trigger member name has no authorized text evidence")
 	}
+	// Freeze the actor's current qualification before resolving candidates. A
+	// departure and rejoin during the lookup must not become continuous access.
+	scope := model.AgentTriggerOutbox{MessageID: source.GetMessageId(), ActorID: source.GetActorId(), TeamID: source.GetTeamId(), GroupID: source.GetGroupId()}
+	baselineGeneration, err := s.currentTriggerGeneration(ctx, scope)
+	if err != nil {
+		return nil, err
+	}
 	resolved, err := resolver.Resolve(ctx, source.GetActorId(), source.GetTeamId(), name)
 	if ctx.Err() != nil {
 		return nil, status.FromContextError(ctx.Err()).Err()
@@ -84,8 +91,14 @@ func (s *triggerContextServer) ResolveTaskTriggerMember(ctx context.Context, req
 	}
 	// Derive this final fence exclusively from the persisted context, not request
 	// metadata or the resolver's response scope.
-	scope := model.AgentTriggerOutbox{MessageID: source.GetMessageId(), ActorID: source.GetActorId(), TeamID: source.GetTeamId(), GroupID: source.GetGroupId()}
-	if err := checkTriggerGroup(ctx, s.db, scope); err != nil {
+	generation, err := s.currentTriggerGeneration(ctx, scope)
+	if err != nil {
+		return nil, err
+	}
+	if generation != baselineGeneration {
+		return nil, triggerContextError(ctx, codes.PermissionDenied, "trigger team generation changed while resolving")
+	}
+	if err := checkTeamGroupReadGeneration(ctx, s.db, scope.GroupID, scope.TeamID, scope.ActorID, generation); err != nil {
 		return nil, err
 	}
 	response := &pb.ResolveTaskTriggerMemberResponse{MessageId: source.GetMessageId(), ActorId: source.GetActorId(), TeamId: source.GetTeamId(),
