@@ -103,7 +103,9 @@ User可选配置`USER_LEAVE_IM_RPC_ADDR`、`USER_LEAVE_IM_TLS_CERT_FILE`、`USER
 
 ## Push专用团队资格协议（2026-10-06）
 
-`push.proto`定义独立`UserPush.CheckPushTeamMember`，只核对指定用户的当前有效团队资格，并回显team/user/正generation。处理器要求精确`push.go-im.internal`的已验证TLS身份；当前未注册生产监听，普通User与UserTrigger均不能调用。Push还必须核对IM群成员及永久关闭版本，并在在线/离线投递前接入；详见[本步审查](../../docs/stage7-push-user-eligibility-contract.md)。
+`push.proto`定义独立`UserPush.CheckPushTeamMember`，只核对指定用户的当前有效团队资格，并回显team/user/正generation。处理器要求精确`push.go-im.internal`的已验证TLS身份；普通User与UserTrigger端口均不能调用。Push还必须核对IM群成员及永久关闭版本，并在在线/离线投递前接入；详见[协议审查](../../docs/stage7-push-user-eligibility-contract.md)。
+
+User进程现可选启用独立Push监听：设置`USER_PUSH_LISTEN_ON`、`USER_PUSH_TLS_CERT_FILE`、`USER_PUSH_TLS_KEY_FILE`、`USER_PUSH_TLS_CA_FILE`四项并使用`-profile`。监听仅注册UserPush，客户端证书须为精确`push.go-im.internal`，监听端口须与普通User和Trigger不同；四项全空默认关闭。异常停止专用监听会使User服务非零退出。基础Compose还未提供证书，Push消费者尚未接入；详见[监听审查](../../docs/stage7-push-user-listener-contract.md)。
 
 ## 团队负责人姓名解析（2026-10-03）
 

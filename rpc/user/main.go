@@ -24,6 +24,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	pushConfig, err := loadUserPushConfig(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
+	}
 	leaveIMConfig, err := loadTeamLeaveIMConfig(os.Getenv)
 	if err != nil {
 		log.Fatal(err)
@@ -35,6 +39,9 @@ func main() {
 	var c zrpc.RpcServerConf
 	conf.MustLoad(*configFile, &c)
 	if err := validateUserTriggerStartup(triggerConfig, *profileEnabled, c.ListenOn); err != nil {
+		log.Fatal(err)
+	}
+	if err := validateUserPushStartup(pushConfig, *profileEnabled, c.ListenOn, triggerConfig.ListenOn); err != nil {
 		log.Fatal(err)
 	}
 	users := &userServer{}
@@ -83,31 +90,53 @@ func main() {
 		_ = leaveClient.Close()
 		log.Fatal(err)
 	}
+	pushRuntime, err := newUserPushRuntime(pushConfig, users)
+	if err != nil {
+		triggerRuntime.Stop()
+		_ = leaveClient.Close()
+		if users.db != nil {
+			sqlDB, _ := users.db.DB()
+			_ = sqlDB.Close()
+		}
+		log.Fatal(err)
+	}
+	defer triggerRuntime.Stop()
+	defer pushRuntime.Stop()
 	ordinaryReady := make(chan *grpc.Server, 1)
-	triggerFailed := make(chan struct{}, 1)
+	privateFailed := make(chan struct{}, 2)
 	// 将我们实现的查询方法注册到独立的 RPC 服务中。
 	c = rpcauth.WithoutRPCRequestContent(c, &pb.User_ServiceDesc)
 	s := zrpc.MustNewServer(c, func(server *grpc.Server) {
 		pb.RegisterUserServer(server, users)
-		if triggerRuntime != nil {
+		if triggerRuntime != nil || pushRuntime != nil {
 			// go-zero invokes this callback during Start, after binding its port.
 			ordinaryReady <- server
+		}
+		if triggerRuntime != nil {
 			go func() {
 				if err := triggerRuntime.server.Serve(triggerRuntime.listener); err != nil {
-					triggerFailed <- struct{}{}
+					privateFailed <- struct{}{}
+				}
+			}()
+		}
+		if pushRuntime != nil {
+			go func() {
+				if err := pushRuntime.server.Serve(pushRuntime.listener); err != nil {
+					privateFailed <- struct{}{}
 				}
 			}()
 		}
 	})
 	defer s.Stop()
-	defer triggerRuntime.Stop()
 
 	fmt.Printf("User RPC listening on %s (profile enabled: %t)\n", c.ListenOn, *profileEnabled)
-	if triggerRuntime == nil {
+	if triggerRuntime == nil && pushRuntime == nil {
 		s.Start()
 		return
 	}
-	if waitUserTriggerServers(s.Start, ordinaryReady, triggerFailed) {
-		log.Print("User trigger listener stopped unexpectedly; stopping User RPC")
+	if waitUserPrivateServers(s.Start, ordinaryReady, privateFailed) {
+		// Panic preserves defers (unlike log.Fatal) and exits nonzero so a
+		// supervisor does not mistake a lost authorization listener for success.
+		log.Panic("User dedicated listener stopped unexpectedly; stopping User RPC")
 	}
 }

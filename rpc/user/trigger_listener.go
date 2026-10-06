@@ -149,6 +149,12 @@ func (r *userTriggerRuntime) Stop() {
 // Wait only for ordinary completion or a dedicated listener failure. On Linux,
 // go-zero Start can keep waiting for a shutdown notification after Serve exits.
 func waitUserTriggerServers(startOrdinary func(), ordinaryReady <-chan *grpc.Server, triggerFailed <-chan struct{}) bool {
+	return waitUserPrivateServers(startOrdinary, ordinaryReady, triggerFailed)
+}
+
+// A failure in any dedicated listener stops ordinary User RPC as well. Its
+// registration callback supplies the grpc.Server before starting listeners.
+func waitUserPrivateServers(startOrdinary func(), ordinaryReady <-chan *grpc.Server, privateFailed <-chan struct{}) bool {
 	ordinaryDone := make(chan any, 1)
 	go func() {
 		// Re-panic in the caller so its runtime/database cleanup executes.
@@ -161,7 +167,7 @@ func waitUserTriggerServers(startOrdinary func(), ordinaryReady <-chan *grpc.Ser
 			panic(failure)
 		}
 		return false
-	case <-triggerFailed:
+	case <-privateFailed:
 		// The registration callback publishes this server before starting Trigger.
 		// zrpc.Stop only closes logging; stop the actual grpc.Server instead.
 		(<-ordinaryReady).Stop()
