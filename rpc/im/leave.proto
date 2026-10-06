@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package im;
+option go_package = "github.com/yjydist/go-im/rpc/im/pb";
+
+// Dedicated mTLS service for User-owned team leave operations.
+// Never register it on ordinary IM, bot, or Agent trigger listeners.
+service IMLeave {
+  rpc CloseTeamGroupMemberships(CloseTeamGroupMembershipsRequest) returns (CloseTeamGroupMembershipsResponse);
+}
+
+message CloseTeamGroupMembershipsRequest {
+  int64 team_id = 1;
+  int64 user_id = 2;
+  // Fixed generation stored with the User leave operation, not a new lookup.
+  int64 generation = 3;
+}
+
+message CloseTeamGroupMembershipsResponse {
+  // Highest generation permanently closed for this team/user pair.
+  int64 closed_through_generation = 1;
+}

@@ -24,6 +24,8 @@
 
 2026-10-06 [本人鉴别边界](stage7-team-leave-auth-boundary-contract.md#本步实现与审查)已在User包内复用GetMyInfo的Token和账户状态验证，拒绝伪造metadata身份；仍没有对外退出RPC、IM清理或Push核权。仅本地SQL替身验证，不把该准备工作算成用户可操作的退出流程。
 
+2026-10-06 [IM专用清理处理器](stage7-team-leave-im-handler-contract.md#本批实现与审查)已有独立协议、精确User证书鉴别和032短事务调用，本机实际mTLS测试通过User/拒绝其他服务及明文；生产监听、User持久操作调用和Push核权尚未接线。SQL仍为替身，不代表已清理真实群成员。
+
 ## 2. 本地验证证据与边界
 
 | 验证段 | 已有证据 | 不代表什么 |
