@@ -6,7 +6,9 @@
 
 后一批已让普通本人团队群读权限（包括历史、未读、来源核查、机器人回帖经普通入口、旧离线拉取）在User成功回显本人/正generation之后，再由IM同一SQL快照复核当前群成员和032关闭记录；非团队旧群仍按原成员规则。旧有成员未建立关闭行时按0处理；已关闭代际不授权。新版IM普通团队群读取因此也需要先执行032并升级User，不能混用缺generation的旧User实例；031/032真实执行及数据库并发仍待验收。[普通读取审查](../docs/stage7-team-group-read-guard-contract.md#本批实现与审查)。
 
-专用Agent后台触发上下文随后接入同一A75代际规则：UserTrigger资格响应新增field3真实正generation；IM从持久Outbox和原消息获取范围，在读取历史前后要求User同版本并重新核对IM当前群成员/032关闭记录。旧User成功响应缺该字段会被新版IM拒绝；升级顺序仍是核对001、执行031、升级所有User实例，再执行032、升级IM实例，不让旧User副本处理新版调用。没有新增端口/证书/迁移，原有Agent→IM与IM→User专用mTLS配置仍须准备。负责人解析后的末次核权、User解析器前后版本比较、退出/恢复/清理及Push资格仍未完成；真实MySQL/证书/Compose/云端未验收。[后台触发审查](../docs/stage7-trigger-generation-guard-contract.md#本批实现与审查)。
+专用Agent后台触发上下文随后接入同一A75代际规则：UserTrigger资格响应新增field3真实正generation；IM从持久Outbox和原消息获取范围，在读取历史前后要求User同版本并重新核对IM当前群成员/032关闭记录。旧User成功响应缺该字段会被新版IM拒绝；升级顺序仍是核对001、执行031、升级所有User实例，再执行032、升级IM实例，不让旧User副本处理新版调用。没有新增端口/证书/迁移，原有Agent→IM与IM→User专用mTLS配置仍须准备。[后台触发审查](../docs/stage7-trigger-generation-guard-contract.md#本批实现与审查)。
+
+负责人姓名解析的后续小步也接入代际核验：User在候选查询前后要求同一真实正generation；IM在受保护触发上下文返回后、候选解析前保存User版本，候选解析后要求版本未变，再核对IM当前群成员/032关闭边界。旧User/未迁移表不降级放行；升级顺序及原mTLS身份不变，没有新迁移或配置。真实MySQL/证书/Compose/云端仍未验收，团队退出/恢复/清理和Push核权仍需后续接线。[负责人解析审查](../docs/stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)。
 
 2026-10-06 A73本人团队群未读：已有库先执行一次030_im_group_message_reads.sql，再升级IM RPC与Gateway；仅更新init不会升级已有卷。新表默认没有阅读记录，当前可读历史中非本人普通消息首次均未读；机器人消息也计入。不新增环境开关，不删除离线投递或旧通知。030尚未执行。页面先登录、填写团队/群并选择群聊，可手动查询计数；加载群历史后点击“将本次已加载历史页标为已读”，仅提交这页确切ID，不自动确认WS/离线/历史读取。权限/账号失效清计数与目标，普通失败可本人刷新或重试；提交后失败不保证没有写。[原实现与全部文件](../docs/stage7-team-group-unread-contract.md#本批实现与审查)。
 

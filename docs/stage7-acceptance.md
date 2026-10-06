@@ -16,7 +16,7 @@
 
 2026-10-06 A75/A76/A77全部A已确认：[资格基础](stage7-team-membership-foundation-contract.md)已准备031/032、User活动状态过滤/正版本、IM关闭事务组件；[写入保护](stage7-team-group-write-guard-contract.md)把正版本/关闭记录接入自行入群与建群群主写入，旧IM原始SQL中的`groups`引用已修。升级需先核对001/执行031再升级User，执行032再升级IM，不能让新版IM依赖旧User缺版本响应。退出/恢复/清理、Push核权仍未接线；普通读取接线见下一段，后台读取仍后续。真实MySQL语法/锁竞争未验收。MySQL8将GROUPS列为保留字，[官方关键字说明](https://dev.mysql.com/doc/refman/8.0/en/keywords.html)；sqlmock通过不能替代实库执行。
 
-2026-10-06 [普通群读取保护](stage7-team-group-read-guard-contract.md#本批实现与审查)已在User本人/正版本核权后，重新核对当前群成员和032关闭版本；历史、未读、来源、机器人和旧离线拉取继承普通CheckGroupMember。旧群不走User/关闭行，User拒绝后不读取群正文。随后[后台触发上下文保护](stage7-trigger-generation-guard-contract.md#本批实现与审查)使专用mTLS User资格RPC回显真实正generation；IM按持久触发范围在历史前后各复核User同版本及IM当前群成员/关闭记录，旧User零版本固定失败。User/IM定向及全仓Go通过，但SQL/User为替身；负责人候选解析后的末次核权及User解析器前后版本比较未接入。真实MySQL/031/032/并发、退出/清理/Push仍未完成，不能把本地上下文保护说成所有后台链路安全。
+2026-10-06 [普通群读取保护](stage7-team-group-read-guard-contract.md#本批实现与审查)已在User本人/正版本核权后，重新核对当前群成员和032关闭版本；历史、未读、来源、机器人和旧离线拉取继承普通CheckGroupMember。旧群不走User/关闭行，User拒绝后不读取群正文。随后[后台触发上下文保护](stage7-trigger-generation-guard-contract.md#本批实现与审查)使专用mTLS User资格RPC回显真实正generation；IM按持久触发范围在历史前后各复核User同版本及IM当前群成员/关闭记录，旧User零版本固定失败。[负责人解析末次保护](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)又使User候选查询前后版本一致，IM候选调用前后版本一致并最终查群关闭。User/IM定向、双mTLS组合及全仓Go通过，SQL数据库仍为替身。真实MySQL/031/032/并发、退出/清理/Push仍未完成，不能把本地读取保护说成完整团队退出链路。
 
 ## 2. 本地验证证据与边界
 
@@ -34,6 +34,7 @@
 | A73本人团队群未读 | [IM](../rpc/im/team_group_unread_test.go)12函数、[Gateway](../api/team_group_unread_test.go)7函数、模块16项及真实HTML脚本组合；全仓Go/325项Node通过。030/init静态一致、三服务包运行-h通过 | SQL/User/DOM/fetch替身，部分HTTP/TCP本机实际；首次时间/迟到ID是SQL结构与回放证据，非真实MySQL时序；030/浏览器/云未验收，历史重遍历后续 |
 | A73历史重遍历与未读恢复 | [页面组合](../examples/team-group-unread-recovery.test.cjs)24项执行实际内联与未读脚本，全部353项Node通过；[生产IM TCP](../rpc/im/team_group_unread_recovery_test.go)两项定向通过，命中成功提交后失败回包/提交后撤权再恢复；[集中结果](stage7-group-unread-recovery-contract.md#本批实现与审查) | DOM/HTTP/SQL/User为替身；严格SQL不写或更新read_at是结构证据，计数由替身模拟，不证明真实MySQL首次时间、进程崩溃持久性或实际退出清理；030和实际浏览器仍待验收 |
 | A75后台触发上下文代际核权 | [专用mTLS与代际场景](../rpc/im/trigger_context_generation_test.go)、[User真实回显测试](../rpc/user/trigger_tls_flow_test.go)及[集中结果](stage7-trigger-generation-guard-contract.md#本批实现与审查)；旧User零版本、读中换代/撤权/关闭无部分正文 | SQL/User数据库均替身，本机mTLS不代表云端证书/真实MySQL/031/032/跨服务原子性；负责人解析末次核权与User解析器前后版本比较仍待 |
+| A75负责人解析前后代际核权 | [User候选查询版本测试](../rpc/user/trigger_member_generation_test.go)、[实际双mTLS组合](../rpc/im/trigger_resolver_generation_flow_test.go)和[集中结果](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)；成功、空候选、查询中换代、解析后撤权/关闭均已本地验证 | 数据库仍用SQL替身；本机TLS不证明真实031/032、跨服务原子性、退出清理或云端证书配置 |
 
 ## 3. 最终启动前核对（全部待执行）
 
