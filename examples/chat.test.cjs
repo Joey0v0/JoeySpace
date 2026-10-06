@@ -931,8 +931,8 @@ test('latest history refresh keeps the older-page cursor on success, HTTP failur
   }
 });
 
-test('latest refresh and older history discard switched or restored contexts without advancing pagination', async () => {
-  for (const latest of [false, true]) {
+test('latest refresh, older history and restart discard restored contexts without advancing pagination', async () => {
+  for (const args of [[], [true], [true, true]]) {
     for (const field of ['token', 'teamId', 'toUserId', 'chatType']) {
       let finish;
       const calls = [];
@@ -943,7 +943,7 @@ test('latest refresh and older history discard switched or restored contexts wit
       });
       fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
       await context.loadTeamGroupHistory();
-      const pending = context.loadTeamGroupHistory(latest);
+      const pending = context.loadTeamGroupHistory(...args);
       const previous = fields[field].value;
       fields[field].value = field === 'chatType' ? '1' : 'changed'; context.clearTaskDraftResult();
       fields[field].value = previous; context.clearTaskDraftResult();
@@ -956,16 +956,117 @@ test('latest refresh and older history discard switched or restored contexts wit
   }
 });
 
-test('latest refresh and older pagination share the in-flight history guard', async () => {
-  let finish, calls = 0;
-  const { context, fields } = page(() => { calls++; return new Promise(resolve => { finish = resolve; }); });
+test('latest refresh, older pagination and restart all share the in-flight history guard', async () => {
+  for (const active of ['doRefreshTeamGroupHistory', 'doLoadTeamGroupHistory', 'doRestartTeamGroupHistory']) {
+    let finish, calls = 0;
+    const { context, fields } = page(() => { calls++; return new Promise(resolve => { finish = resolve; }); });
+    fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+    const pending = context[active]();
+    await context.doRefreshTeamGroupHistory();
+    await context.doLoadTeamGroupHistory();
+    await context.doRestartTeamGroupHistory();
+    assert.equal(calls, 1, active);
+    finish(reply({ code: 0, data: { messages: [], next_before_message_id: '0' } }));
+    await pending;
+  }
+});
+
+test('explicit restart resumes a finished traversal from the latest page without duplicate display or automatic reading', async () => {
+  const calls = [], loaded = [];
+  const { context, fields, logs } = page(async (url, options) => {
+    calls.push({ url, options });
+    return reply({ code: 0, data: {
+      messages: calls.length === 3 ? [{ id: '1', msg_id: 'late-small-id' }] : [{ id: '9007199254740993', msg_id: 'already-shown' }],
+      next_before_message_id: calls.length === 2 ? '9007199254740993' : '0'
+    } });
+  });
   fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
-  const pending = context.loadTeamGroupHistory(true);
-  await context.loadTeamGroupHistory(true);
-  await context.loadTeamGroupHistory();
-  assert.equal(calls, 1);
-  finish(reply({ code: 0, data: { messages: [], next_before_message_id: '0' } }));
-  await pending;
+  context.teamGroupUnreadPage = { loaded: (scope, ids) => loaded.push(Array.from(ids)), invalidate() {} };
+  await context.doLoadTeamGroupHistory();
+  await context.doLoadTeamGroupHistory(); // Finished: does not fetch again.
+  assert.equal(calls.length, 1);
+  await context.doRestartTeamGroupHistory();
+  await context.doLoadTeamGroupHistory();
+  await context.doLoadTeamGroupHistory();
+  const path = '/api/v1/teams/200/groups/300/messages?limit=20';
+  assert.deepEqual(calls.map(call => call.url), [path, path, path + '&before_message_id=9007199254740993']);
+  assert.ok(calls.every(call => call.options.headers.Authorization === 'Bearer test-token' && !call.options.method && !call.options.body));
+  assert.deepEqual(loaded, [['9007199254740993'], ['9007199254740993'], ['1']]);
+  assert.equal(logs.filter(text => text.includes('History message:')).length, 2);
+});
+
+test('failed or invalid restart preserves the prior cursor and finished state until an explicit successful retry', async () => {
+  for (const cursor of ['7', '0']) {
+    for (const failure of ['http', 'network', 'business', 'cursor', 'messages']) {
+      const calls = [], loaded = [];
+      const { context, fields, logEntries } = page(async url => {
+        calls.push(url);
+        if (calls.length === 1) return reply({ code: 0, data: { messages: [], next_before_message_id: cursor } });
+        if (calls.length === 2) {
+          if (failure === 'http') return { ok: false, status: 503 };
+          if (failure === 'network') throw new Error('lost response');
+          return reply({ code: failure === 'business' ? 10005 : 0, data: {
+            messages: failure === 'messages' ? null : [{ id: '9', msg_id: 'must-not-display' }],
+            next_before_message_id: failure === 'cursor' ? 99 : '99'
+          } });
+        }
+        return reply({ code: 0, data: { messages: [], next_before_message_id: '11' } });
+      });
+      fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+      context.teamGroupUnreadPage = { loaded: (scope, ids) => loaded.push(Array.from(ids)), invalidate() {} };
+      await context.loadTeamGroupHistory();
+      await assert.rejects(context.loadTeamGroupHistory(true, true));
+      assert.equal(loaded.length, 1, failure);
+      assert.equal(logEntries.length, 0, failure);
+      await context.loadTeamGroupHistory();
+      const path = '/api/v1/teams/200/groups/300/messages?limit=20';
+      assert.equal(calls[1], path, failure);
+      if (cursor === '0') assert.equal(calls.length, 2, failure);
+      else assert.equal(calls[2], path + '&before_message_id=7', failure);
+      await context.doRestartTeamGroupHistory();
+      assert.equal(calls.at(-1), path, failure);
+      await context.loadTeamGroupHistory();
+      assert.equal(calls.at(-1), path + '&before_message_id=11', failure);
+    }
+  }
+});
+
+test('restart discards restored identity or range changes while awaiting JSON and retains the older-page cursor', async () => {
+  for (const field of ['token', 'teamId', 'toUserId', 'chatType']) {
+    let finishJSON;
+    let jsonStarted;
+    const awaitingJSON = new Promise(resolve => { jsonStarted = resolve; });
+    const calls = [], loaded = [];
+    const { context, fields, logEntries } = page(async url => {
+      calls.push(url);
+      if (calls.length === 2) return { ok: true, status: 200, json: () => new Promise(resolve => { finishJSON = resolve; jsonStarted(); }) };
+      return reply({ code: 0, data: { messages: [], next_before_message_id: '7' } });
+    });
+    fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+    context.teamGroupUnreadPage = { loaded: (scope, ids) => loaded.push(Array.from(ids)), invalidate() {} };
+    await context.loadTeamGroupHistory();
+    const pending = context.doRestartTeamGroupHistory();
+    await awaitingJSON; // Wait for the actual JSON boundary, not a fixed number of VM microtasks.
+    assert.equal(typeof finishJSON, 'function');
+    const previous = fields[field].value;
+    fields[field].value = field === 'chatType' ? '1' : 'changed'; context.clearTaskDraftResult();
+    fields[field].value = previous; context.clearTaskDraftResult();
+    finishJSON({ code: 0, data: { messages: [{ id: '99', msg_id: 'stale' }], next_before_message_id: '99' } });
+    await pending;
+    assert.equal(loaded.length, 1, field);
+    assert.equal(logEntries.length, 0, field);
+    await context.loadTeamGroupHistory();
+    assert.equal(calls[2], '/api/v1/teams/200/groups/300/messages?limit=20&before_message_id=7', field);
+  }
+});
+
+test('history restart button calls the explicit restart action with error feedback', async () => {
+  assert.match(html, /<button\s+onclick="doRestartTeamGroupHistory\(\)"\s+title="成功后从最新页继续向前翻，用于查找迟到消息">从最新消息重新遍历<\/button>/);
+  assert.match(html, /onclick="doRefreshTeamGroupHistory\(\)"\s+title="刷新最新消息，保留当前翻页位置"/);
+  const { context, fields, logs } = page(async () => ({ ok: false, status: 503 }));
+  fields.teamId.value = '200'; fields.toUserId.value = '300'; fields.chatType.value = '2';
+  await context.doRestartTeamGroupHistory();
+  assert.ok(logs.some(text => text.includes('History restart failed: history HTTP 503')));
 });
 
 test('team directory pages keep large IDs exact and selecting a group prepares group chat', async () => {

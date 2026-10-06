@@ -151,7 +151,8 @@
     </div>
     <div class="config-row">
       <label></label>
-      <button onclick="doRefreshTeamGroupHistory()">刷新最新群消息</button>
+      <button onclick="doRefreshTeamGroupHistory()" title="刷新最新消息，保留当前翻页位置">刷新最新群消息</button>
+      <button onclick="doRestartTeamGroupHistory()" title="成功后从最新页继续向前翻，用于查找迟到消息">从最新消息重新遍历</button>
       <button onclick="doLoadTeamGroupHistory()">Load older messages for the Group ID above</button>
     </div>
     <div class="config-row">
@@ -1988,7 +1989,7 @@ async function pullOfflineMessages(token) {
   }
 }
 
-async function loadTeamGroupHistory(latest = false) {
+async function loadTeamGroupHistory(latest = false, restart = false) {
   if (historyLoading) return;
   const token = document.getElementById('token').value;
   const teamId = document.getElementById('teamId').value.trim();
@@ -1998,13 +1999,13 @@ async function loadTeamGroupHistory(latest = false) {
   }
 
   const key = teamId + ':' + groupId;
-  if (!latest && key === historyKey && historyFinished) {
+  if (!latest && !restart && key === historyKey && historyFinished) {
     log('No older team group messages', 'info');
     return;
   }
 
   const path = '/api/v1/teams/' + teamId + '/groups/' + groupId + '/messages';
-  const cursor = !latest && key === historyKey ? historyCursor : '';
+  const cursor = !latest && !restart && key === historyKey ? historyCursor : '';
   const query = '?limit=20' + (cursor ? '&before_message_id=' + cursor : '');
   const epoch = draftEditorEpoch;
   const scope = { token, teamID: teamId, groupID: groupId };
@@ -2041,7 +2042,7 @@ async function loadTeamGroupHistory(latest = false) {
       }
     }
     if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.loaded(scope, loadedMessageIDs);
-    if (!latest) {
+    if (!latest || restart) {
       historyKey = key;
       historyCursor = data.next_before_message_id;
       historyFinished = historyCursor === '0';
@@ -2064,6 +2065,14 @@ async function doRefreshTeamGroupHistory() {
     await loadTeamGroupHistory(true);
   } catch (e) {
     log('Latest history refresh failed: ' + e.message, 'error');
+  }
+}
+
+async function doRestartTeamGroupHistory() {
+  try {
+    await loadTeamGroupHistory(true, true);
+  } catch (e) {
+    log('History restart failed: ' + e.message, 'error');
   }
 }
 
