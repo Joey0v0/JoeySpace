@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/yjydist/go-im/internal/rpcauth"
 	"github.com/yjydist/go-im/rpc/im/pb"
 	userpb "github.com/yjydist/go-im/rpc/user/pb"
@@ -122,10 +120,9 @@ func (f *triggerAssigneeFlow) expectLookup(finalGroup bool) {
 	expectTriggerContextHistory(f.mock, f.outbox, triggerContextMessageRows(f.source))
 	expectTeamGroupReadFence(f.mock, f.outbox.GroupID, f.outbox.ActorID, f.outbox.TeamID, nil, true)
 	if finalGroup {
-		expectTriggerContextMembership(f.mock, f.outbox)
+		expectTeamGroupReadFence(f.mock, f.outbox.GroupID, f.outbox.ActorID, f.outbox.TeamID, nil, true)
 	} else {
-		f.mock.ExpectQuery(regexp.QuoteMeta(triggerMembershipQuery)).WithArgs(f.outbox.GroupID, f.outbox.TeamID, f.outbox.ActorID).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "team_id", "user_id"}))
+		expectTeamGroupReadFence(f.mock, f.outbox.GroupID, f.outbox.ActorID, f.outbox.TeamID, nil, false)
 	}
 }
 
@@ -150,7 +147,7 @@ func TestTriggerAssigneeFlowActualAgentIMUserTLSKeepsSourceScopeAndMatchingOutco
 				t.Fatalf("saved scope was lost: %#v %v", result, err)
 			}
 			want := map[int32]int{0: 1, 1: 0, 2: 2, 3: 20}[mode]
-			if len(result.GetCandidates()) != want || result.GetTruncated() != (mode == 3) || f.lookupCalls.Load() != 1 || f.userCalls.Load() != 2 {
+			if len(result.GetCandidates()) != want || result.GetTruncated() != (mode == 3) || f.lookupCalls.Load() != 1 || f.userCalls.Load() != 4 {
 				t.Fatalf("wrong lookup outcome %#v", result)
 			}
 			if mode == 3 && proto.Size(result) <= 4096 {
@@ -178,8 +175,7 @@ func TestTriggerAssigneeFlowRejectsUserFailureChangedEchoAndGroupRevocation(t *t
 				f.mode.Store(5)
 			case "left group during lookup":
 				want = codes.PermissionDenied
-				f.mock.ExpectQuery(regexp.QuoteMeta(triggerMembershipQuery)).WithArgs(f.outbox.GroupID, f.outbox.TeamID, f.outbox.ActorID).
-					WillReturnRows(sqlmock.NewRows([]string{"id", "team_id", "user_id"}))
+				expectTeamGroupReadFence(f.mock, f.outbox.GroupID, f.outbox.ActorID, f.outbox.TeamID, nil, false)
 			}
 			result, err := f.client.ResolveMember(context.Background(), f.outbox.MessageID, "张三")
 			if result != nil || status.Code(err) != want || strings.Contains(err.Error(), "private") {

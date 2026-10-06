@@ -19,8 +19,9 @@ import (
 )
 
 type triggerAssigneeTestTeams struct {
-	check   func(context.Context, int64, int64) error
-	resolve func(context.Context, int64, int64, string) (*userpb.ResolveTriggerTeamMemberResponse, error)
+	check      func(context.Context, int64, int64) error
+	generation func(context.Context, int64, int64) (int64, error)
+	resolve    func(context.Context, int64, int64, string) (*userpb.ResolveTriggerTeamMemberResponse, error)
 }
 
 func (s *triggerAssigneeTestTeams) Check(ctx context.Context, actor, team int64) error {
@@ -31,6 +32,9 @@ func (s *triggerAssigneeTestTeams) Check(ctx context.Context, actor, team int64)
 }
 
 func (s *triggerAssigneeTestTeams) CheckGeneration(ctx context.Context, actor, team int64) (int64, error) {
+	if s.generation != nil {
+		return s.generation(ctx, actor, team)
+	}
 	if err := s.Check(ctx, actor, team); err != nil {
 		return 0, err
 	}
@@ -71,7 +75,7 @@ func TestTriggerAssigneeUsesStoredScopeAndReturnsOnlyBoundedCandidates(t *testin
 		im, mock := testIMServer(t)
 		r, source := triggerAssigneeTestSource()
 		expectTriggerAssigneeContext(mock, r, source)
-		expectTriggerContextMembership(mock, r) // Final fence after User lookup.
+		expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, true) // Final fence after User lookup.
 		var checks, resolves int
 		teams := &triggerAssigneeTestTeams{check: func(_ context.Context, actor, team int64) error {
 			checks++
@@ -96,7 +100,7 @@ func TestTriggerAssigneeUsesStoredScopeAndReturnsOnlyBoundedCandidates(t *testin
 		response, err := s.ResolveTaskTriggerMember(ctx, &pb.ResolveTaskTriggerMemberRequest{MessageId: r.MessageID, Name: "张三"})
 		if err != nil || response.GetMessageId() != r.MessageID || response.GetActorId() != r.ActorID || response.GetTeamId() != r.TeamID ||
 			response.GetGroupId() != r.GroupID || response.GetRequestKey() != r.RequestKey() || response.GetName() != "张三" || len(response.Candidates) != count ||
-			response.Truncated != (count == 20) || checks != 2 || resolves != 1 || proto.Size(response) > model.AgentTriggerMemberResponseLimit {
+			response.Truncated != (count == 20) || checks != 4 || resolves != 1 || proto.Size(response) > model.AgentTriggerMemberResponseLimit {
 			t.Fatalf("response=%v err=%v checks=%d resolves=%d", response, err, checks, resolves)
 		}
 	}
@@ -181,7 +185,7 @@ func TestTriggerAssigneeRequiresNameInAuthorizedTextNotCardsOrImages(t *testing.
 		}}
 		s := &triggerContextServer{db: im.db, teams: teams, agentDNSName: "agent.go-im.internal"}
 		if contentType == 1 {
-			expectTriggerContextMembership(mock, r)
+			expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, true)
 		}
 		response, err := s.ResolveTaskTriggerMember(triggerContextAgent(context.Background()), &pb.ResolveTaskTriggerMemberRequest{MessageId: r.MessageID, Name: "张三"})
 		if contentType == 1 {
@@ -241,8 +245,7 @@ func TestTriggerAssigneeRejectsGroupChangeAfterMemberLookup(t *testing.T) {
 	im, mock := testIMServer(t)
 	r, source := triggerAssigneeTestSource()
 	expectTriggerAssigneeContext(mock, r, source)
-	mock.ExpectQuery(regexp.QuoteMeta(triggerMembershipQuery)).WithArgs(r.GroupID, r.TeamID, r.ActorID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "team_id", "user_id"}))
+	expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, false)
 	s := &triggerContextServer{db: im.db, agentDNSName: "agent.go-im.internal", teams: &triggerAssigneeTestTeams{
 		resolve: func(_ context.Context, actor, team int64, name string) (*userpb.ResolveTriggerTeamMemberResponse, error) {
 			return triggerAssigneeTestResponse(actor, team, name, 1), nil
@@ -251,6 +254,82 @@ func TestTriggerAssigneeRejectsGroupChangeAfterMemberLookup(t *testing.T) {
 	response, err := s.ResolveTaskTriggerMember(triggerContextAgent(context.Background()), &pb.ResolveTaskTriggerMemberRequest{MessageId: r.MessageID, Name: "张三"})
 	if response != nil || status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("stale group disclosed candidates: %v %v", response, err)
+	}
+}
+
+func TestTriggerAssigneeFinalGenerationAndClosedFenceRejectWithoutCandidates(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		baseline   int64
+		generation int64
+		userErr    error
+		closed     any
+		want       codes.Code
+	}{
+		{"left team during lookup", 1, 0, status.Error(codes.PermissionDenied, "private departure"), nil, codes.PermissionDenied},
+		{"invalid User generation", 1, 0, nil, nil, codes.Unavailable},
+		{"rejoined during lookup", 1, 2, nil, nil, codes.PermissionDenied},
+		{"closed current generation", 1, 1, nil, int64(1), codes.PermissionDenied},
+		{"rejoined and closed again", 2, 2, nil, int64(2), codes.PermissionDenied},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			im, mock := testIMServer(t)
+			r, source := triggerAssigneeTestSource()
+			expectTriggerAssigneeContext(mock, r, source)
+			if tc.closed != nil {
+				expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, tc.closed, true)
+			}
+			checks := 0
+			s := &triggerContextServer{db: im.db, agentDNSName: "agent.go-im.internal", teams: &triggerAssigneeTestTeams{
+				generation: func(_ context.Context, actor, team int64) (int64, error) {
+					checks++
+					if actor != r.ActorID || team != r.TeamID {
+						t.Fatal("final qualification used an untrusted scope")
+					}
+					if checks == 4 {
+						return tc.generation, tc.userErr
+					}
+					if checks == 3 {
+						return tc.baseline, nil
+					}
+					return 1, nil
+				},
+				resolve: func(_ context.Context, actor, team int64, name string) (*userpb.ResolveTriggerTeamMemberResponse, error) {
+					return triggerAssigneeTestResponse(actor, team, name, 1), nil
+				},
+			}}
+			response, err := s.ResolveTaskTriggerMember(triggerContextAgent(context.Background()), &pb.ResolveTaskTriggerMemberRequest{MessageId: r.MessageID, Name: "张三"})
+			if response != nil || status.Code(err) != tc.want || checks != 4 || strings.Contains(err.Error(), "private") {
+				t.Fatalf("response=%v err=%v checks=%d", response, err, checks)
+			}
+		})
+	}
+}
+
+func TestTriggerAssigneeRejectsBaselineFailureBeforeCandidateLookup(t *testing.T) {
+	im, mock := testIMServer(t)
+	r, source := triggerAssigneeTestSource()
+	expectTriggerAssigneeContext(mock, r, source)
+	checks := 0
+	s := &triggerContextServer{db: im.db, agentDNSName: "agent.go-im.internal", teams: &triggerAssigneeTestTeams{
+		generation: func(_ context.Context, actor, team int64) (int64, error) {
+			checks++
+			if actor != r.ActorID || team != r.TeamID {
+				t.Fatal("baseline qualification used an untrusted scope")
+			}
+			if checks == 3 {
+				return 0, status.Error(codes.PermissionDenied, "private departure")
+			}
+			return 1, nil
+		},
+		resolve: func(context.Context, int64, int64, string) (*userpb.ResolveTriggerTeamMemberResponse, error) {
+			t.Fatal("candidate lookup ran without a baseline qualification")
+			return nil, nil
+		},
+	}}
+	response, err := s.ResolveTaskTriggerMember(triggerContextAgent(context.Background()), &pb.ResolveTaskTriggerMemberRequest{MessageId: r.MessageID, Name: "张三"})
+	if response != nil || status.Code(err) != codes.PermissionDenied || checks != 3 || strings.Contains(err.Error(), "private") {
+		t.Fatalf("response=%v err=%v checks=%d", response, err, checks)
 	}
 }
 
