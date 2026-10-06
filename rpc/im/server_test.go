@@ -23,7 +23,7 @@ import (
 )
 
 const imTestSecret = "im-test-secret-not-for-real-use"
-const memberQuery = "SELECT groups.team_id FROM `group_members` JOIN groups ON groups.id = group_members.group_id WHERE group_members.group_id = ? AND group_members.user_id = ? LIMIT ?"
+const memberQuery = "SELECT `groups`.team_id FROM `group_members` JOIN `groups` ON `groups`.id = group_members.group_id WHERE group_members.group_id = ? AND group_members.user_id = ? LIMIT ?"
 
 func testIMServer(t *testing.T) (*imServer, sqlmock.Sqlmock) {
 	t.Helper()

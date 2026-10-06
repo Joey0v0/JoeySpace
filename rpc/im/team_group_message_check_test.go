@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const checkSourceQuery = "SELECT messages.id FROM `messages` JOIN groups ON groups.id = messages.to_id WHERE messages.id = ? AND messages.to_id = ? AND messages.chat_type = ? AND groups.team_id = ? LIMIT ?"
+const checkSourceQuery = "SELECT messages.id FROM `messages` JOIN `groups` ON `groups`.id = messages.to_id WHERE messages.id = ? AND messages.to_id = ? AND messages.chat_type = ? AND `groups`.team_id = ? LIMIT ?"
 
 func TestCheckTeamGroupMessageOverRPC(t *testing.T) {
 	s, mock := testIMServer(t)

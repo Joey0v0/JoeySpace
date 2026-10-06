@@ -24,8 +24,8 @@ func (s *imServer) CheckTeamGroupMessage(ctx context.Context, req *pb.CheckTeamG
 
 	var message struct{ ID int64 }
 	err := s.db.WithContext(ctx).Table("messages").Select("messages.id").
-		Joins("JOIN groups ON groups.id = messages.to_id").
-		Where("messages.id = ? AND messages.to_id = ? AND messages.chat_type = ? AND groups.team_id = ?",
+		Joins("JOIN `groups` ON `groups`.id = messages.to_id").
+		Where("messages.id = ? AND messages.to_id = ? AND messages.chat_type = ? AND `groups`.team_id = ?",
 			req.GetMessageId(), req.GetGroupId(), 2, req.GetTeamId()).Take(&message).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, status.Error(codes.NotFound, "team group message not found")
