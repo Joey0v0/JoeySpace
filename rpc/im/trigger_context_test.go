@@ -29,6 +29,13 @@ func (f triggerContextTeamFunc) Check(ctx context.Context, actorID, teamID int64
 	return f(ctx, actorID, teamID)
 }
 
+func (f triggerContextTeamFunc) CheckGeneration(ctx context.Context, actorID, teamID int64) (int64, error) {
+	if err := f(ctx, actorID, teamID); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
 func triggerContextFixture() (model.AgentTriggerOutbox, model.Message) {
 	created := time.Date(2026, 10, 4, 2, 0, 0, 0, time.UTC)
 	source := model.Message{ID: 9007199254740993, MsgID: "trigger-source", FromID: 9007199254740995, ToID: 300,
@@ -83,6 +90,7 @@ func expectTriggerContextMembership(mock sqlmock.Sqlmock, r model.AgentTriggerOu
 }
 
 func expectTriggerContextHistory(mock sqlmock.Sqlmock, r model.AgentTriggerOutbox, rows *sqlmock.Rows) {
+	expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(triggerHistoryQuery)).WithArgs(r.TeamID, r.ActorID, r.GroupID, r.MessageID).WillReturnRows(rows)
 }
 
@@ -102,6 +110,7 @@ func TestTriggerContextDerivesPersistedScopeAndBoundedHistoryWithoutJWT(t *testi
 		earlier.InitiatorID = 42
 		earlier.CreatedAt = earlier.CreatedAt.Add(time.Hour) // An ID bound is not a timestamp bound.
 		expectTriggerContextHistory(mock, r, triggerContextMessageRows(source, earlier))
+		expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, true)
 		calls := 0
 		s := &triggerContextServer{db: im.db, agentDNSName: "agent.go-im.internal", teams: triggerContextTeamFunc(func(ctx context.Context, actorID, teamID int64) error {
 			calls++
@@ -116,7 +125,7 @@ func TestTriggerContextDerivesPersistedScopeAndBoundedHistoryWithoutJWT(t *testi
 		ctx := metadata.NewIncomingContext(triggerContextAgent(context.Background()), metadata.Pairs("actor_id", "1", "team_id", "2", "group_id", "3", "authorization", "Bearer forged"))
 		response, err := s.ReadTaskTriggerContext(ctx, &pb.ReadTaskTriggerContextRequest{MessageId: r.MessageID})
 		if err != nil || response.GetMessageId() != r.MessageID || response.GetMsgId() != r.MsgID || response.GetActorId() != r.ActorID || response.GetTeamId() != r.TeamID ||
-			response.GetGroupId() != r.GroupID || response.GetInstruction() != r.Instruction || response.GetReferenceTimeUnixMs() != r.ReferenceTimeMS || response.GetRequestKey() != r.RequestKey() || len(response.GetMessages()) != 2 || calls != 1 {
+			response.GetGroupId() != r.GroupID || response.GetInstruction() != r.Instruction || response.GetReferenceTimeUnixMs() != r.ReferenceTimeMS || response.GetRequestKey() != r.RequestKey() || len(response.GetMessages()) != 2 || calls != 2 {
 			t.Fatalf("context=%v err=%v checks=%d", response, err, calls)
 		}
 		if response.Messages[0].GetSenderType() != 1 || response.Messages[1].GetSenderType() != 2 || response.Messages[1].GetInitiatorId() != 42 {
@@ -139,6 +148,7 @@ func TestTriggerContextAcceptsTwentyTextBoundedMessagesBelowResponseLimit(t *tes
 		messages = append(messages, m)
 	}
 	expectTriggerContextHistory(mock, r, triggerContextMessageRows(messages...))
+	expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, true)
 	s := &triggerContextServer{db: im.db, agentDNSName: "agent.go-im.internal", teams: triggerContextTeamFunc(func(context.Context, int64, int64) error { return nil })}
 	response, err := s.ReadTaskTriggerContext(triggerContextAgent(context.Background()), &pb.ReadTaskTriggerContextRequest{MessageId: r.MessageID})
 	if err != nil || len(response.GetMessages()) != 20 || proto.Size(response) > triggerContextMaxBytes {
@@ -412,6 +422,7 @@ func TestTriggerContextRechecksHistorySourceAndRejectsInvalidMessages(t *testing
 				values[9] = nil
 				rows = sqlmock.NewRows(triggerContextMessageColumns).AddRow(values...)
 			}
+			expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, true)
 			query := mock.ExpectQuery(regexp.QuoteMeta(triggerHistoryQuery)).WithArgs(r.TeamID, r.ActorID, r.GroupID, r.MessageID)
 			if name == "SQL" {
 				query.WillReturnError(errors.New("private SQL"))

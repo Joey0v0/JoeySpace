@@ -30,6 +30,13 @@ func (s *triggerAssigneeTestTeams) Check(ctx context.Context, actor, team int64)
 	return nil
 }
 
+func (s *triggerAssigneeTestTeams) CheckGeneration(ctx context.Context, actor, team int64) (int64, error) {
+	if err := s.Check(ctx, actor, team); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
 func (s *triggerAssigneeTestTeams) Resolve(ctx context.Context, actor, team int64, name string) (*userpb.ResolveTriggerTeamMemberResponse, error) {
 	return s.resolve(ctx, actor, team, name)
 }
@@ -56,6 +63,7 @@ func expectTriggerAssigneeContext(mock sqlmock.Sqlmock, r model.AgentTriggerOutb
 		messages = []model.Message{source}
 	}
 	expectTriggerContextHistory(mock, r, triggerContextMessageRows(messages...))
+	expectTeamGroupReadFence(mock, r.GroupID, r.ActorID, r.TeamID, nil, true)
 }
 
 func TestTriggerAssigneeUsesStoredScopeAndReturnsOnlyBoundedCandidates(t *testing.T) {
@@ -88,7 +96,7 @@ func TestTriggerAssigneeUsesStoredScopeAndReturnsOnlyBoundedCandidates(t *testin
 		response, err := s.ResolveTaskTriggerMember(ctx, &pb.ResolveTaskTriggerMemberRequest{MessageId: r.MessageID, Name: "张三"})
 		if err != nil || response.GetMessageId() != r.MessageID || response.GetActorId() != r.ActorID || response.GetTeamId() != r.TeamID ||
 			response.GetGroupId() != r.GroupID || response.GetRequestKey() != r.RequestKey() || response.GetName() != "张三" || len(response.Candidates) != count ||
-			response.Truncated != (count == 20) || checks != 1 || resolves != 1 || proto.Size(response) > model.AgentTriggerMemberResponseLimit {
+			response.Truncated != (count == 20) || checks != 2 || resolves != 1 || proto.Size(response) > model.AgentTriggerMemberResponseLimit {
 			t.Fatalf("response=%v err=%v checks=%d resolves=%d", response, err, checks, resolves)
 		}
 	}
