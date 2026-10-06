@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package user;
+option go_package = "github.com/yjydist/go-im/rpc/user/pb";
+
+// Dedicated Push-only mTLS service. Never register it on ordinary User or
+// IM-trigger listeners; this method does not authorize access to a group.
+service UserPush {
+  rpc CheckPushTeamMember(CheckPushTeamMemberRequest) returns (CheckPushTeamMemberResponse);
+}
+
+message CheckPushTeamMemberRequest {
+  int64 team_id = 1;
+  int64 user_id = 2;
+}
+
+message CheckPushTeamMemberResponse {
+  int64 team_id = 1;
+  int64 user_id = 2;
+  // Current active User-owned membership generation; IM still checks its own
+  // group membership and permanent closure record.
+  int64 generation = 3;
+}

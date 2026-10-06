@@ -97,11 +97,13 @@ $env:PATH = (Join-Path (Get-Location) 'bin/rpc-tools') + ';' + $env:PATH
 
 其他环境把命令开头换成自己的 `protoc` 路径即可。
 
-## 团队负责人姓名解析（2026-10-03）
-
 ## 团队退出内部清理协调（2026-10-06）
 
 User可选配置`USER_LEAVE_IM_RPC_ADDR`、`USER_LEAVE_IM_TLS_CERT_FILE`、`USER_LEAVE_IM_TLS_KEY_FILE`、`USER_LEAVE_IM_TLS_CA_FILE`，四项必须同时设置，启用时需`-profile`。客户端验证IM服务端证书的精确DNS名`im.go-im.internal`，所用客户端证书须由IM专用退出监听认可为`user.go-im.internal`；普通User RPC不注册IMLeave。User只从033本人固定操作读取清理范围，在User事务外调用IM，收到持久关闭版本确认后才以新事务将成员和操作置为完成。当前只是包内方法，没有对外退出/恢复RPC，也未配置基础Compose；详见[本步审查](../../docs/stage7-team-leave-user-cleanup-contract.md)。
+
+## Push专用团队资格协议（2026-10-06）
+
+`push.proto`定义独立`UserPush.CheckPushTeamMember`，只核对指定用户的当前有效团队资格，并回显team/user/正generation。处理器要求精确`push.go-im.internal`的已验证TLS身份；当前未注册生产监听，普通User与UserTrigger均不能调用。Push还必须核对IM群成员及永久关闭版本，并在在线/离线投递前接入；详见[本步审查](../../docs/stage7-push-user-eligibility-contract.md)。
 
 ## 团队负责人姓名解析（2026-10-03）
 

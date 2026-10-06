@@ -14,7 +14,7 @@ A75退出操作存储基础增加[033_user_team_leave_operations.sql](mysql/migr
 
 后续本地批次已加入User包内退出意图函数，未来入口调用时会在同一事务把成员置为leaving并写033操作；目前未注册RPC/HTTP，生产启动不会自动调用。公开入口启用前，已有库仍须先执行033并完成真实MySQL验证；IM清理、本人显式恢复与Push核权尚未接线。[本批审查](../docs/stage7-team-leave-intent-contract.md#本批实现与审查)。
 
-IMLeave专用清理监听已接入IM进程，但默认关闭；仅完整提供`IM_LEAVE_LISTEN_ON`、`IM_LEAVE_TLS_CERT_FILE`、`IM_LEAVE_TLS_KEY_FILE`、`IM_LEAVE_TLS_CA_FILE`才启动，监听端口须不同于普通IM/Bot/Trigger，客户端证书须为`user.go-im.internal`。当前基础Compose没有注入这些变量、证书挂载或独立端口配置；不能在未执行032的旧库启用。User持久操作调用、Push核权和本人退出入口尚未接线，故这仍不是可操作的退出链。[监听审查](../docs/stage7-team-leave-im-runtime-contract.md#本批实现与审查)。
+IMLeave专用清理监听已接入IM进程，但默认关闭；仅完整提供`IM_LEAVE_LISTEN_ON`、`IM_LEAVE_TLS_CERT_FILE`、`IM_LEAVE_TLS_KEY_FILE`、`IM_LEAVE_TLS_CA_FILE`才启动，监听端口须不同于普通IM/Bot/Trigger，客户端证书须为`user.go-im.internal`。User包内已能从固定033操作通过可选专用mTLS客户端调用IM并确认退出完成，须提供四项`USER_LEAVE_IM_RPC_ADDR`/`USER_LEAVE_IM_TLS_*_FILE`配置才启用。当前基础Compose没有注入这些变量、证书挂载或独立端口配置；不能在未执行031—033的旧库启用。A76的UserPush资格协议和处理器已准备，但没有注册生产监听或连接Push投递；本人退出入口仍未开放，故这仍不是可操作的退出链。[清理协调](../docs/stage7-team-leave-user-cleanup-contract.md#本步实现与审查)、[Push资格协议](../docs/stage7-push-user-eligibility-contract.md#本步实现与审查)。
 
 2026-10-06 A73本人团队群未读：已有库先执行一次030_im_group_message_reads.sql，再升级IM RPC与Gateway；仅更新init不会升级已有卷。新表默认没有阅读记录，当前可读历史中非本人普通消息首次均未读；机器人消息也计入。不新增环境开关，不删除离线投递或旧通知。030尚未执行。页面先登录、填写团队/群并选择群聊，可手动查询计数；加载群历史后点击“将本次已加载历史页标为已读”，仅提交这页确切ID，不自动确认WS/离线/历史读取。权限/账号失效清计数与目标，普通失败可本人刷新或重试；提交后失败不保证没有写。[原实现与全部文件](../docs/stage7-team-group-unread-contract.md#本批实现与审查)。
 
