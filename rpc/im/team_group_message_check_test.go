@@ -34,6 +34,7 @@ func TestCheckTeamGroupMessageOverRPC(t *testing.T) {
 	})
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+	expectTeamGroupReadFence(mock, 300, 42, 200, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(checkSourceQuery)).WithArgs(int64(400), int64(300), 2, int64(200), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(400)))
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -89,6 +90,7 @@ func TestCheckTeamGroupMessageRejectsWrongSourceAndDatabaseFailure(t *testing.T)
 	for _, queryErr := range []error{nil, errors.New("private database detail")} {
 		mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+		expectTeamGroupReadFence(mock, 300, 42, 200, nil, true)
 		expectation := mock.ExpectQuery(regexp.QuoteMeta(checkSourceQuery)).WithArgs(int64(400), int64(300), 2, int64(200), 1)
 		want := codes.NotFound
 		if queryErr == nil {

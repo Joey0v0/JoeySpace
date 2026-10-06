@@ -35,6 +35,7 @@ WHERE r.user_id = ? AND r.group_id = ? AND r.message_id = messages.id)`
 func unreadAccess(mock sqlmock.Sqlmock, userID int64) {
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), userID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(200))
+	expectTeamGroupReadFence(mock, 300, userID, 200, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(200))
 }
@@ -79,6 +80,18 @@ func unreadServer(t *testing.T) (*imServer, sqlmock.Sqlmock) {
 	s, mock := testIMServer(t)
 	s.teamClient = teamCheckFunc(func(context.Context, *userpb.CheckTeamMemberRequest) error { return nil })
 	return s, mock
+}
+
+type unreadReaderTeamCheck struct {
+	teamCheckFunc
+	userID int64
+}
+
+func (c unreadReaderTeamCheck) CheckTeamMember(ctx context.Context, req *userpb.CheckTeamMemberRequest, _ ...grpc.CallOption) (*userpb.CheckTeamMemberResponse, error) {
+	if err := c.teamCheckFunc(ctx, req); err != nil {
+		return nil, err
+	}
+	return &userpb.CheckTeamMemberResponse{UserId: c.userID, Generation: 1}, nil
 }
 
 func unreadRequest(ids ...int64) *pb.MarkTeamGroupMessagesReadRequest {
@@ -152,6 +165,14 @@ func TestTeamGroupUnreadAndReceiptsUseOnlyTokenReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	s.teamClient = unreadReaderTeamCheck{userID: 43, teamCheckFunc: func(ctx context.Context, req *userpb.CheckTeamMemberRequest) error {
+		md, _ := metadata.FromOutgoingContext(ctx)
+		if req.GetTeamId() != 200 || !reflect.DeepEqual(md, metadata.Pairs("authorization", "Bearer "+token)) {
+			t.Error("reader43 team check did not preserve Token identity and scope")
+			return status.Error(codes.Unauthenticated, "invalid forwarded reader")
+		}
+		return nil
+	}}
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+token, "user_id", "42"))
 	unreadGet(mock, 43, 9007199254740993)
 	result, err := s.GetTeamGroupUnread(ctx, &pb.GetTeamGroupUnreadRequest{TeamId: 200, GroupId: 300})
@@ -256,6 +277,9 @@ func TestTeamGroupUnreadDisabledAndWrongScopeFailClosed(t *testing.T) {
 					s.teamClient = teamCheckFunc(func(context.Context, *userpb.CheckTeamMemberRequest) error {
 						return status.Error(codes.PermissionDenied, "left team")
 					})
+				}
+				if scope == "other team" {
+					expectTeamGroupReadFence(mock, 300, 42, 201, nil, true)
 				}
 				if want == codes.NotFound {
 					mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(teamID))

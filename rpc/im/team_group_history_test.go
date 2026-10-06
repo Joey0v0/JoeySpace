@@ -37,6 +37,7 @@ func TestListTeamGroupMessagesPage(t *testing.T) {
 	})
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+	expectTeamGroupReadFence(mock, 300, 42, 200, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
@@ -109,6 +110,9 @@ func TestListTeamGroupMessagesRejectsOtherTeamAndLegacyGroup(t *testing.T) {
 		s.teamClient = teamCheckFunc(func(context.Context, *userpb.CheckTeamMemberRequest) error { return nil })
 		mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(teamID))
+		if teamID != nil {
+			expectTeamGroupReadFence(mock, 300, 42, teamID.(int64), nil, true)
+		}
 		mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(teamID))
 		result, err := s.ListTeamGroupMessages(historyContext(t), &pb.ListTeamGroupMessagesRequest{TeamId: 200, GroupId: 300})
@@ -133,6 +137,7 @@ func TestListTeamGroupMessagesRejectsInvalidInputAndDatabaseFailure(t *testing.T
 	}
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
+	expectTeamGroupReadFence(mock, 300, 42, 200, nil, true)
 	mock.ExpectQuery(regexp.QuoteMeta(historyGroupQuery)).WithArgs(int64(300), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, msg_id, from_id, sender_type, initiator_id, content_type, content, created_at FROM `messages` WHERE to_id = ? AND chat_type = ? ORDER BY id DESC LIMIT ?")).
