@@ -34,9 +34,9 @@ func TestTriggerMemberLookupOverProductionTLSListenerKeepsScopeAndCurrentQualifi
 		t.Run(scenario, func(t *testing.T) {
 			req := &pb.ResolveTriggerTeamMemberRequest{ActorId: triggerFlowActor, TeamId: 200, Name: "张三"}
 			beforeDenied := strings.HasSuffix(scenario, "before lookup")
-			initialMembership := sqlmock.NewRows([]string{"status"})
+			initialMembership := sqlmock.NewRows([]string{"status", "generation"})
 			if !beforeDenied {
-				initialMembership.AddRow(1)
+				initialMembership.AddRow(1, 1)
 			}
 			mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).WillReturnRows(initialMembership)
 			if beforeDenied {
@@ -60,10 +60,10 @@ func TestTriggerMemberLookupOverProductionTLSListenerKeepsScopeAndCurrentQualifi
 				}
 			}
 			mock.ExpectQuery(regexp.QuoteMeta(resolveTriggerMemberQuery)).WithArgs(req.TeamId, model.TeamMembershipActive, req.Name, req.Name, req.TeamId, req.ActorId, model.TeamMembershipActive).WillReturnRows(rows).RowsWillBeClosed()
-			finalMembership := sqlmock.NewRows([]string{"status"})
+			finalMembership := sqlmock.NewRows([]string{"status", "generation"})
 			afterDenied := strings.HasSuffix(scenario, "during lookup")
 			if !afterDenied {
-				finalMembership.AddRow(1)
+				finalMembership.AddRow(1, 1)
 			}
 			mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(req.TeamId, req.ActorId, model.TeamMembershipActive, 2).WillReturnRows(finalMembership)
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

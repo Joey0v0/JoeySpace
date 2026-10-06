@@ -54,18 +54,23 @@ func TestTriggerMembershipOverProductionTLSListenerTracksCurrentUserState(t *tes
 	}
 	client := triggerFlowClient(t, runtime.listener.Addr().String(), imFiles, "user.go-im.internal")
 	for _, tc := range []struct {
-		name    string
-		rows    *sqlmock.Rows
-		dbError error
-		code    codes.Code
+		name       string
+		rows       *sqlmock.Rows
+		dbError    error
+		code       codes.Code
+		generation int64
 	}{
-		{"active member", sqlmock.NewRows([]string{"status"}).AddRow(1), nil, codes.OK},
-		{"missing membership", sqlmock.NewRows([]string{"status"}), nil, codes.PermissionDenied},
-		{"leaving membership excluded by active predicate", sqlmock.NewRows([]string{"status"}), nil, codes.PermissionDenied},
-		{"left membership excluded by active predicate", sqlmock.NewRows([]string{"status"}), nil, codes.PermissionDenied},
-		{"disabled user", sqlmock.NewRows([]string{"status"}).AddRow(0), nil, codes.PermissionDenied},
-		{"restored membership", sqlmock.NewRows([]string{"status"}).AddRow(1), nil, codes.OK},
-		{"database failure", nil, errors.New("sensitive db row credentials"), codes.Unavailable},
+		{"active member", sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 1), nil, codes.OK, 1},
+		{"large exact current generation", sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, int64(9007199254740993)), nil, codes.OK, 9007199254740993},
+		{"missing membership", sqlmock.NewRows([]string{"status", "generation"}), nil, codes.PermissionDenied, 0},
+		{"leaving membership excluded by active predicate", sqlmock.NewRows([]string{"status", "generation"}), nil, codes.PermissionDenied, 0},
+		{"left membership excluded by active predicate", sqlmock.NewRows([]string{"status", "generation"}), nil, codes.PermissionDenied, 0},
+		{"disabled user", sqlmock.NewRows([]string{"status", "generation"}).AddRow(0, 1), nil, codes.PermissionDenied, 0},
+		{"restored membership", sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, int64(9007199254740994)), nil, codes.OK, 9007199254740994},
+		{"zero generation", sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, 0), nil, codes.Unavailable, 0},
+		{"negative generation", sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, -1), nil, codes.Unavailable, 0},
+		{"NULL generation", sqlmock.NewRows([]string{"status", "generation"}).AddRow(1, nil), nil, codes.Unavailable, 0},
+		{"database failure", nil, errors.New("sensitive db row credentials"), codes.Unavailable, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			q := mock.ExpectQuery(regexp.QuoteMeta(triggerTeamQuery)).WithArgs(int64(200), triggerFlowActor, model.TeamMembershipActive, 2)
@@ -83,17 +88,20 @@ func TestTriggerMembershipOverProductionTLSListenerTracksCurrentUserState(t *tes
 				t.Fatalf("code %v wanted %v: %v", status.Code(err), tc.code, err)
 			}
 			if tc.code == codes.OK {
-				if r == nil || r.GetActorId() != triggerFlowActor || r.GetTeamId() != 200 {
+				if r == nil || r.GetActorId() != triggerFlowActor || r.GetTeamId() != 200 || r.GetGeneration() != tc.generation {
 					t.Fatalf("changed checked scope %+v", r)
 				}
-				if r.ProtoReflect().Descriptor().Fields().Len() != 2 {
-					t.Fatal("background check exposes more than the checked actor and team")
+				if fields := r.ProtoReflect().Descriptor().Fields(); fields.Len() != 3 || fields.ByName("generation").Number() != 3 {
+					t.Fatal("background check must expose only actor, team and field 3 generation")
 				}
 			} else if r != nil {
 				t.Fatalf("failed check returned data %+v", r)
 			}
 			if err != nil && strings.Contains(err.Error(), "sensitive") {
 				t.Fatal("database detail leaked")
+			}
+			if tc.code == codes.Unavailable && status.Convert(err).Message() != "trigger team database unavailable" {
+				t.Fatalf("storage error must remain fixed over TLS: %v", err)
 			}
 		})
 	}
