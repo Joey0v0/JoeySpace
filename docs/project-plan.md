@@ -1,8 +1,10 @@
 # 简化版飞书：微服务与 Agent 学习项目方案
 
 更新日期：2026-10-07
-状态：阶段1—6主要业务流程已有本地代码和自动化验证；阶段7任务通知、提醒链和本人团队群未读正在收尾。现有验证仍以本机连接和依赖替身为主，真实MySQL、模型、浏览器、容器和云端联调待最终统一验收，不能将本地通过视为上线完成。
+状态：阶段1—6主要业务流程已有本地代码和自动化验证；阶段7任务通知、团队退出、团队群与单聊未读的现有代码已在本地整合，正式验收仍待完成。现有验证仍以本机连接和依赖替身为主，真实MySQL、模型、浏览器、容器和云端联调待最终统一验收，不能将本地通过视为上线完成。
 用途：后续需求、架构、开发与验收的共同依据。
+
+当前本地整合（2026-10-07）：`main` 已快进至 `f83d2da`，包含此前整合分支的全部已提交成果；三个执行 worktree 仍保留，未推送 GitHub 或部署云端。下方按时间记录的“未合并 main”“下一步接线”等表述是当时快照，以本段和相应后续进展为当前状态。阶段7仍未正式完成：034/035 等迁移尚未在真实 MySQL 执行，跨进程、浏览器、模型与部署验收留待最终统一进行；当前先继续处理明确的代码或体验缺口，并做针对性本地检查。
 
 当前实施（2026-10-06）：用户明确选择A75/A76/A77全部A；[资格基础](stage7-team-membership-foundation-contract.md#本批实现与审查)已准备031成员状态/版本、032 IM永久关闭记录，User普通及后台查询排除非active。[写入保护](stage7-team-group-write-guard-contract.md#本批实现与审查)已将User本人/正版本及IM关闭事务接入团队群Join/Create、修旧`groups`SQL；[普通读取保护](stage7-team-group-read-guard-contract.md#本批实现与审查)使CheckGroupMember经User核权后重新检查当前群成员/关闭版本，历史、未读、离线和机器人普通入口继承。[后台触发上下文保护](stage7-trigger-generation-guard-contract.md#本批实现与审查)使UserTrigger回显真实正版本、IM读历史前后核对同版本与当前群资格；[负责人解析末次保护](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)增加User候选查询前后版本比较、IM候选解析前后版本比较和最终群关闭核对。[退出操作表基础](stage7-team-leave-operation-schema.md)已准备033持久固定操作；[退出意图事务](stage7-team-leave-intent-contract.md#本批实现与审查)已在User包内原子保存成员leaving与033操作，[本人鉴别边界](stage7-team-leave-auth-boundary-contract.md#本步实现与审查)已复用现有Token验证；[IM专用清理监听](stage7-team-leave-im-runtime-contract.md#本批实现与审查)已准备默认关闭的独立mTLS端口；[User清理协调](stage7-team-leave-user-cleanup-contract.md#本步实现与审查)已在User包内按固定操作调用IM并本地确认完成。基础Compose尚未配置专用证书，公开退出/恢复、重入与Push核权尚未接线。031—033未执行，真实MySQL/并发锁/浏览器仍未验收；A16及阶段7不标完成。main仍89e2a1e，未合并/push/部署。
 
