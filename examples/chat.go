@@ -36,3 +36,8 @@ var TaskNotificationsViewJS string
 //
 //go:embed team-group-unread.js
 var TeamGroupUnreadJS string
+
+// DirectUnreadJS manages explicit reads and history for one direct conversation.
+//
+//go:embed direct-unread.js
+var DirectUnreadJS string

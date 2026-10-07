@@ -117,6 +117,24 @@
     </div>
   </div>
 
+  <section class="step-panel" aria-labelledby="directHistoryHeading">
+    <h2 id="directHistoryHeading">单聊历史与本人未读</h2>
+    <p>使用上方 Token 和接收人 ID，聊天类型选 1。只会显式确认本次加载页里对方发给你的消息；读取历史、收到实时消息和离线 ACK 不会自动标为已读。</p>
+    <div class="config-row">
+      <button type="button" id="btnDirectLatest" disabled>刷新最新单聊</button>
+      <button type="button" id="btnDirectRestart" disabled>从最新重新遍历</button>
+      <button type="button" id="btnDirectOlder" disabled>加载更早单聊</button>
+    </div>
+    <div class="config-row">
+      <label>单聊未读:</label>
+      <span id="directUnreadCount">尚未查询</span>
+      <button type="button" id="btnDirectUnreadRefresh" disabled>刷新未读数</button>
+      <button type="button" id="btnDirectReadLoaded" disabled>将本次收到的消息标为已读</button>
+    </div>
+    <div id="directUnreadStatus" role="status" aria-live="polite"></div>
+    <div id="directHistoryList"></div>
+  </section>
+
   <!-- Team group history uses the same HTTP origin as this page. -->
   <div class="step-panel">
     <h2>Step 4 — Team Groups &amp; History</h2>
@@ -359,6 +377,7 @@ let wsIdentityGeneration = 0;
 globalThis.invalidateTaskNotificationConnection = () => {
   wsIdentityGeneration++;
   if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+  if (typeof directUnreadPage !== 'undefined') directUnreadPage.invalidate();
 };
 let msgSeq = 0;
 const seenChatIDs = new Set();
@@ -1781,6 +1800,7 @@ function showTeamLeaveResult(scope, data) {
   clearAIAnswer();
   clearTaskDraftResult();
   if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+  if (typeof directUnreadPage !== 'undefined') directUnreadPage.invalidate();
 }
 
 async function leaveTeam() {
@@ -1883,6 +1903,7 @@ async function createTeamGroup() {
     clearAIAnswer();
     clearTaskDraftResult();
     if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+    if (typeof directUnreadPage !== 'undefined') directUnreadPage.invalidate();
     log('Created team group ' + groupID + '; keep this request key for retries', 'info');
   } finally {
     creatingTeamGroup = false;
@@ -1964,11 +1985,13 @@ function selectTeamGroup() {
   clearTaskDraftResult();
   if (!validID(groupID)) {
     if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+    if (typeof directUnreadPage !== 'undefined') directUnreadPage.invalidate();
     return;
   }
   document.getElementById('toUserId').value = groupID;
   document.getElementById('chatType').value = '2';
   if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+  if (typeof directUnreadPage !== 'undefined') directUnreadPage.invalidate();
 }
 
 async function joinTeamGroup() {
@@ -1987,6 +2010,7 @@ async function joinTeamGroup() {
   document.getElementById('chatType').value = '2';
   if (typeof teamGroupUnreadPage !== 'undefined' && token === document.getElementById('token').value &&
       teamID === document.getElementById('teamId').value.trim() && groupID === document.getElementById('toUserId').value.trim()) teamGroupUnreadPage.invalidate();
+  if (typeof directUnreadPage !== 'undefined') directUnreadPage.invalidate();
   log('Joined team group ' + groupID, 'info');
 }
 
@@ -2419,6 +2443,7 @@ function doSend() {
 <script src="/demo/task-notifications.js"></script>
 <script src="/demo/task-notifications-view.js"></script>
 <script src="/demo/team-group-unread.js"></script>
+<script src="/demo/direct-unread.js"></script>
 
 </body>
 </html>

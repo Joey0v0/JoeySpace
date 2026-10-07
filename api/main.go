@@ -54,6 +54,7 @@ func main() {
 		{Method: http.MethodGet, Path: "/demo/task-notifications.js", Handler: chatDemoScriptHandler(examples.TaskNotificationsJS)},
 		{Method: http.MethodGet, Path: "/demo/task-notifications-view.js", Handler: chatDemoScriptHandler(examples.TaskNotificationsViewJS)},
 		{Method: http.MethodGet, Path: "/demo/team-group-unread.js", Handler: chatDemoScriptHandler(examples.TeamGroupUnreadJS)},
+		{Method: http.MethodGet, Path: "/demo/direct-unread.js", Handler: chatDemoScriptHandler(examples.DirectUnreadJS)},
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,

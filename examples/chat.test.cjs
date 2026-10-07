@@ -39,6 +39,17 @@ test('history denial and connection identity invalidation clear group-read targe
   assert.equal(invalidations, 2);
 });
 
+test('login identity and programmatic group selection invalidate direct-read targets', () => {
+  const { context, fields } = page(() => assert.fail('scope invalidation must not fetch'));
+  let invalidations = 0;
+  context.directUnreadPage = { invalidate: () => { invalidations++; } };
+  context.invalidateTaskNotificationConnection();
+  fields.teamGroupSelect.value = '300';
+  context.selectTeamGroup();
+  assert.equal(invalidations, 2);
+  assert.equal(fields.chatType.value, '2');
+});
+
 test('a stale history response cannot set the new group read targets', async () => {
   let release;
   const paused = new Promise(resolve => { release = resolve; });

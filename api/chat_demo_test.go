@@ -19,6 +19,7 @@ func TestChatDemoServesEmbeddedPage(t *testing.T) {
 		`/api/v1/user/login`, `/api/v1/message/offline`, `/api/v1/message/offline/ack`,
 		`/api/v1/teams/`, `doLoadTeamGroupHistory`, `Step 5 — Team Tasks`, `doCreateTask`, `doLoadTaskSource`,
 		`id="groupUnreadCount"`, `id="btnGroupUnreadRefresh"`, `id="btnGroupReadLoaded"`, `id="groupUnreadStatus"`,
+		`id="directUnreadCount"`, `id="btnDirectLatest"`, `id="btnDirectReadLoaded"`, `id="directHistoryList"`,
 		`id="teamLeaveRequestKey"`, `doLeaveTeam()`, `doGetTeamLeaveOperation()`,
 	} {
 		if !strings.Contains(w.Body.String(), expected) {
@@ -49,6 +50,7 @@ func TestTaskNotificationDemoServesSameOriginEmbeddedScripts(t *testing.T) {
 		{"/demo/task-notifications.js", examples.TaskNotificationsJS},
 		{"/demo/task-notifications-view.js", examples.TaskNotificationsViewJS},
 		{"/demo/team-group-unread.js", examples.TeamGroupUnreadJS},
+		{"/demo/direct-unread.js", examples.DirectUnreadJS},
 	} {
 		t.Run(asset.path, func(t *testing.T) {
 			w := httptest.NewRecorder()
