@@ -175,6 +175,64 @@ func TestTriggerProcessorGeneratesOnceWithSavedScopeAndPerItemTimeEvidence(t *te
 	}
 }
 
+func TestTriggerProcessorFailureReportsOnlySourceIDStageAndCode(t *testing.T) {
+	for _, tc := range []struct {
+		name, stage string
+		code        codes.Code
+		fail        func(*processorFixture)
+	}{
+		{"source", "source_initial", codes.PermissionDenied, func(f *processorFixture) {
+			f.readHook = func(int, *impb.ReadTaskTriggerContextResponse) (*impb.ReadTaskTriggerContextResponse, error) {
+				return nil, status.Error(codes.PermissionDenied, "private source text")
+			}
+		}},
+		{"budget", "model_budget", codes.Unavailable, func(f *processorFixture) {
+			f.beginHook = func(context.Context) (bool, error) { return false, errors.New("private database detail") }
+		}},
+		{"model", "model_generate", codes.Unavailable, func(f *processorFixture) {
+			f.modelHook = func(context.Context, []*impb.TeamGroupMessage) ([]taskDraft, error) {
+				return nil, errors.New("private model output")
+			}
+		}},
+		{"final scope", "source_final", codes.PermissionDenied, func(f *processorFixture) {
+			f.readHook = func(read int, response *impb.ReadTaskTriggerContextResponse) (*impb.ReadTaskTriggerContextResponse, error) {
+				if read == 3 {
+					return nil, status.Error(codes.PermissionDenied, "private group details")
+				}
+				return response, nil
+			}
+		}},
+		{"assignee", "assignee_resolve", codes.Unavailable, func(f *processorFixture) {
+			f.memberHook = func(*impb.ResolveTaskTriggerMemberResponse) (*impb.ResolveTaskTriggerMemberResponse, error) {
+				return nil, errors.New("private member details")
+			}
+		}},
+		{"result", "result_persist", codes.Unavailable, func(f *processorFixture) {
+			f.saveHook = func(context.Context, int64) (int64, error) { return 0, errors.New("private SQL detail") }
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newProcessorFixture(t)
+			tc.fail(f)
+			calls := 0
+			f.processor.failureLog = func(messageID int64, stage string, code codes.Code) {
+				calls++
+				if messageID != f.lease.MessageID || stage != tc.stage || code != tc.code {
+					t.Errorf("unsafe failure record: id=%d stage=%q code=%s", messageID, stage, code)
+				}
+			}
+			if err := f.processor.Process(context.Background(), f.lease); status.Code(err) != tc.code || calls != 1 {
+				t.Fatalf("failure=%v records=%d", err, calls)
+			}
+		})
+	}
+	f := newProcessorFixture(t)
+	f.processor.failureLog = func(int64, string, codes.Code) { t.Error("successful processing logged as failure") }
+	if err := f.processor.Process(context.Background(), f.lease); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestTriggerProcessorAllowsOneToFiveUnassignedUntimedDraftsWithoutMemberCalls(t *testing.T) {
 	for _, count := range []int{1, maxGeneratedTaskDrafts} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -72,6 +73,7 @@ func (w *TriggerWorker) processLease(ctx context.Context, lease TriggerLease) er
 				return nil
 			}
 			if errors.Is(processErr, ErrTriggerLeaseLost) || errors.Is(processErr, ErrInvalidTriggerState) {
+				log.Printf("agent_trigger_failed message_id=%d stage=lease_state code=%s", lease.MessageID, codes.Unavailable)
 				return status.Error(codes.Unavailable, "trigger worker lost its valid processing lease")
 			}
 			// Release rechecks live ownership atomically. It alone owns durable
@@ -81,8 +83,10 @@ func (w *TriggerWorker) processLease(ctx context.Context, lease TriggerLease) er
 				return ctx.Err()
 			}
 			if err != nil {
+				log.Printf("agent_trigger_failed message_id=%d stage=lease_release code=%s", lease.MessageID, codes.Unavailable)
 				return status.Error(codes.Unavailable, "trigger worker could not release failed work")
 			}
+			log.Printf("agent_trigger_retry message_id=%d stage=process code=%s", lease.MessageID, status.Code(processErr))
 			return nil
 		case <-ticker.C:
 			renewed, err := w.store.Renew(ctx, lease)
@@ -106,6 +110,7 @@ func (w *TriggerWorker) processLease(ctx context.Context, lease TriggerLease) er
 				if errors.Is(err, ErrTriggerLeaseLost) && finished && processErr == nil {
 					return nil
 				}
+				log.Printf("agent_trigger_failed message_id=%d stage=lease_renew code=%s", lease.MessageID, codes.Unavailable)
 				return status.Error(codes.Unavailable, "trigger worker could not renew processing lease")
 			}
 			lease = *renewed

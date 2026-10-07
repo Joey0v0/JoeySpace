@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"log"
 
 	impb "github.com/yjydist/go-im/rpc/im/pb"
 	"google.golang.org/grpc/codes"
@@ -21,10 +22,25 @@ type triggerTaskResultStore interface {
 }
 
 type triggerTaskProcessor struct {
-	source    triggerTaskSource
-	generator taskDraftCollectionGenerator
-	store     triggerTaskResultStore
-	nextRunID func() int64
+	source     triggerTaskSource
+	generator  taskDraftCollectionGenerator
+	store      triggerTaskResultStore
+	nextRunID  func() int64
+	failureLog func(int64, string, codes.Code)
+}
+
+// Log only a fixed stage, source message ID and public error code. The source,
+// model output, lease token and underlying error can contain private data.
+func (p *triggerTaskProcessor) reportFailure(messageID int64, stage string, err error) error {
+	if err != nil && status.Code(err) != codes.Canceled {
+		code := status.Code(err)
+		if p.failureLog != nil {
+			p.failureLog(messageID, stage, code)
+		} else {
+			log.Printf("agent_trigger_failed message_id=%d stage=%s code=%s", messageID, stage, code)
+		}
+	}
+	return err
 }
 
 // Reuse the configured Eino generator and ID node, never a second model client.
@@ -54,27 +70,27 @@ func (p *triggerTaskProcessor) Process(ctx context.Context, lease TriggerLease) 
 	}
 	source, err := p.readSource(ctx, lease.MessageID, nil)
 	if err != nil {
-		return err
+		return p.reportFailure(lease.MessageID, "source_initial", err)
 	}
 	granted, err := p.store.BeginModel(ctx, lease)
 	if ctx.Err() != nil || err != nil {
-		return triggerProcessorError(ctx, err)
+		return p.reportFailure(lease.MessageID, "model_budget", triggerProcessorError(ctx, err))
 	}
 	if !granted {
-		return status.Error(codes.FailedPrecondition, "trigger model permission was not granted")
+		return p.reportFailure(lease.MessageID, "model_budget", status.Error(codes.FailedPrecondition, "trigger model permission was not granted"))
 	}
 	// Neither a generator nor a reused response object may mutate saved facts.
 	modelContext := proto.Clone(source).(*impb.ReadTaskTriggerContextResponse)
 	candidates, err := p.generator.GenerateDrafts(ctx, source.Instruction, modelContext.Messages)
 	if ctx.Err() != nil || err != nil {
-		return triggerProcessorError(ctx, err)
+		return p.reportFailure(lease.MessageID, "model_generate", triggerProcessorError(ctx, err))
 	}
 	authorized, err := p.readSource(ctx, lease.MessageID, source)
 	if err != nil {
-		return err
+		return p.reportFailure(lease.MessageID, "source_recheck", err)
 	}
 	if len(candidates) < 1 || len(candidates) > maxGeneratedTaskDrafts {
-		return status.Error(codes.FailedPrecondition, "invalid generated draft collection")
+		return p.reportFailure(lease.MessageID, "draft_validation", status.Error(codes.FailedPrecondition, "invalid generated draft collection"))
 	}
 	scope := draftRunScope{TeamID: source.TeamId, GroupID: source.GroupId, InitiatorID: source.ActorId}
 	reference := source.ReferenceTimeUnixMs
@@ -83,38 +99,38 @@ func (p *triggerTaskProcessor) Process(ctx context.Context, lease TriggerLease) 
 	for i, candidate := range candidates {
 		originalProof, err := verifyGeneratedDraftEvidence(ctx, scope, source.Instruction, source.Messages, candidate, &reference)
 		if err != nil {
-			return triggerProcessorError(ctx, err)
+			return p.reportFailure(lease.MessageID, "draft_validation", triggerProcessorError(ctx, err))
 		}
 		proofs[i], err = verifyGeneratedDraftEvidence(ctx, scope, source.Instruction, authorized.Messages, candidate, &reference)
 		if err != nil {
-			return triggerProcessorError(ctx, err)
+			return p.reportFailure(lease.MessageID, "draft_validation", triggerProcessorError(ctx, err))
 		}
 		if proofs[i] != originalProof {
-			return status.Error(codes.FailedPrecondition, "trigger draft evidence changed")
+			return p.reportFailure(lease.MessageID, "draft_validation", status.Error(codes.FailedPrecondition, "trigger draft evidence changed"))
 		}
 		resolved, err := p.source.resolveAssignee(ctx, authorized, proofs[i])
 		if ctx.Err() != nil || err != nil {
-			return triggerProcessorError(ctx, err)
+			return p.reportFailure(lease.MessageID, "assignee_resolve", triggerProcessorError(ctx, err))
 		}
 		run, err := newWaitingTaskDraftRun(scope, resolved)
 		if err != nil {
-			return status.Error(codes.FailedPrecondition, "invalid generated task draft")
+			return p.reportFailure(lease.MessageID, "draft_validation", status.Error(codes.FailedPrecondition, "invalid generated task draft"))
 		}
 		items[i] = run.Draft
 	}
 	final, err := p.readSource(ctx, lease.MessageID, source)
 	if err != nil {
-		return err
+		return p.reportFailure(lease.MessageID, "source_final", err)
 	}
 	// Recheck literal evidence without further member calls: a removed or
 	// changed referenced message cannot silently replace the verified deadline.
 	for i, candidate := range candidates {
 		proof, err := verifyGeneratedDraftEvidence(ctx, scope, source.Instruction, final.Messages, candidate, &reference)
 		if err != nil {
-			return triggerProcessorError(ctx, err)
+			return p.reportFailure(lease.MessageID, "draft_final", triggerProcessorError(ctx, err))
 		}
 		if proof != proofs[i] {
-			return status.Error(codes.FailedPrecondition, "trigger draft evidence changed")
+			return p.reportFailure(lease.MessageID, "draft_final", status.Error(codes.FailedPrecondition, "trigger draft evidence changed"))
 		}
 	}
 	if ctx.Err() != nil {
@@ -122,7 +138,7 @@ func (p *triggerTaskProcessor) Process(ctx context.Context, lease TriggerLease) 
 	}
 	runID := p.nextRunID()
 	if runID <= 0 {
-		return status.Error(codes.Unavailable, "trigger run identity unavailable")
+		return p.reportFailure(lease.MessageID, "run_identity", status.Error(codes.Unavailable, "trigger run identity unavailable"))
 	}
 	fingerprint := draftCollectionFingerprint(scope.TeamID, scope.GroupID, source.Instruction, &reference)
 	if ctx.Err() != nil {
@@ -130,10 +146,10 @@ func (p *triggerTaskProcessor) Process(ctx context.Context, lease TriggerLease) 
 	}
 	savedID, err := p.store.CompleteDraftCollection(ctx, lease, runID, scope, items, source.RequestKey, fingerprint)
 	if err != nil {
-		return triggerProcessorError(ctx, err)
+		return p.reportFailure(lease.MessageID, "result_persist", triggerProcessorError(ctx, err))
 	}
 	if savedID != runID {
-		return status.Error(codes.Unavailable, "trigger draft result unavailable")
+		return p.reportFailure(lease.MessageID, "result_persist", status.Error(codes.Unavailable, "trigger draft result unavailable"))
 	}
 	return nil
 }
