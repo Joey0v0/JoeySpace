@@ -1,6 +1,6 @@
 # Docker Compose 部署配置基线
 
-2026-10-07 单聊未读升级准备：现有库先执行034建立本人单聊阅读记录，再执行035为旧 `messages` 表添加 `(from_id,to_id,chat_type,id)` 查询索引，然后升级IM/Gateway和页面；新库的 `init.sql` 已包含两者。035建索引可能耗时，正式执行前按实际数据量安排窗口并记录执行计划。034/035均未在真实MySQL运行，不能只更新init替代旧库迁移。[单聊契约](../docs/stage7-direct-unread-contract.md)。
+2026-10-07 单聊未读升级准备：现有库先执行034建立本人单聊阅读记录，再执行035为旧 `messages` 表添加 `(from_id,to_id,chat_type,id)` 查询索引，然后升级IM/Gateway和页面；新库的 `init.sql` 已包含两者。035建索引可能耗时，正式执行前按实际数据量安排窗口并记录执行计划。034/035已在隔离 MySQL 8.0 空库执行通过，尚未在现有数据卷运行，不能只更新init替代旧库迁移。[单聊契约](../docs/stage7-direct-unread-contract.md)。
 
 2026-10-07 团队退出链路最新准备：新增显式 [docker-compose.team-leave.yaml](docker-compose.team-leave.yaml)，将 User→IM 清理和 Push→User 资格核权的独立 mTLS 端口/证书挂载一次接齐；基础 Compose 仍默认关闭。`.env.example` 新增四个各自私有的证书目录变量，不提供或提交实际私钥。已有库须先确认001，再依次核对并执行031、032、033，最后核对证书、合并配置与服务启动顺序；完整范围见[部署前核对](../docs/stage7-team-leave-deploy-preflight.md#本步实现与审查)。本机只有 PyYAML 静态结构检查，未安装 Docker、未执行迁移、未启动服务；下文“尚未有覆盖/入口”的描述是各旧批次当时的快照，不代表当前代码状态。真实联调与上线仍待最终统一进行。
 
@@ -14,7 +14,7 @@
 
 负责人姓名解析的后续小步也接入代际核验：User在候选查询前后要求同一真实正generation；IM在受保护触发上下文返回后、候选解析前保存User版本，候选解析后要求版本未变，再核对IM当前群成员/032关闭边界。旧User/未迁移表不降级放行；升级顺序及原mTLS身份不变，没有新迁移或配置。真实MySQL/证书/Compose/云端仍未验收，团队退出/恢复/清理和Push核权仍需后续接线。[负责人解析审查](../docs/stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)。
 
-A75退出操作存储基础增加[033_user_team_leave_operations.sql](mysql/migrations/033_user_team_leave_operations.sql)：已有User库先核对001和031，再执行033一次；新库init已包含同表。033只建固定请求键/版本/状态记录，不会自动退出成员或清理群，现阶段也没有业务接口写入该表。后续启动真正的退出接口前必须确认033已执行；不能用重跑init升级旧数据卷。DDL与init已静态核对一致，但尚未在真实MySQL执行或验锁。[存储契约](../docs/stage7-team-leave-operation-schema.md)。
+A75退出操作存储基础增加[033_user_team_leave_operations.sql](mysql/migrations/033_user_team_leave_operations.sql)：已有User库先核对001和031，再执行033一次；新库init已包含同表。033只建固定请求键/版本/状态记录，不会自动退出成员或清理群。后续启动真正的退出接口前必须确认033已执行；不能用重跑init升级旧数据卷。DDL已在隔离MySQL 8.0空库执行通过，尚未在现有数据卷执行或验证并发锁。[存储契约](../docs/stage7-team-leave-operation-schema.md)。
 
 后续本地批次已加入User包内退出意图函数，未来入口调用时会在同一事务把成员置为leaving并写033操作；目前未注册RPC/HTTP，生产启动不会自动调用。公开入口启用前，已有库仍须先执行033并完成真实MySQL验证；IM清理、本人显式恢复与Push核权尚未接线。[本批审查](../docs/stage7-team-leave-intent-contract.md#本批实现与审查)。
 

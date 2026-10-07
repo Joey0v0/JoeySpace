@@ -1,13 +1,13 @@
 # 阶段7：整体体验与最终验收清单
 
-更新2026-10-07。依据[阶段路线](project-plan.md)、[通知既定方案](stage7-notification-realtime-design.md)及[阶段6真实服务准备](stage6-runtime-acceptance.md)。本页是收尾清单，不代表阶段7或整个项目已完成。现有代码已整合到本地 `main`；用户决定先完成本地开发与针对性检查，最后统一同步云端并验收真实依赖。本批不运行迁移、部署或真实模型。
+更新2026-10-07。依据[阶段路线](project-plan.md)、[通知既定方案](stage7-notification-realtime-design.md)及[阶段6真实服务准备](stage6-runtime-acceptance.md)。本页是收尾清单，不代表阶段7或整个项目已完成。现有代码已整合到本地 `main`；用户决定先完成本地开发与针对性检查，最后统一同步云端并验收真实依赖。仅在隔离空库验证SQL；未迁移现有库，也未部署或调用真实模型。
 
 ## 1. 完成条件与当前缺口
 
 | 路线要求 | 当前可核对能力 | 仍需完成或确认 |
 | --- | --- | --- |
 | 任务变更通知 | Task事务保存通知及Outbox，Kafka发布，独立Push消费，专用mTLS WS提示；本人分页/逐条已读、原生提示/重连查询及分段组合恢复已有本地验证 | 真实MySQL/Kafka/Redis/User、浏览器与部署链待验收 |
-| 未读消息 | A73团队群与A78单聊均用本人逐消息凭据、IM RPC/Gateway/原生显式按钮；群历史重遍历及恢复有本地组合验证，单聊仅对本页收到的消息手动确认。A74旧离线出口核对当前群资格，离线ACK独立 | 030/034/035未执行，真实DB查询计划和浏览器未验收；A16退出链仍需最终核对。[群实现](stage7-team-group-unread-contract.md#本批实现与审查)、[群恢复](stage7-group-unread-recovery-contract.md#本批实现与审查)、[单聊契约](stage7-direct-unread-contract.md)；不将ACK或ID游标当已读 |
+| 未读消息 | A73团队群与A78单聊均用本人逐消息凭据、IM RPC/Gateway/原生显式按钮；群历史重遍历及恢复有本地组合验证，单聊仅对本页收到的消息手动确认。A74旧离线出口核对当前群资格，离线ACK独立 | 030/034/035仅在隔离空库执行，现有数据卷、实际查询计划和浏览器未验收；A16退出链仍需最终核对。[群实现](stage7-team-group-unread-contract.md#本批实现与审查)、[群恢复](stage7-group-unread-recovery-contract.md#本批实现与审查)、[单聊契约](stage7-direct-unread-contract.md)；不将ACK或ID游标当已读 |
 | Agent执行记录 | 持久Inbox、运行/草稿、逐项确认/跳过/结果/回帖；原指令查询状态和本人读取草稿；后台处理失败已有本地阶段/消息ID/错误码日志 | 本机定向验证已覆盖主要处理阶段；真实模型/页面与实际运行日志待核对，没有通用运行列表或完整工具审计；本人状态仍不暴露内部错误 |
 | 部署与排查 | Compose基础、可选覆盖、迁移与启动文档；四个业务RPC启动已抑制go-zero统计请求正文，并通过真实框架本机对照测试；Agent后台失败日志已补固定阶段与原消息ID，Task发布失败与Push任务提醒重试/坏事件日志已补通知ID或Kafka位置 | 完整覆盖组合、私有配置、模型预算、证书挂载、镜像启动和回退待实际核对。其他服务关联日志仍有缺口，正文修复不等于全部日志脱敏或全链追踪 |
 | 核心演示 | 用户/团队/群聊/任务/Agent接口和页面代码逐步实现 | 实际完成双账号注册登录、协作聊天、@AI草稿、逐项确认/回帖、任务变化提醒及重连查询全过程，并记录证据 |
@@ -30,6 +30,8 @@
 
 ## 2. 本地验证证据与边界
 
+2026-10-07 隔离 MySQL 8.0 实测：当前 `deploy/mysql/init.sql` 在不映射端口、不挂已有卷的临时容器中建成 23 张表，阶段7关键表/列/索引存在；027 加入前的仓库 schema 先执行前置 001，再顺序执行 027—035，全部成功。单独从 034 前 schema 执行 034/035 也成功。首次整段试运行曾误把 Docker 初始化期间的临时 socket 当正式就绪，改用 TCP 就绪探针；第二次因历史基线未做 001 而在 031 停止，补上明确前置后整段通过。临时容器和脚本均已清理。此结果不覆盖已有数据、真实迁移耗时/锁、容器服务联调或云端；最终部署仍需先核对现有迁移记录和备份。
+
 2026-10-07 在本地 `main` 通知日志与单聊页面改动后重新执行全仓 `go test ./... -count=1 -timeout=120s`（`GOFLAGS=-p=1`）及 `node --test --test-reporter=dot examples/*.test.cjs`。首次全量运行暴露两处旧测试预期：Push 坏事件新增安全位置日志，通知页面脚本清单新增单聊未读脚本；仅修正测试断言后，相关定向与两组全量测试均退出 0。未修改业务代码；此结果仍不证明真实 MySQL/Kafka、浏览器、模型或云端链路。
 
 2026-10-07 本地 `main` 提交 `3d2ce0c` 的最终验收前只读核对：`deploy/mysql/migrations` 共 35 个按 001—035 连续编号的 SQL 文件，未发现编号缺口；本机可找到 Docker、Go、Node 命令。私有 `deploy/.env` 和 `deploy/docker-config.local.yaml` 均不存在，因此本轮未尝试以真实私有配置解析、运行迁移、启动容器或连接模型。此项只证明文件与工具入口存在，不证明 SQL 在现有数据库可执行，也不证明镜像或服务可启动。
@@ -49,7 +51,7 @@
 | A22/A74旧Gin离线出口 | [实际HTTP→TCP生产IM组合](../rpc/im/legacy_offline_flow_test.go)：原认证/Token/字符串ID/卡片、团队资格拒绝/恢复、故障无部分正文、本人ACK；Handler/工厂定向及全仓Go通过 | SQL/User为替身，没有真实MySQL/云端或旧API完整信号关闭验收；ACK新32KiB/单JSON限制，Compose只静态解析 |
 | A73本人团队群未读 | [IM](../rpc/im/team_group_unread_test.go)12函数、[Gateway](../api/team_group_unread_test.go)7函数、模块16项及真实HTML脚本组合；全仓Go/325项Node通过。030/init静态一致、三服务包运行-h通过 | SQL/User/DOM/fetch替身，部分HTTP/TCP本机实际；首次时间/迟到ID是SQL结构与回放证据，非真实MySQL时序；030/浏览器/云未验收，历史重遍历后续 |
 | A73历史重遍历与未读恢复 | [页面组合](../examples/team-group-unread-recovery.test.cjs)24项执行实际内联与未读脚本，全部353项Node通过；[生产IM TCP](../rpc/im/team_group_unread_recovery_test.go)两项定向通过，命中成功提交后失败回包/提交后撤权再恢复；[集中结果](stage7-group-unread-recovery-contract.md#本批实现与审查) | DOM/HTTP/SQL/User为替身；严格SQL不写或更新read_at是结构证据，计数由替身模拟，不证明真实MySQL首次时间、进程崩溃持久性或实际退出清理；030和实际浏览器仍待验收 |
-| A78单聊历史与逐消息已读 | [单聊契约](stage7-direct-unread-contract.md)记录IM双向范围/游标/整批确认、Gateway大ID/错误映射、页面范围切换及显式确认的定向证据；页面模块与既有聊天/群未读共193项Node定向测试、Gateway页面嵌入Go定向测试通过；此前全仓Go复查通过 | SQL和DOM仍为替身；034/035未在真实MySQL执行，查询计划、实际浏览器与部署均未验收 |
+| A78单聊历史与逐消息已读 | [单聊契约](stage7-direct-unread-contract.md)记录IM双向范围/游标/整批确认、Gateway大ID/错误映射、页面范围切换及显式确认的定向证据；页面模块与既有聊天/群未读共193项Node定向测试、Gateway页面嵌入Go定向测试通过；此前全仓Go复查通过 | RPC查询仍用SQL替身；034/035只在隔离空库实测，现有数据卷、查询计划、实际浏览器与部署均未验收 |
 | A75后台触发上下文代际核权 | [专用mTLS与代际场景](../rpc/im/trigger_context_generation_test.go)、[User真实回显测试](../rpc/user/trigger_tls_flow_test.go)及[集中结果](stage7-trigger-generation-guard-contract.md#本批实现与审查)；旧User零版本、读中换代/撤权/关闭无部分正文 | SQL/User数据库均替身，本机mTLS不代表云端证书/真实MySQL/031/032/跨服务原子性；负责人解析末次核权与User解析器前后版本比较仍待 |
 | A75负责人解析前后代际核权 | [User候选查询版本测试](../rpc/user/trigger_member_generation_test.go)、[实际双mTLS组合](../rpc/im/trigger_resolver_generation_flow_test.go)和[集中结果](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)；成功、空候选、查询中换代、解析后撤权/关闭均已本地验证 | 数据库仍用SQL替身；本机TLS不证明真实031/032、跨服务原子性、退出清理或云端证书配置 |
 | Agent后台失败阶段日志 | [处理器阶段与错误码测试](../rpc/agent/trigger_processor_test.go)、[worker续租/释放行为测试](../rpc/agent/trigger_worker_test.go)；失败只记录原消息ID、固定阶段和错误码，模型文本、Token及底层错误不写入新日志；定向测试通过 | 运行环境日志采集、跨服务关联与真实故障注入未验收；本人状态仍只有既定状态和完成时run ID |
