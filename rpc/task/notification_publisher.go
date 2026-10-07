@@ -22,6 +22,14 @@ var (
 	errTaskNotificationPublishContext     = errors.New("task notification publish context ended")
 )
 
+type taskNotificationPublishRowError struct {
+	notificationID int64
+	cause          error
+}
+
+func (e *taskNotificationPublishRowError) Error() string { return e.cause.Error() }
+func (e *taskNotificationPublishRowError) Unwrap() error { return e.cause }
+
 type taskNotificationPublisher struct {
 	store        taskNotificationOutboxStore
 	writer       taskNotificationWriter
@@ -82,12 +90,12 @@ func (p *taskNotificationPublisher) RunOnce(ctx context.Context) error {
 	}
 	for _, row := range rows {
 		if roundCtx.Err() != nil {
-			return errTaskNotificationPublishContext
+			return &taskNotificationPublishRowError{row.NotificationID, errTaskNotificationPublishContext}
 		}
 		event := row.Event()
 		payload, err := json.Marshal(event)
 		if err != nil {
-			return errTaskNotificationPublishEncode
+			return &taskNotificationPublishRowError{row.NotificationID, errTaskNotificationPublishEncode}
 		}
 		writeCtx, writeCancel := context.WithTimeout(roundCtx, writeTimeout)
 		err = p.writer.WriteMessages(writeCtx, kafka.Message{
@@ -97,16 +105,16 @@ func (p *taskNotificationPublisher) RunOnce(ctx context.Context) error {
 		writeEnded := writeCtx.Err() != nil || roundCtx.Err() != nil
 		writeCancel()
 		if err != nil {
-			return errTaskNotificationPublishWrite
+			return &taskNotificationPublishRowError{row.NotificationID, errTaskNotificationPublishWrite}
 		}
 		if writeEnded {
-			return errTaskNotificationPublishContext
+			return &taskNotificationPublishRowError{row.NotificationID, errTaskNotificationPublishContext}
 		}
 		if err := p.store.MarkPublished(roundCtx, row); err != nil {
-			return errTaskNotificationPublishMark
+			return &taskNotificationPublishRowError{row.NotificationID, errTaskNotificationPublishMark}
 		}
 		if roundCtx.Err() != nil {
-			return errTaskNotificationPublishContext
+			return &taskNotificationPublishRowError{row.NotificationID, errTaskNotificationPublishContext}
 		}
 	}
 	return nil
@@ -119,7 +127,12 @@ func (p *taskNotificationPublisher) Start(ctx context.Context) {
 	}
 	for ctx.Err() == nil {
 		if err := p.RunOnce(ctx); err != nil && ctx.Err() == nil && p.logger != nil {
-			p.logger.Warn("task notification publish round failed", zap.String("phase", err.Error()))
+			fields := []zap.Field{zap.String("phase", err.Error())}
+			var rowErr *taskNotificationPublishRowError
+			if errors.As(err, &rowErr) {
+				fields = append(fields, zap.Int64("notification_id", rowErr.notificationID))
+			}
+			p.logger.Warn("task notification publish round failed", fields...)
 		}
 		interval := p.interval
 		if interval <= 0 {

@@ -12,6 +12,8 @@ import (
 
 	"github.com/segmentio/kafka-go"
 	"github.com/yjydist/go-im/internal/model"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type taskNotificationPublisherStoreFake struct {
@@ -204,6 +206,76 @@ func TestTaskNotificationPublisherReplaysSameEventAfterUncertainWriteOrMark(t *t
 			if !marked || len(messages) != 2 || !bytes.Equal(messages[0].Key, messages[1].Key) || !bytes.Equal(messages[0].Value, messages[1].Value) ||
 				string(messages[0].Key) != row.Event().Key() {
 				t.Fatalf("retry changed event or omitted mark: marked=%v, messages=%v", marked, messages)
+			}
+		})
+	}
+}
+
+func TestTaskNotificationPublisherFailureLogIdentifiesOutboxRow(t *testing.T) {
+	row := publisherRow(9007199254740997)
+	for _, tc := range []struct {
+		phase  string
+		cause  error
+		wantID bool
+	}{
+		{"list", errTaskNotificationPublishList, false},
+		{"write", errTaskNotificationPublishWrite, true},
+		{"mark", errTaskNotificationPublishMark, true},
+	} {
+		t.Run(tc.phase, func(t *testing.T) {
+			store := &taskNotificationPublisherStoreFake{
+				list: func(context.Context, int) ([]taskNotificationOutboxRow, error) {
+					if tc.phase == "list" {
+						return nil, errors.New("private SQL detail")
+					}
+					return []taskNotificationOutboxRow{row}, nil
+				},
+				mark: func(context.Context, taskNotificationOutboxRow) error {
+					if tc.phase == "mark" {
+						return errors.New("private SQL detail")
+					}
+					return nil
+				},
+			}
+			writer := &taskNotificationPublisherWriterFake{write: func(context.Context, ...kafka.Message) error {
+				if tc.phase == "write" {
+					return errors.New("private broker detail")
+				}
+				return nil
+			}}
+			core, observed := observer.New(zap.WarnLevel)
+			publisher := newTaskNotificationPublisher(store, writer, zap.New(core))
+			publisher.interval = time.Hour
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			done := make(chan struct{})
+			go func() { publisher.Start(ctx); close(done) }()
+			deadline := time.After(time.Second)
+			for observed.Len() == 0 {
+				select {
+				case <-deadline:
+					cancel()
+					<-done
+					t.Fatal("failure was not logged")
+				case <-time.After(time.Millisecond):
+				}
+			}
+			cancel()
+			<-done
+			logs := observed.All()
+			if len(logs) != 1 || logs[0].Message != "task notification publish round failed" {
+				t.Fatalf("unexpected publish logs: %v", logs)
+			}
+			fields := logs[0].ContextMap()
+			if fields["phase"] != tc.cause.Error() {
+				t.Fatalf("wrong safe phase: %v", fields)
+			}
+			if tc.wantID {
+				if len(fields) != 2 || fields["notification_id"] != row.NotificationID {
+					t.Fatalf("missing failing notification ID or unsafe field: %v", fields)
+				}
+			} else if len(fields) != 1 {
+				t.Fatalf("list failure cannot identify a row: %v", fields)
 			}
 		})
 	}
