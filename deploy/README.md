@@ -1,5 +1,7 @@
 # Docker Compose 部署配置基线
 
+2026-10-07 团队退出链路最新准备：新增显式 [docker-compose.team-leave.yaml](docker-compose.team-leave.yaml)，将 User→IM 清理和 Push→User 资格核权的独立 mTLS 端口/证书挂载一次接齐；基础 Compose 仍默认关闭。`.env.example` 新增四个各自私有的证书目录变量，不提供或提交实际私钥。已有库须先确认001，再依次核对并执行031、032、033，最后核对证书、合并配置与服务启动顺序；完整范围见[部署前核对](../docs/stage7-team-leave-deploy-preflight.md#本步实现与审查)。本机只有 PyYAML 静态结构检查，未安装 Docker、未执行迁移、未启动服务；下文“尚未有覆盖/入口”的描述是各旧批次当时的快照，不代表当前代码状态。真实联调与上线仍待最终统一进行。
+
 2026-10-06 退出资格基础（A75/A76/A77全部A已确认）：升级User前，已有库先核对001已执行，再执行一次031_team_membership_lifecycle.sql，原成员默认active（0）/generation=1。User资格、目录/候选与后台触发查询仅认active；generation新增RPC字段不得在后续版本授权中缺失时猜成1。032_im_team_group_fences.sql为IM持久关闭事务组件的表，无初始撤权或数据清理。两份迁移均尚未执行，不重跑ALTER；新init现包含teams/team_members及生命周期字段，重跑001的IF NOT EXISTS不会更改这些新字段，旧库仍用031。部署时协调新User协议/查询，不在尚未迁移的数据库运行新版User。
 
 资格基础批次未开放退出/恢复/清理RPC，也没有自动后台恢复或新私有TLS配置。后续写入保护批次已将032关闭记录接入IM的Join/Create写入：先升级并迁移User（001已存在、031已执行），再执行032、升级IM；新版IM拒绝缺本人/正generation的旧User响应，不能先混跑旧User副本。现有入群/建群查询会访问032表，未执行032时请求失败；只更新init不会升级旧卷。旧IM的groups原始SQL引用已修复，但尚未用真实MySQL验证。该写入批次仍无退出/恢复/清理RPC或Push核权；随后普通读取接线见下一段。保留原数据卷、消息与已读记录。[写入批次契约与结果](../docs/stage7-team-group-write-guard-contract.md)。

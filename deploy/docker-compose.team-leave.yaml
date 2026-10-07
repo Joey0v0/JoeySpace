@@ -1,0 +1,59 @@
+# Opt-in A75/A76 team leave chain. Apply only after migrations 031-033,
+# private certificates and the deployment checks in README.md. No host ports.
+services:
+  user-rpc:
+    environment:
+      USER_LEAVE_IM_RPC_ADDR: "im-rpc:9008"
+      USER_LEAVE_IM_TLS_CERT_FILE: "/app/certs/user-leave/cert.pem"
+      USER_LEAVE_IM_TLS_KEY_FILE: "/app/certs/user-leave/key.pem"
+      USER_LEAVE_IM_TLS_CA_FILE: "/app/certs/user-leave/ca.pem"
+      USER_PUSH_LISTEN_ON: "0.0.0.0:9009"
+      USER_PUSH_TLS_CERT_FILE: "/app/certs/user-push/cert.pem"
+      USER_PUSH_TLS_KEY_FILE: "/app/certs/user-push/key.pem"
+      USER_PUSH_TLS_CA_FILE: "/app/certs/user-push/ca.pem"
+    volumes:
+      - type: bind
+        source: "${USER_LEAVE_CERT_DIR:?Set private USER_LEAVE_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/user-leave
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${USER_PUSH_CERT_DIR:?Set private USER_PUSH_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/user-push
+        read_only: true
+        bind:
+          create_host_path: false
+
+  im-rpc:
+    environment:
+      IM_LEAVE_LISTEN_ON: "0.0.0.0:9008"
+      IM_LEAVE_TLS_CERT_FILE: "/app/certs/im-leave/cert.pem"
+      IM_LEAVE_TLS_KEY_FILE: "/app/certs/im-leave/key.pem"
+      IM_LEAVE_TLS_CA_FILE: "/app/certs/im-leave/ca.pem"
+    volumes:
+      - type: bind
+        source: "${IM_LEAVE_CERT_DIR:?Set private IM_LEAVE_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/im-leave
+        read_only: true
+        bind:
+          create_host_path: false
+
+  im-push:
+    environment:
+      PUSH_USER_RPC_ADDR: "user-rpc:9009"
+      PUSH_USER_TLS_CERT_FILE: "/app/certs/push-user/cert.pem"
+      PUSH_USER_TLS_KEY_FILE: "/app/certs/push-user/key.pem"
+      PUSH_USER_TLS_CA_FILE: "/app/certs/push-user/ca.pem"
+    volumes:
+      - type: bind
+        source: "${PUSH_USER_CERT_DIR:?Set private PUSH_USER_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/push-user
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      user-rpc:
+        condition: service_started
+      im-rpc:
+        condition: service_started
