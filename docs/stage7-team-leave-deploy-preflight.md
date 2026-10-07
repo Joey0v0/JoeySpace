@@ -28,4 +28,10 @@ AND CONSTRAINT_TYPE = 'CHECK';
 
 本机已用 PyYAML 解析覆盖文件，核对四个端点值、三个服务名、四个私有目录变量及证书路径均落在对应只读挂载下、没有 `ports`，且关闭自动建目录；静态比对确认031字段/约束存在于新库init，032/033建表定义与init一致。未运行 `docker compose config`：当前机器没有 Docker 命令；也没有真实证书、MySQL 迁移或跨进程联调。此静态检查不能代替 Compose 插值、TLS 握手或实际数据库验证，A16/阶段7仍未完成。
 
-本步文件：[可选覆盖](../deploy/docker-compose.team-leave.yaml)、[环境变量示例](../deploy/.env.example)、[部署说明](../deploy/README.md)、[决策记录](architecture-decisions.md)、[项目计划](project-plan.md)、[本文](stage7-team-leave-deploy-preflight.md)。
+## 本地组合故障验证（2026-10-07）
+
+新增 [User退出与Push核权组合测试](../rpc/user/team_leave_push_flow_test.go)：用现有 SQL 替身表示已持久撤权的待清理操作，让 IM 清理第一次失败，检查本人仍可查到待清理状态，生产 User Push 专用监听与生产 Push 客户端通过本机双向 TLS 核权时拒绝投递资格；本人以同一请求键重试清理成功后仍拒绝，User 查询出错时则让 Push 获得可重试错误。现有 `TestAddTeamMemberRejoinsOnlyAfterCompletedCleanup`、`TestTeamGroupGenerationAcrossUserAndIMTCP`、`TestTeamDeliveryRequiresBothCurrentQualificationsBeforeOffline` 分别验证完成后版本递增、IM 旧群资格不会自动恢复、Push 仍需两侧资格。本步没有新增服务边界或选型。
+
+`go test ./rpc/user ./internal/push ./rpc/im -count=1` 已通过。SQL/IM 故障仍由替身控制，测试使用临时证书和本机连接；尚未验证真实 MySQL 事务、实际容器证书、Push→WS 在线投递或云端部署。最终统一验收仍需按上节顺序执行迁移、Compose 合并检查及跨进程故障场景。
+
+部署准备那一步的文件：[可选覆盖](../deploy/docker-compose.team-leave.yaml)、[环境变量示例](../deploy/.env.example)、[部署说明](../deploy/README.md)、[决策记录](architecture-decisions.md)、[项目计划](project-plan.md)、[本文](stage7-team-leave-deploy-preflight.md)。本次组合验证仅改测试、本文和项目计划。
