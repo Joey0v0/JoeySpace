@@ -1,38 +1,32 @@
-# go-im：简化版飞书微服务与 Agent 项目
+# JoeySpace：Go 微服务协作平台与 Agent
 
-基于原有即时通讯系统，逐步实现用户与团队、单聊与团队群、任务协作、通知和 AI 助手。HTTP 由 API Gateway 接入，业务通过 go-zero/gRPC 分为 User、IM、Task、Agent 服务；聊天继续使用 WebSocket、Kafka、Redis 和 MySQL。Agent 使用 Go 与 Eino，模型接入方向为火山方舟／豆包。
+一个面向小团队协作的 Go 微服务项目，提供用户与团队、单聊与团队群、任务协作、通知和 AI 助手。HTTP 由 API Gateway 接入，业务通过 go-zero/gRPC 分为 User、IM、Task、Agent 服务；实时消息使用 WebSocket、Kafka、Redis 和 MySQL。Agent 使用 Go 与 Eino，支持接入火山方舟／豆包模型。
 
-既定功能代码已合入 `main`，本地自动化测试及部分隔离 MySQL、HTTP 和浏览器链路通过；现有数据库升级、真实模型和完整多账号部署验收尚未完成。[项目方案与进度](docs/project-plan.md)记录实现范围，[阶段 7 验收清单](docs/stage7-acceptance.md)记录未验证项。下面的图和旧接口列表保留为原 IM 链路参考；当前微服务边界以项目方案为准。
+项目功能代码与部署模板已提供。部署者按[快速开始](#快速开始)准备自己的数据库凭证、JWT 密钥、模型接入点和服务证书；已有数据库还需按实际版本升级。自动化测试及部分隔离 MySQL、HTTP 和浏览器链路已通过，完整部署仍需在目标环境验收。功能边界见[项目方案](docs/project-plan.md)，验收范围见[阶段 7 清单](docs/stage7-acceptance.md)。
 
-## 原 IM 链路示意
+## 架构
 
 ```mermaid
-graph TB
-    Client[客户端]
-
-    subgraph Go-IM System
-        API[API Server<br/>:8080]
-        WS[WS Gateway<br/>:8081 / :9091]
-        Push[Push Server]
-    end
-
-    subgraph Infrastructure
-        MySQL[(MySQL)]
-        Redis[(Redis)]
-        Kafka[(Kafka)]
-    end
-
-    Client -->|HTTP REST| API
-    Client -->|WebSocket| WS
-    WS -->|写入消息| Kafka
-    Kafka -->|消费消息| Push
-    Push -->|持久化| MySQL
-    Push -->|查在线状态| Redis
-    Push -->|内部 HTTP 推送| WS
-    Push -->|离线存储| MySQL
-    WS -->|注册在线状态| Redis
-    WS -->|消息去重| Redis
-    API -->|用户/好友/群组 CRUD| MySQL
+flowchart LR
+    Client[浏览器/客户端] -->|HTTP| Gateway[API Gateway]
+    Client <-->|WebSocket| WS[WS Gateway]
+    Gateway --> User[User RPC]
+    Gateway --> IM[IM RPC]
+    Gateway --> Task[Task RPC]
+    Gateway --> Agent[Agent RPC / Eino]
+    Agent --> User
+    Agent --> IM
+    Agent --> Task
+    WS -->|消息事件| Kafka[(Kafka)]
+    Kafka --> Push[Push Worker]
+    Push -->|在线投递| WS
+    User --> MySQL[(MySQL)]
+    IM --> MySQL
+    Task --> MySQL
+    Agent --> MySQL
+    Push --> MySQL
+    WS --> Redis[(Redis)]
+    Push --> Redis
 ```
 
 ## 核心特性
@@ -40,7 +34,7 @@ graph TB
 - **业务微服务**：User 管用户与团队，IM 管消息与访问资格，Task 管任务与通知，Agent 管 AI 运行和草稿；Gateway 统一提供新 HTTP 入口。
 - **Agent 任务链**：群内指令可生成待审查草稿，由本人逐项确认或跳过，创建成功后以机器人身份回帖。
 - **任务与消息未读**：任务状态通知、团队群和单聊均有本人显式确认入口；客户端不能把读取历史或离线 ACK 当成已读。
-- **旧链路三进程拆分**：API Server（HTTP 接口）、WS Gateway（长连接维持）、Push Server（异步消费推送），各自独立部署
+- **接入与实时服务**：HTTP API、WebSocket Gateway 与 Push Worker 分别负责请求接入、长连接和异步投递
 - **发送请求去重**：客户端生成 `msg_id`，WS 网关借助 Redis 限制重复入队；Kafka/Push 重试仍可能重复在线推送，接收端按 `msg_id` 去重
 - **离线消息拉取**：用户离线时消息写入 offline_messages 表，上线后通过 API 拉取
 - **Kafka 削峰解耦**：WS 网关收到消息后写入 Kafka，Push 服务异步消费，避免网关阻塞
@@ -56,7 +50,7 @@ graph TB
 | 组件 | 技术选型 |
 |------|---------|
 | 语言 | Go 1.26.1 |
-| HTTP 框架 | 旧 API 使用 Gin；新 Gateway 使用 go-zero |
+| HTTP 框架 | go-zero Gateway、Gin API |
 | 服务通信 | gRPC / Protobuf |
 | Agent 编排 | Eino |
 | WebSocket | gorilla/websocket |
@@ -64,7 +58,7 @@ graph TB
 | 缓存 | Redis 7 (go-redis) |
 | 消息队列 | Kafka (kafka-go) |
 | 认证 | JWT v5 |
-| 配置 | 旧服务使用 Viper；新服务使用 go-zero 配置 |
+| 配置 | Viper、go-zero 配置 |
 | 日志 | Zap + Lumberjack |
 | ID 生成 | Snowflake |
 | 容器化 | Docker + Docker Compose |
@@ -74,10 +68,10 @@ graph TB
 ```text
 go-im/
 ├── cmd/
-│   ├── api/main.go              # HTTP API 服务入口
+│   ├── api/main.go              # HTTP API 进程入口
 │   ├── ws/main.go               # WebSocket 网关入口
 │   └── push/main.go             # 异步推送服务入口
-├── api/                          # 迁移中的 go-zero API Gateway
+├── api/                          # go-zero API Gateway
 ├── rpc/user/                     # 用户与团队 gRPC 服务
 ├── rpc/im/                       # 消息与群组 gRPC 服务
 ├── rpc/task/                     # 任务与通知 gRPC 服务
@@ -96,8 +90,8 @@ go-im/
 ├── deploy/
 │   ├── docker-compose.yaml      # 容器编排
 │   ├── Dockerfile               # 多阶段构建
-│   ├── docker-config.yaml       # 旧服务的脱敏容器配置模板
-│   ├── api-gateway.yaml         # 新 API Gateway 容器配置
+│   ├── docker-config.yaml       # 脱敏容器配置模板
+│   ├── api-gateway.yaml         # API Gateway 容器配置
 │   ├── user-rpc.yaml            # 用户 RPC 容器配置
 │   ├── docker-compose.*.yaml    # 可选能力覆盖文件
 │   ├── .env.example              # 私有环境变量模板
@@ -120,7 +114,7 @@ test -e docker-config.local.yaml || cp docker-config.yaml docker-config.local.ya
 
 Windows PowerShell 的对应复制命令见[部署配置说明](deploy/README.md#凭证与云端原文件的区别)。在 `.env` 填数据库密码、JWT 密钥及各服务 ID；在 `docker-config.local.yaml` 填相同的数据库凭证和 JWT 密钥。根目录的 `config/go-im.yaml` 是本地开发配置，不作为生产凭证文件。**旧 MySQL 数据卷应沿用实际数据库密码**，改 `.env` 不会替它修改数据库密码。私有文件已被 Git 和 Docker 构建上下文排除，不要提交。
 
-2. 数据库：全新空卷由 `mysql/init.sql` 初始化；已有数据卷先备份、核对实际表结构和已执行迁移，再按[验收清单](docs/stage7-acceptance.md#3-最终启动前核对全部待执行)执行尚缺的 `mysql/migrations`。不要对旧库重跑 `init.sql`，也不要执行 `down -v`。
+2. 数据库：全新空卷由 `mysql/init.sql` 初始化；已有数据卷先备份、核对实际表结构和已执行迁移，再按[验收清单](docs/stage7-acceptance.md#3-最终启动前核对全部待执行)执行尚缺的 `mysql/migrations`。不要对已有库重跑 `init.sql`，也不要执行 `down -v`。
 
 3. 先校验基础配置，再启动不含 Agent 的基础服务：
 
@@ -152,9 +146,11 @@ go test ./...
 node --test examples/*.test.cjs
 ```
 
-`Makefile` 的 `run-*` 只覆盖原 IM 进程，`docker-up` 只加载基础 Compose；两者都不代表上述可选能力已启用。
+`Makefile` 的 `run-*` 只覆盖三个聊天进程，`docker-up` 只加载基础 Compose；两者都不代表上述可选能力已启用。
 
-## 旧版 IM API 接口参考
+## HTTP 与 WebSocket 接口示例
+
+下表展示 `:8080` 的 HTTP 接口；Gateway 入口与 Agent/任务接口见 `api/` 和相应契约文档。
 
 ### 用户模块
 | 方法 | 路径 | 说明 |

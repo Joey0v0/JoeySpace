@@ -1,6 +1,60 @@
-# Docker Compose 部署配置基线
+# Docker Compose 部署指南
 
-面向新部署者的最短配置顺序见[项目首页的快速开始](../README.md#快速开始)；私有凭证、增量迁移、证书与验收细节以本文和[阶段 7 验收清单](../docs/stage7-acceptance.md)为准。本文件还保留了迭代过程的时间记录，其中“没有 Docker”“尚未接线”等句子仅描述当时状态；当前代码已在本地整合，真实部署仍未验收。
+本项目的服务器部署使用 Linux、Docker 和 Docker Compose。部署者提供自己的数据库密码、JWT 密钥、模型接入点和 mTLS 证书；仓库只保存模板。下面是**当前版本的执行顺序**。本文件后半部还保留开发期技术记录，其中“没有 Docker”“尚未接线”等句子只描述当时状态；不要用历史段落替代本节。
+
+## 从仓库部署当前版本
+
+1. **选择数据库路径。** 先确认使用全新空数据卷，还是沿用已有 MySQL 数据卷。已有部署先记录 Compose 项目名和卷名，备份数据库并核对已执行迁移；不要因换目录或项目名意外创建另一套空卷，也不要执行 `down -v`。全新空卷首次启动 MySQL 时会自动运行 [init.sql](mysql/init.sql)；已有卷不会自动升级，必须按实际结构依次执行[增量迁移](mysql/migrations)。迁移编号目前为 001—035；只运行缺失项，每项只执行一次。035 在消息表建索引，按现有表大小安排维护窗口。迁移前提及顺序见[阶段 7 启动核对](../docs/stage7-acceptance.md#3-最终启动前核对全部待执行)。
+
+2. **创建私有配置。** 在本目录执行下列命令，已有私有文件不会被覆盖；Windows PowerShell 的对应命令见[下方配置说明](#凭证与云端原文件的区别)。
+
+   ```sh
+   test -e .env || cp .env.example .env
+   test -e docker-config.local.yaml || cp docker-config.yaml docker-config.local.yaml
+   ```
+
+   在 `.env` 填 `MYSQL_ROOT_PASSWORD`、`JWT_SECRET`；已有数据库使用实际密码，已有用户 Token 如需延续则保持原 JWT 密钥。在 `docker-config.local.yaml` 填同一 MySQL 凭证和 `jwt.secret`，检查容器地址为 `mysql:3306`、`redis:6379`、`kafka:19092`。若多实例部署，确保各写入进程 Snowflake 节点号唯一。私有 YAML 中不能保留 `CHANGE_ME_*`。这两个私有文件及证书均不提交 Git；根目录 `config/go-im.yaml` 仅供本机直接运行，不用于此 Compose 部署。
+
+3. **准备完整功能需要的模型和证书。** 在 `.env` 填真实 `ARK_API_KEY`、`ARK_MODEL_ID`，确认火山方舟接入点有可用预算；Agent profile 没有这两项会启动失败。下表每个变量指向部署机上**仓库目录之外**的一个私有绝对路径，目录内均有 `cert.pem`、`key.pem`、`ca.pem`；各服务使用独立私钥，证书的服务/客户端用途、精确 DNS SAN、有效期和 CA 信任必须符合[下方机器人证书说明](#阶段-6-机器人存储与双向-tls-前提)、[后台触发说明](../docs/stage6-runtime-acceptance.md)、[通知说明](#阶段7任务提醒运行接线)及[团队退出说明](../docs/stage7-team-leave-deploy-preflight.md)。
+
+   | 覆盖文件 | `.env` 中要填写的证书目录 |
+   | --- | --- |
+   | `docker-compose.bot.yaml` | `IM_BOT_CERT_DIR`、`AGENT_BOT_CERT_DIR` |
+   | `docker-compose.trigger.yaml` | `USER_TRIGGER_CERT_DIR`、`IM_TRIGGER_CERT_DIR`、`IM_TRIGGER_USER_CERT_DIR`、`AGENT_TRIGGER_CERT_DIR` |
+   | `docker-compose.notifications.yaml` | `WS_NOTIFICATION_CERT_DIR`、`PUSH_NOTIFICATION_CERT_DIR` |
+   | `docker-compose.team-leave.yaml` | `USER_LEAVE_CERT_DIR`、`IM_LEAVE_CERT_DIR`、`USER_PUSH_CERT_DIR`、`PUSH_USER_CERT_DIR` |
+
+   在私有 `docker-config.local.yaml` 将 `kafka.agent_trigger_enabled`、`task_notifications.push.enabled`、`task_notifications.ws.enabled` 设为 `true`，并保持聊天、Agent 触发和任务通知三个 Topic 不同；Task 发布 Topic 要与 Push 通知 Topic 相同。通知证书目录仅被覆盖文件挂载，覆盖文件**不会**自动打开私有 YAML 中的开关。仅运行基础 Compose 可使用聊天、团队和任务的基础入口，但不会启动完整 Agent/机器人/通知/团队退出链。
+
+4. **完成数据库准备。** 全新空卷可按第 5 步启动，MySQL 会执行 `init.sql`。已有库应先单独启动或连接**已确认的同一 MySQL 实例**，逐项核对缺失迁移并执行。以下是 Linux shell 中执行**某一个已确认缺失**的迁移文件的示例；将文件名替换为实际缺失项，不能循环盲跑 001—035：
+
+   ```sh
+   docker compose --env-file .env -f docker-compose.yaml exec -T mysql \
+     sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot go_im' \
+     < mysql/migrations/NNN_name.sql
+   ```
+
+   使用此命令前，MySQL 容器必须已经运行，且 `.env` 密码与该数据卷的当前密码一致。记录每项执行结果；有失败先停止升级，核对表结构与备份，不靠重新运行 `init.sql` 修复。
+
+5. **验证配置并启动。** 在本目录执行；`config --quiet` 不输出展开后的密码。只有第 1—4 步完成后才启动全部覆盖：
+
+   ```sh
+   docker compose --env-file .env --profile agent \
+     -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+     -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml config --quiet
+   docker compose --env-file .env --profile agent \
+     -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+     -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml up -d --build
+   docker compose --env-file .env --profile agent \
+     -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+     -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml ps
+   ```
+
+6. **验收运行结果。** 打开 `http://<服务器地址>:8082/demo/chat`，准备至少两个普通账号及一个团队，检查注册登录、团队群聊天、任务创建/状态变化、群内 `@AI` 草稿审查与逐项确认/机器人回帖、任务提醒及重连后查询。再按[阶段 7 验收清单](../docs/stage7-acceptance.md)检查未读、离队后的权限与失败恢复。页面可打开只证明 Gateway 正常，不代表其余服务或模型可用；逐项记录实际结果后，才可称该部署环境验收通过。
+
+上述命令与模板已经过本地静态核对，但不能代替部署者在目标环境完成第 6 步的实际验收。
+
+## 开发期配置与设计记录
 
 2026-10-07 单聊未读升级准备：现有库先执行034建立本人单聊阅读记录，再执行035为旧 `messages` 表添加 `(from_id,to_id,chat_type,id)` 查询索引，然后升级IM/Gateway和页面；新库的 `init.sql` 已包含两者。035建索引可能耗时，正式执行前按实际数据量安排窗口并记录执行计划。034/035已在隔离 MySQL 8.0 空库执行通过，尚未在现有数据卷运行，不能只更新init替代旧库迁移。[单聊契约](../docs/stage7-direct-unread-contract.md)。
 
