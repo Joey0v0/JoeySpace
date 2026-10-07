@@ -310,6 +310,15 @@ CREATE TABLE im_group_message_reads (
     PRIMARY KEY (user_id, group_id, message_id)
 ) ENGINE=InnoDB;
 
+-- Personal explicit direct-message reads; only incoming messages may be marked by the recipient.
+CREATE TABLE im_direct_message_reads (
+    user_id BIGINT NOT NULL,
+    peer_id BIGINT NOT NULL,
+    message_id BIGINT NOT NULL,
+    read_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (user_id, peer_id, message_id)
+) ENGINE=InnoDB;
+
 -- Permanent IM closure boundary, shared by future team joins and exit cleanup.
 CREATE TABLE IF NOT EXISTS im_team_group_fences (
     team_id BIGINT NOT NULL,
