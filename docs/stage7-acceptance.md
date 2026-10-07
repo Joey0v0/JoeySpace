@@ -1,6 +1,6 @@
 # 阶段7：整体体验与最终验收清单
 
-更新2026-10-06。依据[阶段路线](project-plan.md)、[通知既定方案](stage7-notification-realtime-design.md)及[阶段6真实服务准备](stage6-runtime-acceptance.md)。本页是收尾清单，不代表阶段7或整个项目已完成。用户决定先完成本地开发与测试，最后统一同步云端；本批不运行迁移、部署或真实模型。
+更新2026-10-07。依据[阶段路线](project-plan.md)、[通知既定方案](stage7-notification-realtime-design.md)及[阶段6真实服务准备](stage6-runtime-acceptance.md)。本页是收尾清单，不代表阶段7或整个项目已完成。用户决定先完成本地开发与测试，最后统一同步云端；本批不运行迁移、部署或真实模型。
 
 ## 1. 完成条件与当前缺口
 
@@ -30,6 +30,8 @@
 
 ## 2. 本地验证证据与边界
 
+2026-10-07 在 `085acbc` 干净工作区执行 `go test ./... -count=1 -timeout=120s`（Go 1.26.4、`GOFLAGS=-p=1`，构建缓存放入 TEMP）和 `node --test --test-reporter=dot examples/*.test.cjs`（Node 24.15.0），两组均退出 0。Docker Compose v5.4.0 命令现已可用；使用公开 `.env.example`、仅对当前命令有效的占位密码/JWT/证书目录，五份 Compose 文件合并执行 `config --quiet` 退出 0。占位目录没有证书，私有 `deploy/.env` 和 `deploy/docker-config.local.yaml` 不存在；这只证明配置结构可解析，不证明真实挂载、镜像或服务可启动。没有运行迁移、容器、浏览器或模型。
+
 | 验证段 | 已有证据 | 不代表什么 |
 | --- | --- | --- |
 | Task状态→通知/Outbox→发布结果不确定后重建 | [Task发布组合](../rpc/task/notification_publication_flow_test.go)，使用生产状态/store/publisher及SQL/Kafka替身 | 未验证真实MySQL事务、实际Kafka ACK或进程崩溃 |
@@ -49,15 +51,15 @@
 
 ## 3. 最终启动前核对（全部待执行）
 
-1. 记录验收代码提交、Compose项目名、已有数据卷与备份位置；核对全部已用迁移，通知链需027、028、029，IM未读需030，Agent另需先前草稿/机器人及022—026等迁移。按真实表结构和迁移记录确定顺序，不盲目重跑，不用更新init.sql代替旧库升级。
+1. 记录验收代码提交、Compose项目名、已有数据卷与备份位置；核对全部已用迁移，通知链需027、028、029，IM未读需030，团队退出需031、032、033，Agent另需先前草稿/机器人及022—026等迁移。这些SQL文件在本地均存在，但未在真实库执行。按真实表结构和迁移记录确定顺序，不盲目重跑，不用更新init.sql代替旧库升级。
 2. 保留现有私有.env/docker-config.local.yaml凭证；协调User/IM/Task/Agent节点ID和RPC地址、JWT及数据库连接。共用MySQL实例不等于已完成逻辑库/账号隔离；该边界仍需项目收尾审查。
 3. Task发布开关与Topic必须和Push YAML的独立Topic一致；Push/WS YAML角色分别显式enabled。检查聊天、Agent触发、任务通知Topic/group相互隔离。新组读取最早保留事件，旧组沿已提交offset，029不回填旧通知。
-4. 准备独立通知Push/WS证书和精确SAN用途，检查容器只读路径、有效期、信任CA及`im-ws:9091`→`https://im-ws:9443`映射。Agent bot/trigger另有证书配置，不共享私钥，不部署测试临时证书。
+4. 准备独立通知Push/WS证书和精确SAN用途，检查容器只读路径、有效期、信任CA及`im-ws:9091`→`https://im-ws:9443`映射。Agent bot/trigger与团队退出User→IM、Push→User另有私有证书配置，不共享私钥，不部署测试临时证书。
 5. 用户确定方舟接入点和预算后，在不入库的私有配置填ARK_MODEL_ID/ARK_API_KEY。当前生产Agent启动需要模型配置，本地测试假模型不是可启动的生产离线模式。
-6. 在最终验收环境解析完整覆盖，再构建/启动；不删除数据卷。当前机器缺Docker，以下命令**未执行**，单纯解析成功也不代表服务可运行：
+6. 在最终验收环境以真实私有配置解析完整覆盖，再构建/启动；不删除数据卷。当前机器已用占位值完成静态解析，但以下**真实私有配置命令未执行**，单纯解析成功也不代表服务可运行：
 
    ```sh
-   docker compose --env-file .env --profile agent -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml -f docker-compose.notifications.yaml config --quiet
+   docker compose --env-file .env --profile agent -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml config --quiet
    ```
 
 完整证书/配置和迁移说明见[部署文档](../deploy/README.md)与[阶段6启动前提](stage6-runtime-acceptance.md#1-启动前核对未执行)。如果某可选能力本次关闭，明确记录并保留为未验收，不能删减最终核心演示要求。
