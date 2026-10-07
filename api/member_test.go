@@ -85,7 +85,7 @@ func TestAddTeamMemberHTTPMapsRPCErrors(t *testing.T) {
 		{codes.Unauthenticated, 401, 10002},
 		{codes.PermissionDenied, 403, 10003},
 		{codes.NotFound, 404, 20002},
-		{codes.FailedPrecondition, 409, 20004},
+		{codes.FailedPrecondition, 409, 60002},
 		{codes.AlreadyExists, 409, 60001},
 		{codes.Unavailable, 503, 10005},
 		{codes.DeadlineExceeded, 504, 10005},

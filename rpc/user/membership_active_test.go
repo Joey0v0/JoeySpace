@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	mysql "github.com/go-sql-driver/mysql"
 	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"google.golang.org/grpc/codes"
@@ -163,19 +162,18 @@ func TestRoleUpdateCannotModifyTargetThatBecameInactive(t *testing.T) {
 	}
 }
 
-func TestAddExistingInactiveMemberDoesNotReactivateOrResetGeneration(t *testing.T) {
+func TestAddLeavingMemberDoesNotReactivateOrResetGeneration(t *testing.T) {
 	s, mock := newTestUserServer(t)
 	expectTeamCreator(mock)
 	expectOperatorRole(mock, 2)
 	expectTargetStatus(mock, 77, 1)
 	mock.ExpectBegin()
-	// Only the existing three fields are supplied. Database defaults initialize
-	// new rows, while the persistent pair key also rejects a leaving/left row.
-	mock.ExpectExec("^"+regexp.QuoteMeta("INSERT INTO `team_members` (`team_id`,`user_id`,`role`) VALUES (?,?,?)")+"$").
-		WithArgs(int64(100), int64(77), int64(0)).WillReturnError(&mysql.MySQLError{Number: 1062, Message: "Duplicate entry"})
+	// A pending leave is never reactivated, even when its member row remains.
+	mock.ExpectQuery("^"+regexp.QuoteMeta(addTargetMemberQuery)+"$").WithArgs(int64(100), int64(77), 1).
+		WillReturnRows(sqlmock.NewRows([]string{"role", "membership_state", "generation"}).AddRow(0, model.TeamMembershipLeaving, 7))
 	mock.ExpectRollback()
 	result, err := s.AddTeamMember(teamContext(t), &pb.AddTeamMemberRequest{TeamId: 100, UserId: 77})
-	if result != nil || status.Code(err) != codes.AlreadyExists {
-		t.Fatalf("existing inactive row was reactivated: %v %v", result, err)
+	if result != nil || status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("pending leave was reactivated: %v %v", result, err)
 	}
 }

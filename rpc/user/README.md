@@ -101,7 +101,9 @@ $env:PATH = (Join-Path (Get-Location) 'bin/rpc-tools') + ';' + $env:PATH
 
 User可选配置`USER_LEAVE_IM_RPC_ADDR`、`USER_LEAVE_IM_TLS_CERT_FILE`、`USER_LEAVE_IM_TLS_KEY_FILE`、`USER_LEAVE_IM_TLS_CA_FILE`，四项必须同时设置，启用时需`-profile`。客户端验证IM服务端证书的精确DNS名`im.go-im.internal`，所用客户端证书须由IM专用退出监听认可为`user.go-im.internal`；普通User RPC不注册IMLeave。User只从033本人固定操作读取清理范围，在User事务外调用IM，收到持久关闭版本确认后才以新事务将成员和操作置为完成；详见[本步审查](../../docs/stage7-team-leave-user-cleanup-contract.md)。
 
-普通User RPC现提供`LeaveTeam(team_id, request_key)`与`GetTeamLeaveOperation(team_id, request_key)`。两者只认`authorization: Bearer <token>`中的启用账号本人，`request_key`须为1—64位ASCII字母、数字、`-`或`_`；同键限定本人及原team。退出响应状态`0`待清理、`1`已完成；清理失败或回包丢失时本人可查询并用原键重试，完成后即使重新入队也可查询旧操作。未配置IM清理客户端时，首次退出在撤权前返回`Unavailable`，已完成操作仍可回显。当前没有Gateway/页面入口，基础Compose尚未配置专用证书，031—033也未在真实MySQL执行；部署时须先保证Push团队资格核权及IM清理链路就绪，再允许用户调用退出。见[公开入口审查](../../docs/stage7-team-leave-public-rpc-contract.md)。
+普通User RPC现提供`LeaveTeam(team_id, request_key)`与`GetTeamLeaveOperation(team_id, request_key)`。两者只认`authorization: Bearer <token>`中的启用账号本人，`request_key`须为1—64位ASCII字母、数字、`-`或`_`；同键限定本人及原team。退出响应状态`0`待清理、`1`已完成；清理失败或回包丢失时本人可查询并用原键重试，完成后即使重新入队也可查询旧操作。未配置IM清理客户端时，首次退出在撤权前返回`Unavailable`，已完成操作仍可回显。Gateway/页面入口现已接线；基础Compose尚未配置专用证书，031—033也未在真实MySQL执行；部署时须先保证Push团队资格核权及IM清理链路就绪，再允许用户调用退出。见[公开入口审查](../../docs/stage7-team-leave-public-rpc-contract.md)。
+
+拥有者使用现有`AddTeamMember`再次邀请旧成员时，User锁定目标成员行：`active`仍报重复，`leaving`拒绝，只有`left`且相同旧资格版本的退出操作已完成才恢复为普通成员、将版本加一并刷新加入时间。旧退出记录不删除，旧请求重放仍只指向旧代际。重新入队不自动加入任何旧团队群，本人需自行调用Join。[重入审查](../../docs/stage7-team-rejoin-contract.md)。
 
 ## Push专用团队资格协议（2026-10-06）
 

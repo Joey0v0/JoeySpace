@@ -63,7 +63,7 @@ func addTeamMemberHandler(client pb.UserClient) http.HandlerFunc {
 			case codes.NotFound:
 				httpStatus, code, message = http.StatusNotFound, errcode.ErrUserNotFound, "user not found"
 			case codes.FailedPrecondition:
-				httpStatus, code, message = http.StatusConflict, errcode.ErrUserBanned, "user is disabled"
+				httpStatus, code, message = http.StatusConflict, errcode.ErrTeamRoleConflict, "team member cannot be added yet"
 			case codes.AlreadyExists:
 				httpStatus, code, message = http.StatusConflict, errcode.ErrTeamMemberExist, "user is already a team member"
 			case codes.Unavailable:
