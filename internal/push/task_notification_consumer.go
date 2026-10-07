@@ -143,9 +143,13 @@ func (c *TaskNotificationConsumer) Run(ctx context.Context) error {
 		}
 		event, err := model.DecodeTaskNotificationEvent(message.Value)
 		if err != nil || message.Topic != c.topic || message.Partition < 0 || message.Offset < 0 || string(message.Key) != event.Key() {
+			c.logger.Error("task notification event rejected", zap.String("phase", "event_validation"),
+				zap.String("topic", message.Topic), zap.Int("partition", message.Partition), zap.Int64("offset", message.Offset))
 			c.halted.Store(true)
 			return ErrInvalidTaskNotification
 		}
+		position := []zap.Field{zap.Int64("notification_id", event.NotificationID), zap.String("topic", message.Topic),
+			zap.Int("partition", message.Partition), zap.Int64("offset", message.Offset)}
 		for {
 			if err := c.check(ctx); err != nil {
 				return err
@@ -157,7 +161,7 @@ func (c *TaskNotificationConsumer) Run(ctx context.Context) error {
 			if err == nil {
 				break
 			}
-			c.logger.Warn("task notification delivery retry pending")
+			c.logger.Warn("task notification delivery retry pending", append(position, zap.String("phase", err.Error()))...)
 			if err := c.wait(ctx); err != nil {
 				return err
 			}
@@ -176,7 +180,7 @@ func (c *TaskNotificationConsumer) Run(ctx context.Context) error {
 			if err == nil && !ended {
 				break
 			}
-			c.logger.Warn("task notification offset commit retry pending")
+			c.logger.Warn("task notification offset commit retry pending", append(position, zap.String("phase", "offset_commit"))...)
 			if err := c.wait(ctx); err != nil {
 				return err
 			}

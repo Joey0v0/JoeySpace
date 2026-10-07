@@ -9,7 +9,7 @@
 | 任务变更通知 | Task事务保存通知及Outbox，Kafka发布，独立Push消费，专用mTLS WS提示；本人分页/逐条已读、原生提示/重连查询及分段组合恢复已有本地验证 | 真实MySQL/Kafka/Redis/User、浏览器与部署链待验收 |
 | 未读消息 | A73团队群与A78单聊均用本人逐消息凭据、IM RPC/Gateway/原生显式按钮；群历史重遍历及恢复有本地组合验证，单聊仅对本页收到的消息手动确认。A74旧离线出口核对当前群资格，离线ACK独立 | 030/034/035未执行，真实DB查询计划和浏览器未验收；A16退出链仍需最终核对。[群实现](stage7-team-group-unread-contract.md#本批实现与审查)、[群恢复](stage7-group-unread-recovery-contract.md#本批实现与审查)、[单聊契约](stage7-direct-unread-contract.md)；不将ACK或ID游标当已读 |
 | Agent执行记录 | 持久Inbox、运行/草稿、逐项确认/跳过/结果/回帖；原指令查询状态和本人读取草稿；后台处理失败已有本地阶段/消息ID/错误码日志 | 本机定向验证已覆盖主要处理阶段；真实模型/页面与实际运行日志待核对，没有通用运行列表或完整工具审计；本人状态仍不暴露内部错误 |
-| 部署与排查 | Compose基础、可选覆盖、迁移与启动文档；四个业务RPC启动已抑制go-zero统计请求正文，并通过真实框架本机对照测试；Agent后台失败日志已补固定阶段与原消息ID | 完整覆盖组合、私有配置、模型预算、证书挂载、镜像启动和回退待实际核对。其他服务关联日志仍有缺口，正文修复不等于全部日志脱敏或全链追踪 |
+| 部署与排查 | Compose基础、可选覆盖、迁移与启动文档；四个业务RPC启动已抑制go-zero统计请求正文，并通过真实框架本机对照测试；Agent后台失败日志已补固定阶段与原消息ID，Push任务提醒重试/坏事件日志已补通知ID或Kafka位置 | 完整覆盖组合、私有配置、模型预算、证书挂载、镜像启动和回退待实际核对。Task发布端及其他服务关联日志仍有缺口，正文修复不等于全部日志脱敏或全链追踪 |
 | 核心演示 | 用户/团队/群聊/任务/Agent接口和页面代码逐步实现 | 实际完成双账号注册登录、协作聊天、@AI草稿、逐项确认/回帖、任务变化提醒及重连查询全过程，并记录证据 |
 
 后续实现只围绕上述已确定目标。新增会话已读规则、运行查询边界或观测中间件属于关键选择，先讨论并记入架构决策；本页不授权新增框架或功能，也不把缺项静默移出范围。
@@ -51,6 +51,7 @@
 | A75后台触发上下文代际核权 | [专用mTLS与代际场景](../rpc/im/trigger_context_generation_test.go)、[User真实回显测试](../rpc/user/trigger_tls_flow_test.go)及[集中结果](stage7-trigger-generation-guard-contract.md#本批实现与审查)；旧User零版本、读中换代/撤权/关闭无部分正文 | SQL/User数据库均替身，本机mTLS不代表云端证书/真实MySQL/031/032/跨服务原子性；负责人解析末次核权与User解析器前后版本比较仍待 |
 | A75负责人解析前后代际核权 | [User候选查询版本测试](../rpc/user/trigger_member_generation_test.go)、[实际双mTLS组合](../rpc/im/trigger_resolver_generation_flow_test.go)和[集中结果](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)；成功、空候选、查询中换代、解析后撤权/关闭均已本地验证 | 数据库仍用SQL替身；本机TLS不证明真实031/032、跨服务原子性、退出清理或云端证书配置 |
 | Agent后台失败阶段日志 | [处理器阶段与错误码测试](../rpc/agent/trigger_processor_test.go)、[worker续租/释放行为测试](../rpc/agent/trigger_worker_test.go)；失败只记录原消息ID、固定阶段和错误码，模型文本、Token及底层错误不写入新日志；定向测试通过 | 运行环境日志采集、跨服务关联与真实故障注入未验收；本人状态仍只有既定状态和完成时run ID |
+| Push任务提醒故障定位 | [消费者定向测试](../internal/push/task_notification_consumer_test.go)检查临时投递/提交重试含通知ID、Topic/Partition/Offset与固定阶段；坏事件停住时只记位置、不记原始Key/正文；Push全包测试通过 | 未验证真实Kafka重放、运行环境日志采集或Task发布端关联；日志可定位不代表实际投递成功 |
 
 ## 3. 最终启动前核对（全部待执行）
 

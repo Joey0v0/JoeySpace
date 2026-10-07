@@ -9,6 +9,8 @@ import (
 
 	"github.com/segmentio/kafka-go"
 	"github.com/yjydist/go-im/internal/model"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type notificationReaderFake struct {
@@ -139,11 +141,33 @@ func TestTaskNotificationConsumerTemporaryFailuresRetrySameEventThenOnlyCommit(t
 		}
 		return model.TaskNotificationDelivery{NotificationID: e.NotificationID, Outcome: model.TaskNotificationQueued}, nil
 	})
-	if err := notificationTestConsumer(t, r, online, sender).Run(ctx); !errors.Is(err, context.Canceled) {
+	core, observed := observer.New(zap.WarnLevel)
+	c := notificationTestConsumer(t, r, online, sender)
+	c.logger = zap.New(core)
+	if err := c.Run(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 	if fetches != 1 || lookups != 3 || sends != 2 || commits != 2 {
 		t.Fatalf("fetch/lookup/send/commit=%d/%d/%d/%d", fetches, lookups, sends, commits)
+	}
+	logs := observed.All()
+	if len(logs) != 3 {
+		t.Fatalf("want two delivery retries and one commit retry, got %d logs", len(logs))
+	}
+	for i, log := range logs {
+		fields := log.ContextMap()
+		if fields["notification_id"] != e.NotificationID || fields["topic"] != message.Topic ||
+			fields["partition"] != int64(message.Partition) || fields["offset"] != message.Offset {
+			t.Fatalf("retry %d cannot locate event: %v", i, fields)
+		}
+		if _, has := fields["error"]; has {
+			t.Fatal("raw dependency error logged")
+		}
+	}
+	for i, want := range []string{"task notification online lookup failed", "task notification delivery attempt failed", "offset_commit"} {
+		if logs[i].ContextMap()["phase"] != want {
+			t.Fatalf("retry %d phase = %v, want %s", i, logs[i].ContextMap()["phase"], want)
+		}
 	}
 }
 
@@ -169,6 +193,8 @@ func TestTaskNotificationConsumerInvalidEventLatchesWithoutCommitOrLaterFetch(t 
 				t.Fatal("invalid event sent")
 				return model.TaskNotificationDelivery{}, nil
 			}))
+			core, observed := observer.New(zap.ErrorLevel)
+			c.logger = zap.New(core)
 			for i := 0; i < 2; i++ {
 				if !errors.Is(c.Run(context.Background()), ErrInvalidTaskNotification) {
 					t.Fatal("bad event did not halt")
@@ -176,6 +202,15 @@ func TestTaskNotificationConsumerInvalidEventLatchesWithoutCommitOrLaterFetch(t 
 			}
 			if fetches != 1 {
 				t.Fatal("stopped consumer fetched later event")
+			}
+			logs := observed.All()
+			if len(logs) != 1 {
+				t.Fatalf("want one location-only rejection log, got %d", len(logs))
+			}
+			fields := logs[0].ContextMap()
+			if fields["phase"] != "event_validation" || fields["topic"] != message.Topic ||
+				fields["partition"] != int64(message.Partition) || fields["offset"] != message.Offset || len(fields) != 4 {
+				t.Fatalf("rejection log contains wrong fields: %v", fields)
 			}
 		})
 	}
