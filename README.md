@@ -1,10 +1,10 @@
-# go-im - 高性能即时通讯系统
+# go-im：简化版飞书微服务与 Agent 项目
 
-> 后续演进方向：基于 go-zero + gRPC + Eino，循序渐进构建简化版飞书。目标、功能范围、阶段路线和开发约定见 [项目方案](docs/project-plan.md)。下文介绍现有 IM 实现，规划中的功能尚未全部实现。
+基于原有即时通讯系统，逐步实现用户与团队、单聊与团队群、任务协作、通知和 AI 助手。HTTP 由 API Gateway 接入，业务通过 go-zero/gRPC 分为 User、IM、Task、Agent 服务；聊天继续使用 WebSocket、Kafka、Redis 和 MySQL。Agent 使用 Go 与 Eino，模型接入方向为火山方舟／豆包。
 
-基于微服务架构思想设计的 Go 语言即时通讯（IM）系统后端。支持单聊、群聊，基于 WebSocket 实现消息实时推送，使用 Kafka 做消息削峰解耦，Redis 做在线状态管理和消息防重，MySQL 做持久化存储。
+既定功能代码已合入 `main`，本地自动化测试及部分隔离 MySQL、HTTP 和浏览器链路通过；现有数据库升级、真实模型和完整多账号部署验收尚未完成。[项目方案与进度](docs/project-plan.md)记录实现范围，[阶段 7 验收清单](docs/stage7-acceptance.md)记录未验证项。下面的图和旧接口列表保留为原 IM 链路参考；当前微服务边界以项目方案为准。
 
-## 架构图
+## 原 IM 链路示意
 
 ```mermaid
 graph TB
@@ -37,29 +37,34 @@ graph TB
 
 ## 核心特性
 
+- **业务微服务**：User 管用户与团队，IM 管消息与访问资格，Task 管任务与通知，Agent 管 AI 运行和草稿；Gateway 统一提供新 HTTP 入口。
+- **Agent 任务链**：群内指令可生成待审查草稿，由本人逐项确认或跳过，创建成功后以机器人身份回帖。
+- **任务与消息未读**：任务状态通知、团队群和单聊均有本人显式确认入口；客户端不能把读取历史或离线 ACK 当成已读。
 - **旧链路三进程拆分**：API Server（HTTP 接口）、WS Gateway（长连接维持）、Push Server（异步消费推送），各自独立部署
 - **发送请求去重**：客户端生成 `msg_id`，WS 网关借助 Redis 限制重复入队；Kafka/Push 重试仍可能重复在线推送，接收端按 `msg_id` 去重
 - **离线消息拉取**：用户离线时消息写入 offline_messages 表，上线后通过 API 拉取
 - **Kafka 削峰解耦**：WS 网关收到消息后写入 Kafka，Push 服务异步消费，避免网关阻塞
 - **在线状态管理**：Redis 存储 `online:{user_id} → ws_addr`，心跳刷新 TTL，支持精准路由
-- **群聊扇出推送**：Push 服务查询群成员列表（Redis 缓存优先），逐成员在线检查并推送/离线存储
+- **群聊扇出推送**：Push 服务逐成员在线检查并推送/离线存储；团队群接收名单按当前 MySQL 成员资格查询
 - **JWT 认证**：API 和 WS 连接均使用 JWT Token 鉴权
 - **Snowflake ID**：消息 ID 使用 Snowflake 算法生成，天然有序
 - **结构化日志**：Zap + Lumberjack，关键业务节点带 Context 字段输出
-- **Docker Compose 部署**：MySQL、Redis、Kafka、旧链路三个进程及阶段 1 的 API Gateway、用户 RPC 统一编排
+- **Docker Compose 部署**：基础服务与可选 Agent、机器人、群内触发、通知、团队退出覆盖分别配置；私有凭证和证书不入库
 
 ## 技术栈
 
 | 组件 | 技术选型 |
 |------|---------|
 | 语言 | Go 1.26.1 |
-| HTTP 框架 | Gin |
+| HTTP 框架 | 旧 API 使用 Gin；新 Gateway 使用 go-zero |
+| 服务通信 | gRPC / Protobuf |
+| Agent 编排 | Eino |
 | WebSocket | gorilla/websocket |
 | ORM | GORM + MySQL 8.0 |
 | 缓存 | Redis 7 (go-redis) |
 | 消息队列 | Kafka (kafka-go) |
 | 认证 | JWT v5 |
-| 配置 | Viper |
+| 配置 | 旧服务使用 Viper；新服务使用 go-zero 配置 |
 | 日志 | Zap + Lumberjack |
 | ID 生成 | Snowflake |
 | 容器化 | Docker + Docker Compose |
@@ -73,7 +78,10 @@ go-im/
 │   ├── ws/main.go               # WebSocket 网关入口
 │   └── push/main.go             # 异步推送服务入口
 ├── api/                          # 迁移中的 go-zero API Gateway
-├── rpc/user/                     # 用户 gRPC 服务
+├── rpc/user/                     # 用户与团队 gRPC 服务
+├── rpc/im/                       # 消息与群组 gRPC 服务
+├── rpc/task/                     # 任务与通知 gRPC 服务
+├── rpc/agent/                    # Agent gRPC 服务
 ├── internal/
 │   ├── config/                  # 配置加载
 │   ├── model/                   # GORM 数据模型
@@ -91,54 +99,62 @@ go-im/
 │   ├── docker-config.yaml       # 旧服务的脱敏容器配置模板
 │   ├── api-gateway.yaml         # 新 API Gateway 容器配置
 │   ├── user-rpc.yaml            # 用户 RPC 容器配置
-│   └── mysql/init.sql           # 数据库初始化
+│   ├── docker-compose.*.yaml    # 可选能力覆盖文件
+│   ├── .env.example              # 私有环境变量模板
+│   └── mysql/                   # 新库初始化与旧库增量迁移
 ├── Makefile
 └── README.md
 ```
 
 ## 快速开始
 
-> 2026-09-20：`deploy` 已同步腾讯云部署基线。运行下列 Docker 命令前，先按 [部署配置说明](deploy/README.md) 准备私有配置和 `.env`。此 Compose 不再发布中间件端口，下面的主机直接运行方式需要另外配置本地端口映射。
+以下是部署者需要填写的**环境信息**，不是缺失的项目源码。[详细部署配置](deploy/README.md)说明证书、服务地址和增量迁移；[最终验收清单](docs/stage7-acceptance.md)说明应观察的业务结果。先确认 Docker Compose 可用。
 
-### 方式一：Docker Compose 一键启动
-
-```bash
-# 全量启动（MySQL + Redis + Kafka + 五个 Go 进程）
-make docker-up
-
-# 查看日志
-cd deploy && docker-compose logs -f
-
-# 停止
-make docker-down
-```
-
-### 方式二：本地开发
+1. 进入 `deploy`，从模板复制私有文件；已有文件保持原样，不覆盖：
 
 ```bash
-# 1. 启动中间件（MySQL + Redis + Kafka）
-make env-up
-
-# 2. 在不同终端分别启动三个服务
-make run-api    # 终端 1：API 服务 → :8080
-make run-ws     # 终端 2：WS 网关 → :8081 (WS) + :9091 (内部 RPC)
-make run-push   # 终端 3：Push 服务
-
-# 3. 停止中间件
-make env-down
+cd deploy
+test -e .env || cp .env.example .env
+test -e docker-config.local.yaml || cp docker-config.yaml docker-config.local.yaml
 ```
 
-### 构建
+Windows PowerShell 的对应复制命令见[部署配置说明](deploy/README.md#凭证与云端原文件的区别)。在 `.env` 填数据库密码、JWT 密钥及各服务 ID；在 `docker-config.local.yaml` 填相同的数据库凭证和 JWT 密钥。根目录的 `config/go-im.yaml` 是本地开发配置，不作为生产凭证文件。**旧 MySQL 数据卷应沿用实际数据库密码**，改 `.env` 不会替它修改数据库密码。私有文件已被 Git 和 Docker 构建上下文排除，不要提交。
+
+2. 数据库：全新空卷由 `mysql/init.sql` 初始化；已有数据卷先备份、核对实际表结构和已执行迁移，再按[验收清单](docs/stage7-acceptance.md#3-最终启动前核对全部待执行)执行尚缺的 `mysql/migrations`。不要对旧库重跑 `init.sql`，也不要执行 `down -v`。
+
+3. 先校验基础配置，再启动不含 Agent 的基础服务：
 
 ```bash
-# 编译三个服务到 bin/ 目录
-make build
-
-# 运行测试
-make test
+docker compose --env-file .env -f docker-compose.yaml config --quiet
+docker compose --env-file .env -f docker-compose.yaml up -d --build
+docker compose --env-file .env -f docker-compose.yaml ps
 ```
 
-## API 接口
+Gateway 的聊天演示页位于 `http://localhost:8082/demo/chat`。基础启动**不会**启用 Agent、机器人回帖、后台 `@AI`、实时任务提醒及团队退出的专用证书链。要启用完整业务，先在 `.env` 填方舟 `ARK_API_KEY`/`ARK_MODEL_ID` 和各覆盖文件要求的私有证书目录，在私有 YAML 启用相应角色，并完成所需迁移；然后合并 `docker-compose.bot.yaml`、`docker-compose.trigger.yaml`、`docker-compose.notifications.yaml`、`docker-compose.team-leave.yaml` 与 `agent` profile。先运行合并后的 `config --quiet`，再使用**同一组参数**执行 `up -d --build`。具体证书用途、开关与顺序见[部署配置说明](deploy/README.md)和[阶段 7 验收清单](docs/stage7-acceptance.md)。
+
+在上述前提全部满足后，可于 `deploy` 目录用 Linux shell 检查并启动完整组合：
+
+```bash
+docker compose --env-file .env --profile agent \
+  -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+  -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml config --quiet
+docker compose --env-file .env --profile agent \
+  -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+  -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml up -d --build
+```
+
+4. 用至少两个账号实际验证登录、团队群聊天、任务、`@AI` 草稿审查与回帖、通知和重连查询。只有这些部署环境验证通过，才能称该环境的项目已完整运行；仓库中的本地测试结果不能替代它们。
+
+本地代码回归可运行：
+
+```bash
+go test ./...
+node --test examples/*.test.cjs
+```
+
+`Makefile` 的 `run-*` 只覆盖原 IM 进程，`docker-up` 只加载基础 Compose；两者都不代表上述可选能力已启用。
+
+## 旧版 IM API 接口参考
 
 ### 用户模块
 | 方法 | 路径 | 说明 |

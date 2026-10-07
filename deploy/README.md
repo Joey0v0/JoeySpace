@@ -1,5 +1,7 @@
 # Docker Compose 部署配置基线
 
+面向新部署者的最短配置顺序见[项目首页的快速开始](../README.md#快速开始)；私有凭证、增量迁移、证书与验收细节以本文和[阶段 7 验收清单](../docs/stage7-acceptance.md)为准。本文件还保留了迭代过程的时间记录，其中“没有 Docker”“尚未接线”等句子仅描述当时状态；当前代码已在本地整合，真实部署仍未验收。
+
 2026-10-07 单聊未读升级准备：现有库先执行034建立本人单聊阅读记录，再执行035为旧 `messages` 表添加 `(from_id,to_id,chat_type,id)` 查询索引，然后升级IM/Gateway和页面；新库的 `init.sql` 已包含两者。035建索引可能耗时，正式执行前按实际数据量安排窗口并记录执行计划。034/035已在隔离 MySQL 8.0 空库执行通过，尚未在现有数据卷运行，不能只更新init替代旧库迁移。[单聊契约](../docs/stage7-direct-unread-contract.md)。
 
 2026-10-07 团队退出链路最新准备：新增显式 [docker-compose.team-leave.yaml](docker-compose.team-leave.yaml)，将 User→IM 清理和 Push→User 资格核权的独立 mTLS 端口/证书挂载一次接齐；基础 Compose 仍默认关闭。`.env.example` 新增四个各自私有的证书目录变量，不提供或提交实际私钥。已有库须先确认001，再依次核对并执行031、032、033，最后核对证书、合并配置与服务启动顺序；完整范围见[部署前核对](../docs/stage7-team-leave-deploy-preflight.md#本步实现与审查)。本机只有 PyYAML 静态结构检查，未安装 Docker、未执行迁移、未启动服务；下文“尚未有覆盖/入口”的描述是各旧批次当时的快照，不代表当前代码状态。真实联调与上线仍待最终统一进行。
