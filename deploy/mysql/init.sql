@@ -134,7 +134,8 @@ CREATE TABLE messages (
     content      TEXT         NOT NULL,
     created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_to_time (to_id, created_at),
-    INDEX idx_messages_group_history (to_id, chat_type, id)
+    INDEX idx_messages_group_history (to_id, chat_type, id),
+    INDEX idx_messages_direct_pair (from_id, to_id, chat_type, id)
 ) ENGINE=InnoDB;
 
 -- 离线消息表
