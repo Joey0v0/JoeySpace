@@ -202,6 +202,21 @@ func main() {
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
+		Path:    "/api/v1/direct/:peer_id/messages",
+		Handler: listDirectMessagesHandler(impb.NewIMClient(imRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/direct/:peer_id/unread",
+		Handler: getDirectUnreadHandler(impb.NewIMClient(imRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodPost,
+		Path:    "/api/v1/direct/:peer_id/read",
+		Handler: markDirectMessagesReadHandler(impb.NewIMClient(imRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
 		Path:    "/api/v1/message/offline",
 		Handler: listOfflineMessagesHandler(impb.NewIMClient(imRPCClient.Conn())),
 	})

@@ -32,6 +32,8 @@
 
 最新 A78 IM 接线（2026-10-07）：单聊历史、未读计数和本人具体消息标记现已通过 IM RPC 提供；SQL 替身验证双向范围、分页、重放与整批拒绝，新增协议后的全仓 Go 测试通过。[实际契约与限制](stage7-direct-unread-contract.md)。上段“尚无 RPC”是准备迁移时的快照；Gateway/页面尚未接入，034 未执行，真实 MySQL 查询计划和浏览器仍未验收，阶段7不标完成。
 
+最新 A78 Gateway 接线（2026-10-07）：三个单聊 HTTP 入口已按[单聊契约](stage7-direct-unread-contract.md)接入 IM RPC，Token 只转发、ID/count 以字符串输出、标记正文只收具体 ID；定向测试验证范围、参数和错误映射。上段“Gateway 未接”是 IM 批次快照；原生页面仍未接入，034/真实 MySQL/浏览器未验收，阶段7不标完成。
+
 最新进展（2026-10-06）：main仍89e2a1e，前几批成果继承在codex/stage7-group-unread-recovery。本批沿A73增加独立“从最新消息重新遍历”入口，成功才换历史游标，失败/旧范围回包保留位置；“刷新最新”保持原行为。共同eff7252；root审查/测试并保存A96f81d8、Ba8daf70、Cfff1083，无冲突整合82ee844。定向页面165项、恢复组合24项、全部353项Node及生产IM TCP恢复定向通过；集中Go结果见[七步、全部文件与验证边界](stage7-group-unread-recovery-contract.md#本批实现与审查)，[选择理由](architecture-decisions.md)。较小ID迟到可以重新逐页找到，提交后丢响应/撤权的查询与显式同ID重试已有本地组合证据；SQL/User/DOM仍替身，真实MySQL首次时间/重启、030、浏览器与云端未验收。A16退出清理/Push资格、关联日志及真实环境仍后续；没有新协议/表/依赖或生成文件删除，没有main合并/push/部署，阶段7/整体项目未标完成。
 
 ## 1. 项目目标与学习背景
