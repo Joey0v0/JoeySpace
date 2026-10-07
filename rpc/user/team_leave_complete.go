@@ -6,6 +6,7 @@ import (
 
 	"github.com/yjydist/go-im/internal/model"
 	"github.com/yjydist/go-im/rpc/user/pb"
+	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -55,15 +56,29 @@ func (s *userServer) completeOwnTeamLeave(ctx context.Context, teamID int64, req
 	err = s.db.WithContext(ctx).Table("team_members").Select("role, membership_state, generation").
 		Where("team_id = ? AND user_id = ?", intent.TeamID, intent.UserID).Take(&member).Error
 	if err != nil || member.Generation != intent.Generation || member.MembershipState != model.TeamMembershipLeaving {
-		return nil, status.Error(codes.FailedPrecondition, "team leave operation and membership differ")
+		return nil, logTeamLeaveFailure(ctx, intent, "membership_verify", status.Error(codes.FailedPrecondition, "team leave operation and membership differ"))
 	}
 	if s.leaveIM == nil {
-		return nil, status.Error(codes.Unavailable, "IM leave cleanup unavailable")
+		return nil, logTeamLeaveFailure(ctx, intent, "im_cleanup", status.Error(codes.Unavailable, "IM leave cleanup unavailable"))
 	}
 	if err = s.leaveIM.CloseTeamGroupMemberships(ctx, intent.TeamID, intent.UserID, intent.Generation); err != nil {
-		return nil, err
+		return nil, logTeamLeaveFailure(ctx, intent, "im_cleanup", err)
 	}
-	return finishTeamLeaveIntent(ctx, s.db, intent)
+	finished, err := finishTeamLeaveIntent(ctx, s.db, intent)
+	if err != nil {
+		return nil, logTeamLeaveFailure(ctx, intent, "user_finalize", err)
+	}
+	return finished, nil
+}
+
+// A pending operation can be retried by its owner. Keep its correlation fields
+// in server logs without writing the request key, certificates or private error.
+func logTeamLeaveFailure(ctx context.Context, intent *teamLeaveIntent, stage string, err error) error {
+	if err != nil && intent != nil {
+		logx.WithContext(ctx).Errorf("team_leave_failed operation_id=%d team_id=%d user_id=%d generation=%d stage=%s code=%s",
+			intent.ID, intent.TeamID, intent.UserID, intent.Generation, stage, status.Code(err))
+	}
+	return err
 }
 
 func finishTeamLeaveIntent(ctx context.Context, db *gorm.DB, intent *teamLeaveIntent) (*teamLeaveIntent, error) {
