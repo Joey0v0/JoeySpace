@@ -13,3 +13,5 @@ Gateway 提供 `GET /api/v1/direct/:peer_id/messages?before_message_id=...&limit
 034 只新增 `im_direct_message_reads(user_id,peer_id,message_id)`，不回填、不删除离线记录或群已读记录。035 为旧 `messages` 表补单个 `(from_id,to_id,chat_type,id)` 索引，两种单聊方向均按各自的发送者/接收者等值范围查找，未读计数也使用同一范围；不改 SQL 接口、消息内容或权限。备选分别建入站/出站两条索引会增加一次维护与存储，现有单索引即可覆盖两种方向。上线既有库需按顺序执行 034、035；全新库使用 `deploy/mysql/init.sql`。035 在旧消息表上建索引，实际执行时需评估锁和耗时。
 
 IM 定向测试验证双向历史范围、倒序游标、重复确认、混入错误消息整批回滚和 Token 身份；Gateway 定向测试验证大 ID、转发、输入和错误边界。页面模块及既有聊天/群未读共 193 项 Node 定向测试通过，Gateway 嵌入页面/脚本 Go 定向测试通过。此前全仓 Go 测试最终通过；首次运行时无关的 WS 端口释放测试偶发端口占用，单独复查和全仓第二次运行均通过。SQL 仍为替身，034/035 尚未连接真实 MySQL，也未验证大表执行计划；真实浏览器体验未验证，阶段 7 仍未完成。
+
+后续本地验收补充（2026-10-07）：[IM 真实 MySQL/gRPC 测试](../rpc/im/direct_unread_mysql_integration_test.go)默认跳过；仅在一次性隔离 MySQL 8.0 新库设置 `IM_MYSQL_INTEGRATION_ISOLATED=1` 和 `IM_MYSQL_INTEGRATION_DSN` 才运行。它在外层事务中写样例并回滚，实际验证双向历史、计数、确认重试首次 `read_at` 与错误范围整批拒绝，IM 全包回归也通过。034/035 已在隔离空库执行，但现有数据卷、查询计划、Gateway→真实IM、浏览器和云端仍未验收；上段“SQL 仍为替身”是此前测试快照。
