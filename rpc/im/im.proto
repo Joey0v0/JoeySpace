@@ -23,6 +23,12 @@ service IM {
   rpc GetTeamGroupUnread(GetTeamGroupUnreadRequest) returns (GetTeamGroupUnreadResponse);
   // 明确确认已加载的具体消息；不使用消息ID高水位。
   rpc MarkTeamGroupMessagesRead(MarkTeamGroupMessagesReadRequest) returns (MarkTeamGroupMessagesReadResponse);
+  // 本人和指定对方的单聊历史，按消息 ID 倒序分页。
+  rpc ListDirectMessages(ListDirectMessagesRequest) returns (ListDirectMessagesResponse);
+  // 本人收到该对方消息的未读数；读取不标已读。
+  rpc GetDirectUnread(GetDirectUnreadRequest) returns (GetDirectUnreadResponse);
+  // 本人显式确认该对方发来的具体消息。
+  rpc MarkDirectMessagesRead(MarkDirectMessagesReadRequest) returns (MarkDirectMessagesReadResponse);
   // 核对当前用户可访问指定团队群中的来源消息，供任务服务建立引用。
   rpc CheckTeamGroupMessage(CheckTeamGroupMessageRequest) returns (CheckTeamGroupMessageResponse);
   // 从 authorization metadata 确定本人，只读拉取尚未确认的离线消息。
@@ -157,4 +163,43 @@ message MarkTeamGroupMessagesReadResponse {
   int64 group_id = 2;
   repeated int64 message_ids = 3;
   int64 unread_count = 4;
+}
+
+message ListDirectMessagesRequest {
+  int64 peer_id = 1;
+  int64 before_message_id = 2;
+  int32 limit = 3;
+}
+
+message DirectMessage {
+  int64 id = 1;
+  string msg_id = 2;
+  int64 from_id = 3;
+  int64 to_id = 4;
+  int32 content_type = 5;
+  string content = 6;
+  int64 created_at_unix_ms = 7;
+}
+
+message ListDirectMessagesResponse {
+  repeated DirectMessage messages = 1;
+  int64 next_before_message_id = 2;
+}
+
+message GetDirectUnreadRequest { int64 peer_id = 1; }
+
+message GetDirectUnreadResponse {
+  int64 peer_id = 1;
+  int64 unread_count = 2;
+}
+
+message MarkDirectMessagesReadRequest {
+  int64 peer_id = 1;
+  repeated int64 message_ids = 2;
+}
+
+message MarkDirectMessagesReadResponse {
+  int64 peer_id = 1;
+  repeated int64 message_ids = 2;
+  int64 unread_count = 3;
 }

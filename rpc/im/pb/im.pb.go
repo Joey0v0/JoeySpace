@@ -1380,6 +1380,418 @@ func (x *MarkTeamGroupMessagesReadResponse) GetUnreadCount() int64 {
 	return 0
 }
 
+type ListDirectMessagesRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	PeerId          int64                  `protobuf:"varint,1,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
+	BeforeMessageId int64                  `protobuf:"varint,2,opt,name=before_message_id,json=beforeMessageId,proto3" json:"before_message_id,omitempty"`
+	Limit           int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListDirectMessagesRequest) Reset() {
+	*x = ListDirectMessagesRequest{}
+	mi := &file_rpc_im_im_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDirectMessagesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDirectMessagesRequest) ProtoMessage() {}
+
+func (x *ListDirectMessagesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDirectMessagesRequest.ProtoReflect.Descriptor instead.
+func (*ListDirectMessagesRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ListDirectMessagesRequest) GetPeerId() int64 {
+	if x != nil {
+		return x.PeerId
+	}
+	return 0
+}
+
+func (x *ListDirectMessagesRequest) GetBeforeMessageId() int64 {
+	if x != nil {
+		return x.BeforeMessageId
+	}
+	return 0
+}
+
+func (x *ListDirectMessagesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type DirectMessage struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	MsgId           string                 `protobuf:"bytes,2,opt,name=msg_id,json=msgId,proto3" json:"msg_id,omitempty"`
+	FromId          int64                  `protobuf:"varint,3,opt,name=from_id,json=fromId,proto3" json:"from_id,omitempty"`
+	ToId            int64                  `protobuf:"varint,4,opt,name=to_id,json=toId,proto3" json:"to_id,omitempty"`
+	ContentType     int32                  `protobuf:"varint,5,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Content         string                 `protobuf:"bytes,6,opt,name=content,proto3" json:"content,omitempty"`
+	CreatedAtUnixMs int64                  `protobuf:"varint,7,opt,name=created_at_unix_ms,json=createdAtUnixMs,proto3" json:"created_at_unix_ms,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *DirectMessage) Reset() {
+	*x = DirectMessage{}
+	mi := &file_rpc_im_im_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DirectMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DirectMessage) ProtoMessage() {}
+
+func (x *DirectMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DirectMessage.ProtoReflect.Descriptor instead.
+func (*DirectMessage) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *DirectMessage) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *DirectMessage) GetMsgId() string {
+	if x != nil {
+		return x.MsgId
+	}
+	return ""
+}
+
+func (x *DirectMessage) GetFromId() int64 {
+	if x != nil {
+		return x.FromId
+	}
+	return 0
+}
+
+func (x *DirectMessage) GetToId() int64 {
+	if x != nil {
+		return x.ToId
+	}
+	return 0
+}
+
+func (x *DirectMessage) GetContentType() int32 {
+	if x != nil {
+		return x.ContentType
+	}
+	return 0
+}
+
+func (x *DirectMessage) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *DirectMessage) GetCreatedAtUnixMs() int64 {
+	if x != nil {
+		return x.CreatedAtUnixMs
+	}
+	return 0
+}
+
+type ListDirectMessagesResponse struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Messages            []*DirectMessage       `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	NextBeforeMessageId int64                  `protobuf:"varint,2,opt,name=next_before_message_id,json=nextBeforeMessageId,proto3" json:"next_before_message_id,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ListDirectMessagesResponse) Reset() {
+	*x = ListDirectMessagesResponse{}
+	mi := &file_rpc_im_im_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDirectMessagesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDirectMessagesResponse) ProtoMessage() {}
+
+func (x *ListDirectMessagesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDirectMessagesResponse.ProtoReflect.Descriptor instead.
+func (*ListDirectMessagesResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ListDirectMessagesResponse) GetMessages() []*DirectMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+func (x *ListDirectMessagesResponse) GetNextBeforeMessageId() int64 {
+	if x != nil {
+		return x.NextBeforeMessageId
+	}
+	return 0
+}
+
+type GetDirectUnreadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeerId        int64                  `protobuf:"varint,1,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDirectUnreadRequest) Reset() {
+	*x = GetDirectUnreadRequest{}
+	mi := &file_rpc_im_im_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDirectUnreadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDirectUnreadRequest) ProtoMessage() {}
+
+func (x *GetDirectUnreadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDirectUnreadRequest.ProtoReflect.Descriptor instead.
+func (*GetDirectUnreadRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *GetDirectUnreadRequest) GetPeerId() int64 {
+	if x != nil {
+		return x.PeerId
+	}
+	return 0
+}
+
+type GetDirectUnreadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeerId        int64                  `protobuf:"varint,1,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
+	UnreadCount   int64                  `protobuf:"varint,2,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDirectUnreadResponse) Reset() {
+	*x = GetDirectUnreadResponse{}
+	mi := &file_rpc_im_im_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDirectUnreadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDirectUnreadResponse) ProtoMessage() {}
+
+func (x *GetDirectUnreadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDirectUnreadResponse.ProtoReflect.Descriptor instead.
+func (*GetDirectUnreadResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *GetDirectUnreadResponse) GetPeerId() int64 {
+	if x != nil {
+		return x.PeerId
+	}
+	return 0
+}
+
+func (x *GetDirectUnreadResponse) GetUnreadCount() int64 {
+	if x != nil {
+		return x.UnreadCount
+	}
+	return 0
+}
+
+type MarkDirectMessagesReadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeerId        int64                  `protobuf:"varint,1,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
+	MessageIds    []int64                `protobuf:"varint,2,rep,packed,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkDirectMessagesReadRequest) Reset() {
+	*x = MarkDirectMessagesReadRequest{}
+	mi := &file_rpc_im_im_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkDirectMessagesReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkDirectMessagesReadRequest) ProtoMessage() {}
+
+func (x *MarkDirectMessagesReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkDirectMessagesReadRequest.ProtoReflect.Descriptor instead.
+func (*MarkDirectMessagesReadRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *MarkDirectMessagesReadRequest) GetPeerId() int64 {
+	if x != nil {
+		return x.PeerId
+	}
+	return 0
+}
+
+func (x *MarkDirectMessagesReadRequest) GetMessageIds() []int64 {
+	if x != nil {
+		return x.MessageIds
+	}
+	return nil
+}
+
+type MarkDirectMessagesReadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeerId        int64                  `protobuf:"varint,1,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
+	MessageIds    []int64                `protobuf:"varint,2,rep,packed,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	UnreadCount   int64                  `protobuf:"varint,3,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkDirectMessagesReadResponse) Reset() {
+	*x = MarkDirectMessagesReadResponse{}
+	mi := &file_rpc_im_im_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkDirectMessagesReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkDirectMessagesReadResponse) ProtoMessage() {}
+
+func (x *MarkDirectMessagesReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkDirectMessagesReadResponse.ProtoReflect.Descriptor instead.
+func (*MarkDirectMessagesReadResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *MarkDirectMessagesReadResponse) GetPeerId() int64 {
+	if x != nil {
+		return x.PeerId
+	}
+	return 0
+}
+
+func (x *MarkDirectMessagesReadResponse) GetMessageIds() []int64 {
+	if x != nil {
+		return x.MessageIds
+	}
+	return nil
+}
+
+func (x *MarkDirectMessagesReadResponse) GetUnreadCount() int64 {
+	if x != nil {
+		return x.UnreadCount
+	}
+	return 0
+}
+
 var File_rpc_im_im_proto protoreflect.FileDescriptor
 
 const file_rpc_im_im_proto_rawDesc = "" +
@@ -1474,7 +1886,36 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\x12\x1f\n" +
 	"\vmessage_ids\x18\x03 \x03(\x03R\n" +
 	"messageIds\x12!\n" +
-	"\funread_count\x18\x04 \x01(\x03R\vunreadCount2\xb1\a\n" +
+	"\funread_count\x18\x04 \x01(\x03R\vunreadCount\"v\n" +
+	"\x19ListDirectMessagesRequest\x12\x17\n" +
+	"\apeer_id\x18\x01 \x01(\x03R\x06peerId\x12*\n" +
+	"\x11before_message_id\x18\x02 \x01(\x03R\x0fbeforeMessageId\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xce\x01\n" +
+	"\rDirectMessage\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x15\n" +
+	"\x06msg_id\x18\x02 \x01(\tR\x05msgId\x12\x17\n" +
+	"\afrom_id\x18\x03 \x01(\x03R\x06fromId\x12\x13\n" +
+	"\x05to_id\x18\x04 \x01(\x03R\x04toId\x12!\n" +
+	"\fcontent_type\x18\x05 \x01(\x05R\vcontentType\x12\x18\n" +
+	"\acontent\x18\x06 \x01(\tR\acontent\x12+\n" +
+	"\x12created_at_unix_ms\x18\a \x01(\x03R\x0fcreatedAtUnixMs\"\x80\x01\n" +
+	"\x1aListDirectMessagesResponse\x12-\n" +
+	"\bmessages\x18\x01 \x03(\v2\x11.im.DirectMessageR\bmessages\x123\n" +
+	"\x16next_before_message_id\x18\x02 \x01(\x03R\x13nextBeforeMessageId\"1\n" +
+	"\x16GetDirectUnreadRequest\x12\x17\n" +
+	"\apeer_id\x18\x01 \x01(\x03R\x06peerId\"U\n" +
+	"\x17GetDirectUnreadResponse\x12\x17\n" +
+	"\apeer_id\x18\x01 \x01(\x03R\x06peerId\x12!\n" +
+	"\funread_count\x18\x02 \x01(\x03R\vunreadCount\"Y\n" +
+	"\x1dMarkDirectMessagesReadRequest\x12\x17\n" +
+	"\apeer_id\x18\x01 \x01(\x03R\x06peerId\x12\x1f\n" +
+	"\vmessage_ids\x18\x02 \x03(\x03R\n" +
+	"messageIds\"}\n" +
+	"\x1eMarkDirectMessagesReadResponse\x12\x17\n" +
+	"\apeer_id\x18\x01 \x01(\x03R\x06peerId\x12\x1f\n" +
+	"\vmessage_ids\x18\x02 \x03(\x03R\n" +
+	"messageIds\x12!\n" +
+	"\funread_count\x18\x03 \x01(\x03R\vunreadCount2\xb3\t\n" +
 	"\x02IM\x12M\n" +
 	"\x10CheckGroupMember\x12\x1b.im.CheckGroupMemberRequest\x1a\x1c.im.CheckGroupMemberResponse\x12Y\n" +
 	"\x14CheckTeamGroupAccess\x12\x1f.im.CheckTeamGroupAccessRequest\x1a .im.CheckTeamGroupAccessResponse\x12J\n" +
@@ -1483,7 +1924,10 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\rJoinTeamGroup\x12\x18.im.JoinTeamGroupRequest\x1a\x19.im.JoinTeamGroupResponse\x12\\\n" +
 	"\x15ListTeamGroupMessages\x12 .im.ListTeamGroupMessagesRequest\x1a!.im.ListTeamGroupMessagesResponse\x12S\n" +
 	"\x12GetTeamGroupUnread\x12\x1d.im.GetTeamGroupUnreadRequest\x1a\x1e.im.GetTeamGroupUnreadResponse\x12h\n" +
-	"\x19MarkTeamGroupMessagesRead\x12$.im.MarkTeamGroupMessagesReadRequest\x1a%.im.MarkTeamGroupMessagesReadResponse\x12\\\n" +
+	"\x19MarkTeamGroupMessagesRead\x12$.im.MarkTeamGroupMessagesReadRequest\x1a%.im.MarkTeamGroupMessagesReadResponse\x12S\n" +
+	"\x12ListDirectMessages\x12\x1d.im.ListDirectMessagesRequest\x1a\x1e.im.ListDirectMessagesResponse\x12J\n" +
+	"\x0fGetDirectUnread\x12\x1a.im.GetDirectUnreadRequest\x1a\x1b.im.GetDirectUnreadResponse\x12_\n" +
+	"\x16MarkDirectMessagesRead\x12!.im.MarkDirectMessagesReadRequest\x1a\".im.MarkDirectMessagesReadResponse\x12\\\n" +
 	"\x15CheckTeamGroupMessage\x12 .im.CheckTeamGroupMessageRequest\x1a!.im.CheckTeamGroupMessageResponse\x12V\n" +
 	"\x13ListOfflineMessages\x12\x1e.im.ListOfflineMessagesRequest\x1a\x1f.im.ListOfflineMessagesResponse\x12S\n" +
 	"\x12AckOfflineMessages\x12\x1d.im.AckOfflineMessagesRequest\x1a\x1e.im.AckOfflineMessagesResponseB$Z\"github.com/yjydist/go-im/rpc/im/pbb\x06proto3"
@@ -1500,7 +1944,7 @@ func file_rpc_im_im_proto_rawDescGZIP() []byte {
 	return file_rpc_im_im_proto_rawDescData
 }
 
-var file_rpc_im_im_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_rpc_im_im_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_rpc_im_im_proto_goTypes = []any{
 	(*AckOfflineMessagesRequest)(nil),         // 0: im.AckOfflineMessagesRequest
 	(*AckOfflineMessagesResponse)(nil),        // 1: im.AckOfflineMessagesResponse
@@ -1527,40 +1971,54 @@ var file_rpc_im_im_proto_goTypes = []any{
 	(*GetTeamGroupUnreadResponse)(nil),        // 22: im.GetTeamGroupUnreadResponse
 	(*MarkTeamGroupMessagesReadRequest)(nil),  // 23: im.MarkTeamGroupMessagesReadRequest
 	(*MarkTeamGroupMessagesReadResponse)(nil), // 24: im.MarkTeamGroupMessagesReadResponse
-	(*timestamppb.Timestamp)(nil),             // 25: google.protobuf.Timestamp
+	(*ListDirectMessagesRequest)(nil),         // 25: im.ListDirectMessagesRequest
+	(*DirectMessage)(nil),                     // 26: im.DirectMessage
+	(*ListDirectMessagesResponse)(nil),        // 27: im.ListDirectMessagesResponse
+	(*GetDirectUnreadRequest)(nil),            // 28: im.GetDirectUnreadRequest
+	(*GetDirectUnreadResponse)(nil),           // 29: im.GetDirectUnreadResponse
+	(*MarkDirectMessagesReadRequest)(nil),     // 30: im.MarkDirectMessagesReadRequest
+	(*MarkDirectMessagesReadResponse)(nil),    // 31: im.MarkDirectMessagesReadResponse
+	(*timestamppb.Timestamp)(nil),             // 32: google.protobuf.Timestamp
 }
 var file_rpc_im_im_proto_depIdxs = []int32{
-	25, // 0: im.OfflineMessage.created_at:type_name -> google.protobuf.Timestamp
+	32, // 0: im.OfflineMessage.created_at:type_name -> google.protobuf.Timestamp
 	3,  // 1: im.ListOfflineMessagesResponse.messages:type_name -> im.OfflineMessage
 	6,  // 2: im.ListTeamGroupMessagesResponse.messages:type_name -> im.TeamGroupMessage
 	13, // 3: im.ListTeamGroupsResponse.groups:type_name -> im.TeamGroup
-	17, // 4: im.IM.CheckGroupMember:input_type -> im.CheckGroupMemberRequest
-	19, // 5: im.IM.CheckTeamGroupAccess:input_type -> im.CheckTeamGroupAccessRequest
-	15, // 6: im.IM.CreateTeamGroup:input_type -> im.CreateTeamGroupRequest
-	12, // 7: im.IM.ListTeamGroups:input_type -> im.ListTeamGroupsRequest
-	10, // 8: im.IM.JoinTeamGroup:input_type -> im.JoinTeamGroupRequest
-	5,  // 9: im.IM.ListTeamGroupMessages:input_type -> im.ListTeamGroupMessagesRequest
-	21, // 10: im.IM.GetTeamGroupUnread:input_type -> im.GetTeamGroupUnreadRequest
-	23, // 11: im.IM.MarkTeamGroupMessagesRead:input_type -> im.MarkTeamGroupMessagesReadRequest
-	8,  // 12: im.IM.CheckTeamGroupMessage:input_type -> im.CheckTeamGroupMessageRequest
-	2,  // 13: im.IM.ListOfflineMessages:input_type -> im.ListOfflineMessagesRequest
-	0,  // 14: im.IM.AckOfflineMessages:input_type -> im.AckOfflineMessagesRequest
-	18, // 15: im.IM.CheckGroupMember:output_type -> im.CheckGroupMemberResponse
-	20, // 16: im.IM.CheckTeamGroupAccess:output_type -> im.CheckTeamGroupAccessResponse
-	16, // 17: im.IM.CreateTeamGroup:output_type -> im.CreateTeamGroupResponse
-	14, // 18: im.IM.ListTeamGroups:output_type -> im.ListTeamGroupsResponse
-	11, // 19: im.IM.JoinTeamGroup:output_type -> im.JoinTeamGroupResponse
-	7,  // 20: im.IM.ListTeamGroupMessages:output_type -> im.ListTeamGroupMessagesResponse
-	22, // 21: im.IM.GetTeamGroupUnread:output_type -> im.GetTeamGroupUnreadResponse
-	24, // 22: im.IM.MarkTeamGroupMessagesRead:output_type -> im.MarkTeamGroupMessagesReadResponse
-	9,  // 23: im.IM.CheckTeamGroupMessage:output_type -> im.CheckTeamGroupMessageResponse
-	4,  // 24: im.IM.ListOfflineMessages:output_type -> im.ListOfflineMessagesResponse
-	1,  // 25: im.IM.AckOfflineMessages:output_type -> im.AckOfflineMessagesResponse
-	15, // [15:26] is the sub-list for method output_type
-	4,  // [4:15] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	26, // 4: im.ListDirectMessagesResponse.messages:type_name -> im.DirectMessage
+	17, // 5: im.IM.CheckGroupMember:input_type -> im.CheckGroupMemberRequest
+	19, // 6: im.IM.CheckTeamGroupAccess:input_type -> im.CheckTeamGroupAccessRequest
+	15, // 7: im.IM.CreateTeamGroup:input_type -> im.CreateTeamGroupRequest
+	12, // 8: im.IM.ListTeamGroups:input_type -> im.ListTeamGroupsRequest
+	10, // 9: im.IM.JoinTeamGroup:input_type -> im.JoinTeamGroupRequest
+	5,  // 10: im.IM.ListTeamGroupMessages:input_type -> im.ListTeamGroupMessagesRequest
+	21, // 11: im.IM.GetTeamGroupUnread:input_type -> im.GetTeamGroupUnreadRequest
+	23, // 12: im.IM.MarkTeamGroupMessagesRead:input_type -> im.MarkTeamGroupMessagesReadRequest
+	25, // 13: im.IM.ListDirectMessages:input_type -> im.ListDirectMessagesRequest
+	28, // 14: im.IM.GetDirectUnread:input_type -> im.GetDirectUnreadRequest
+	30, // 15: im.IM.MarkDirectMessagesRead:input_type -> im.MarkDirectMessagesReadRequest
+	8,  // 16: im.IM.CheckTeamGroupMessage:input_type -> im.CheckTeamGroupMessageRequest
+	2,  // 17: im.IM.ListOfflineMessages:input_type -> im.ListOfflineMessagesRequest
+	0,  // 18: im.IM.AckOfflineMessages:input_type -> im.AckOfflineMessagesRequest
+	18, // 19: im.IM.CheckGroupMember:output_type -> im.CheckGroupMemberResponse
+	20, // 20: im.IM.CheckTeamGroupAccess:output_type -> im.CheckTeamGroupAccessResponse
+	16, // 21: im.IM.CreateTeamGroup:output_type -> im.CreateTeamGroupResponse
+	14, // 22: im.IM.ListTeamGroups:output_type -> im.ListTeamGroupsResponse
+	11, // 23: im.IM.JoinTeamGroup:output_type -> im.JoinTeamGroupResponse
+	7,  // 24: im.IM.ListTeamGroupMessages:output_type -> im.ListTeamGroupMessagesResponse
+	22, // 25: im.IM.GetTeamGroupUnread:output_type -> im.GetTeamGroupUnreadResponse
+	24, // 26: im.IM.MarkTeamGroupMessagesRead:output_type -> im.MarkTeamGroupMessagesReadResponse
+	27, // 27: im.IM.ListDirectMessages:output_type -> im.ListDirectMessagesResponse
+	29, // 28: im.IM.GetDirectUnread:output_type -> im.GetDirectUnreadResponse
+	31, // 29: im.IM.MarkDirectMessagesRead:output_type -> im.MarkDirectMessagesReadResponse
+	9,  // 30: im.IM.CheckTeamGroupMessage:output_type -> im.CheckTeamGroupMessageResponse
+	4,  // 31: im.IM.ListOfflineMessages:output_type -> im.ListOfflineMessagesResponse
+	1,  // 32: im.IM.AckOfflineMessages:output_type -> im.AckOfflineMessagesResponse
+	19, // [19:33] is the sub-list for method output_type
+	5,  // [5:19] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_rpc_im_im_proto_init() }
@@ -1574,7 +2032,7 @@ func file_rpc_im_im_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rpc_im_im_proto_rawDesc), len(file_rpc_im_im_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   25,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
