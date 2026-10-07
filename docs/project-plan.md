@@ -18,6 +18,8 @@
 
 最新 A78 本地 HTTP 联调（2026-10-07）：[隔离联调脚本](../deploy/verify-direct-unread-local.ps1)使用临时 MySQL 8.0、IM 进程和 Gateway 进程，真实走 HTTP→gRPC→MySQL；验证单聊历史分页、大整数 ID 字符串、未读计数、显式确认、同批重试和错误范围整批拒绝，运行后清理临时资源。该验证不覆盖真实浏览器、现有数据卷、跨服务聊天投递、云端部署或模型；阶段7仍不标完成。上段“未覆盖 Gateway”仅指此前的 IM 切片。
 
+最新 A78 本地浏览器切片（2026-10-07）：上述脚本加 `-Browser` 在本机无界面 Chrome 打开 Gateway 的真实聊天页；页面加载单聊历史不自动已读，点击本人显式确认后未读从 1 变 0，再经 HTTP 核对持久结果。隔离容器、浏览器配置目录和进程已清理。[范围与命令](stage7-direct-unread-contract.md)；这只覆盖单聊页面的一条实际交互，现有数据卷、其他页面/完整演示、云端和模型仍待最终验收，阶段7不标完成。
+
 当前实施（2026-10-06）：用户明确选择A75/A76/A77全部A；[资格基础](stage7-team-membership-foundation-contract.md#本批实现与审查)已准备031成员状态/版本、032 IM永久关闭记录，User普通及后台查询排除非active。[写入保护](stage7-team-group-write-guard-contract.md#本批实现与审查)已将User本人/正版本及IM关闭事务接入团队群Join/Create、修旧`groups`SQL；[普通读取保护](stage7-team-group-read-guard-contract.md#本批实现与审查)使CheckGroupMember经User核权后重新检查当前群成员/关闭版本，历史、未读、离线和机器人普通入口继承。[后台触发上下文保护](stage7-trigger-generation-guard-contract.md#本批实现与审查)使UserTrigger回显真实正版本、IM读历史前后核对同版本与当前群资格；[负责人解析末次保护](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)增加User候选查询前后版本比较、IM候选解析前后版本比较和最终群关闭核对。[退出操作表基础](stage7-team-leave-operation-schema.md)已准备033持久固定操作；[退出意图事务](stage7-team-leave-intent-contract.md#本批实现与审查)已在User包内原子保存成员leaving与033操作，[本人鉴别边界](stage7-team-leave-auth-boundary-contract.md#本步实现与审查)已复用现有Token验证；[IM专用清理监听](stage7-team-leave-im-runtime-contract.md#本批实现与审查)已准备默认关闭的独立mTLS端口；[User清理协调](stage7-team-leave-user-cleanup-contract.md#本步实现与审查)已在User包内按固定操作调用IM并本地确认完成。基础Compose尚未配置专用证书，公开退出/恢复、重入与Push核权尚未接线。031—033未执行，真实MySQL/并发锁/浏览器仍未验收；A16及阶段7不标完成。main仍89e2a1e，未合并/push/部署。
 
 前一步（2026-10-06）：沿A76准备[Push→User受限资格协议与处理器](stage7-push-user-eligibility-contract.md#本步实现与审查)，仅返回当前活动团队资格的正版本；该批次尚未注册生产监听或连接Push投递。公开本人退出须等Push在线/离线资格检查接好后再开放；原A75基础Compose/真实MySQL/迁移与阶段7完成状态保持上述限制。

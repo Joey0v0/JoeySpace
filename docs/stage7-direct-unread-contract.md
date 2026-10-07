@@ -17,3 +17,5 @@ IM 定向测试验证双向历史范围、倒序游标、重复确认、混入�
 后续本地验收补充（2026-10-07）：[IM 真实 MySQL/gRPC 测试](../rpc/im/direct_unread_mysql_integration_test.go)默认跳过；仅在一次性隔离 MySQL 8.0 新库设置 `IM_MYSQL_INTEGRATION_ISOLATED=1` 和 `IM_MYSQL_INTEGRATION_DSN` 才运行。它在外层事务中写样例并回滚，实际验证双向历史、计数、确认重试首次 `read_at` 与错误范围整批拒绝，IM 全包回归也通过。034/035 已在隔离空库执行，但现有数据卷、查询计划、Gateway→真实IM、浏览器和云端仍未验收；上段“SQL 仍为替身”是此前测试快照。
 
 本地 HTTP 联调补充（2026-10-07）：运行 `powershell -NoProfile -ExecutionPolicy Bypass -File deploy/verify-direct-unread-local.ps1`，脚本编译临时 IM/Gateway 可执行文件，以随机本地端口启动一次性 MySQL 8.0 容器及两服务，使用临时签发的本人 Token 调用真实 Gateway HTTP。历史分页和大 ID 字符串、初始未读 2、确认后未读 1、同批重试仍为 1，以及混入其他会话消息时 HTTP 404 且未读仍为 1 均通过。脚本在结束时删除临时进程、容器和文件；不访问已有数据卷或云端。真实浏览器、旧库迁移耗时及完整聊天/通知链仍未验收。
+
+本地浏览器切片（2026-10-07）：同一命令增加 `-Browser` 后，脚本在本机 Chrome/Edge 无界面模式打开 Gateway 的 `/demo/chat`，通过真实 DOM 按钮查询单聊未读、加载历史、再次查询，再点击“将本次收到的消息标为已读”。实测已加载历史按大整数 ID 正确显示，加载历史后未读仍为 1，显式确认后为 0；随后 HTTP 再次查询 MySQL 持久结果仍为 0。[浏览器交互检查](../deploy/verify-direct-unread-browser.cjs)只使用 Node 内置接口与 Chrome DevTools，不新增应用依赖；运行结束清理临时浏览器配置。此项不覆盖手工视觉审查、其他页面/多账号协作、既有库、云端或完整通知/Agent 链。上段“真实浏览器未验收”是此前 HTTP 切片状态。

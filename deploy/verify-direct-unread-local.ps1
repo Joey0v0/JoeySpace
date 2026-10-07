@@ -1,4 +1,4 @@
-param()
+param([switch]$Browser)
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -8,6 +8,7 @@ $mysqlPass = [guid]::NewGuid().ToString('N')
 $jwtSecret = [guid]::NewGuid().ToString('N')
 $imProcess = $null
 $apiProcess = $null
+$chromeProcess = $null
 
 function New-FreePort {
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
@@ -119,6 +120,21 @@ try {
     }
     $after = Invoke-RestMethod -Uri "$base/unread" -Headers $headers
     if ($after.data.unread_count -ne '1') { throw 'wrong-scope batch changed unread count' }
+    if ($Browser) {
+        $chrome = @('C:\Program Files\Google\Chrome\Application\chrome.exe', 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', 'C:\Program Files\Microsoft\Edge\Application\msedge.exe') | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        if (-not $chrome) { throw 'Chrome or Edge is required for -Browser' }
+        $browserProfile = Join-Path $runDir 'browser-profile'
+        $pageURL = "http://127.0.0.1:$apiPort/demo/chat"
+        $chromeProcess = Start-Process -FilePath $chrome -ArgumentList @('--headless=new', '--disable-gpu', '--disable-extensions', '--no-first-run', '--no-default-browser-check', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', "--user-data-dir=`"$browserProfile`"", $pageURL) -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $runDir 'chrome.out') -RedirectStandardError (Join-Path $runDir 'chrome.err')
+        $env:CODEX_BROWSER_PROFILE = $browserProfile
+        $env:CODEX_BROWSER_URL = $pageURL
+        $env:CODEX_BROWSER_TOKEN = $token
+        & node (Join-Path $root 'deploy/verify-direct-unread-browser.cjs')
+        Test-CommandResult 'real browser interaction'
+        Remove-Item Env:CODEX_BROWSER_PROFILE, Env:CODEX_BROWSER_URL, Env:CODEX_BROWSER_TOKEN
+        $browserUnread = Invoke-RestMethod -Uri "$base/unread" -Headers $headers
+        if ($browserUnread.data.unread_count -ne '0') { throw 'browser read did not persist in MySQL' }
+    }
     Write-Output 'PASS: Gateway HTTP -> IM gRPC -> isolated MySQL: paging, unread, explicit read, replay, wrong-scope rollback.'
 } catch {
     foreach ($name in @('im.err', 'api.err', 'im.out', 'api.out')) {
@@ -132,7 +148,8 @@ try {
     }
     throw
 } finally {
-    Remove-Item Env:IM_MYSQL_DSN, Env:IM_JWT_SECRET -ErrorAction SilentlyContinue
+    Remove-Item Env:IM_MYSQL_DSN, Env:IM_JWT_SECRET, Env:CODEX_BROWSER_PROFILE, Env:CODEX_BROWSER_URL, Env:CODEX_BROWSER_TOKEN -ErrorAction SilentlyContinue
+    if ($chromeProcess) { Stop-Process -Id $chromeProcess.Id -Force -ErrorAction SilentlyContinue }
     if ($apiProcess) { Stop-Process -Id $apiProcess.Id -Force -ErrorAction SilentlyContinue }
     if ($imProcess) { Stop-Process -Id $imProcess.Id -Force -ErrorAction SilentlyContinue }
     if ($containerId) {
