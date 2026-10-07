@@ -15,3 +15,5 @@ Gateway 提供 `GET /api/v1/direct/:peer_id/messages?before_message_id=...&limit
 IM 定向测试验证双向历史范围、倒序游标、重复确认、混入错误消息整批回滚和 Token 身份；Gateway 定向测试验证大 ID、转发、输入和错误边界。页面模块及既有聊天/群未读共 193 项 Node 定向测试通过，Gateway 嵌入页面/脚本 Go 定向测试通过。此前全仓 Go 测试最终通过；首次运行时无关的 WS 端口释放测试偶发端口占用，单独复查和全仓第二次运行均通过。SQL 仍为替身，034/035 尚未连接真实 MySQL，也未验证大表执行计划；真实浏览器体验未验证，阶段 7 仍未完成。
 
 后续本地验收补充（2026-10-07）：[IM 真实 MySQL/gRPC 测试](../rpc/im/direct_unread_mysql_integration_test.go)默认跳过；仅在一次性隔离 MySQL 8.0 新库设置 `IM_MYSQL_INTEGRATION_ISOLATED=1` 和 `IM_MYSQL_INTEGRATION_DSN` 才运行。它在外层事务中写样例并回滚，实际验证双向历史、计数、确认重试首次 `read_at` 与错误范围整批拒绝，IM 全包回归也通过。034/035 已在隔离空库执行，但现有数据卷、查询计划、Gateway→真实IM、浏览器和云端仍未验收；上段“SQL 仍为替身”是此前测试快照。
+
+本地 HTTP 联调补充（2026-10-07）：运行 `powershell -NoProfile -ExecutionPolicy Bypass -File deploy/verify-direct-unread-local.ps1`，脚本编译临时 IM/Gateway 可执行文件，以随机本地端口启动一次性 MySQL 8.0 容器及两服务，使用临时签发的本人 Token 调用真实 Gateway HTTP。历史分页和大 ID 字符串、初始未读 2、确认后未读 1、同批重试仍为 1，以及混入其他会话消息时 HTTP 404 且未读仍为 1 均通过。脚本在结束时删除临时进程、容器和文件；不访问已有数据卷或云端。真实浏览器、旧库迁移耗时及完整聊天/通知链仍未验收。
