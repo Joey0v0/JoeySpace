@@ -30,6 +30,8 @@
 
 ## 2. 本地验证证据与边界
 
+2026-10-07 在本地 `main` 通知日志与单聊页面改动后重新执行全仓 `go test ./... -count=1 -timeout=120s`（`GOFLAGS=-p=1`）及 `node --test --test-reporter=dot examples/*.test.cjs`。首次全量运行暴露两处旧测试预期：Push 坏事件新增安全位置日志，通知页面脚本清单新增单聊未读脚本；仅修正测试断言后，相关定向与两组全量测试均退出 0。未修改业务代码；此结果仍不证明真实 MySQL/Kafka、浏览器、模型或云端链路。
+
 2026-10-07 本地 `main` 提交 `3d2ce0c` 的最终验收前只读核对：`deploy/mysql/migrations` 共 35 个按 001—035 连续编号的 SQL 文件，未发现编号缺口；本机可找到 Docker、Go、Node 命令。私有 `deploy/.env` 和 `deploy/docker-config.local.yaml` 均不存在，因此本轮未尝试以真实私有配置解析、运行迁移、启动容器或连接模型。此项只证明文件与工具入口存在，不证明 SQL 在现有数据库可执行，也不证明镜像或服务可启动。
 
 2026-10-07 在 `085acbc` 干净工作区执行 `go test ./... -count=1 -timeout=120s`（Go 1.26.4、`GOFLAGS=-p=1`，构建缓存放入 TEMP）和 `node --test --test-reporter=dot examples/*.test.cjs`（Node 24.15.0），两组均退出 0。Docker Compose v5.4.0 命令现已可用；使用公开 `.env.example`、仅对当前命令有效的占位密码/JWT/证书目录，五份 Compose 文件合并执行 `config --quiet` 退出 0。占位目录没有证书，私有 `deploy/.env` 和 `deploy/docker-config.local.yaml` 不存在；这只证明配置结构可解析，不证明真实挂载、镜像或服务可启动。没有运行迁移、容器、浏览器或模型。

@@ -372,8 +372,16 @@ func TestTaskNotificationPushBadEventStopsOnlyNotificationWorkerWithoutCommitOrA
 	if err := runtime.Start(parent, notificationRuntimeOnlineStub(func(context.Context, int64) (string, error) { return "", nil })); err == nil {
 		t.Fatal("halted runtime was silently restarted")
 	}
-	if logs.Len() != 1 || strings.Contains(logs.All()[0].Message, "private") || len(logs.All()[0].Context) != 0 {
-		t.Fatalf("unsafe halted-consumer log=%v", logs.All())
+	entries := logs.All()
+	if len(entries) != 2 || entries[0].Message != "task notification event rejected" ||
+		entries[1].Message != "task notification consumer stopped; invalid event remains uncommitted" ||
+		len(entries[1].Context) != 0 || strings.Contains(entries[0].Message, "private") || strings.Contains(entries[1].Message, "private") {
+		t.Fatalf("unsafe halted-consumer log=%v", entries)
+	}
+	fields := entries[0].ContextMap()
+	if fields["phase"] != "event_validation" || fields["topic"] != "task_notices" ||
+		fields["partition"] != int64(0) || fields["offset"] != int64(7) || len(fields) != 4 {
+		t.Fatalf("bad event log must contain only safe location fields: %v", fields)
 	}
 }
 

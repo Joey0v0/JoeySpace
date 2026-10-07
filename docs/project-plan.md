@@ -10,6 +10,8 @@
 
 最新 Task 发布排查进展（2026-10-07）：Outbox 某条通知写 Kafka 或确认 published 失败时，Task 现以原通知 ID 和固定阶段记录重试；查询待发布列表失败时尚无具体行，仍只记录固定阶段。现有错误分类与发布重试顺序不变，Task 发布器定向及全包测试通过；不记录 Kafka 消息内容、Key 或底层数据库/网络错误。Task→Push 使用同一通知 ID 的本地代码已可定位两侧失败，跨进程实际日志及真实 Kafka 仍待最终验收，阶段7不标完成。
 
+最新本地回归（2026-10-07）：Task/Push 通知日志和 A78 单聊页面接入后的全仓 Go、全部原生页面 Node 回归发现两处旧测试断言未跟进：Push 坏事件现在会额外记录一条安全 Kafka 位置日志，通知页面脚本清单新增 `direct-unread.js`。仅更新相应测试预期及安全字段断言，定向测试、随后全仓 Go 和全部页面 Node 测试均通过；没有修改业务行为。真实数据库、Kafka、模型、浏览器和部署链仍待最终验收，阶段7不标完成。
+
 当前实施（2026-10-06）：用户明确选择A75/A76/A77全部A；[资格基础](stage7-team-membership-foundation-contract.md#本批实现与审查)已准备031成员状态/版本、032 IM永久关闭记录，User普通及后台查询排除非active。[写入保护](stage7-team-group-write-guard-contract.md#本批实现与审查)已将User本人/正版本及IM关闭事务接入团队群Join/Create、修旧`groups`SQL；[普通读取保护](stage7-team-group-read-guard-contract.md#本批实现与审查)使CheckGroupMember经User核权后重新检查当前群成员/关闭版本，历史、未读、离线和机器人普通入口继承。[后台触发上下文保护](stage7-trigger-generation-guard-contract.md#本批实现与审查)使UserTrigger回显真实正版本、IM读历史前后核对同版本与当前群资格；[负责人解析末次保护](stage7-trigger-resolver-final-guard-contract.md#本批实现与审查)增加User候选查询前后版本比较、IM候选解析前后版本比较和最终群关闭核对。[退出操作表基础](stage7-team-leave-operation-schema.md)已准备033持久固定操作；[退出意图事务](stage7-team-leave-intent-contract.md#本批实现与审查)已在User包内原子保存成员leaving与033操作，[本人鉴别边界](stage7-team-leave-auth-boundary-contract.md#本步实现与审查)已复用现有Token验证；[IM专用清理监听](stage7-team-leave-im-runtime-contract.md#本批实现与审查)已准备默认关闭的独立mTLS端口；[User清理协调](stage7-team-leave-user-cleanup-contract.md#本步实现与审查)已在User包内按固定操作调用IM并本地确认完成。基础Compose尚未配置专用证书，公开退出/恢复、重入与Push核权尚未接线。031—033未执行，真实MySQL/并发锁/浏览器仍未验收；A16及阶段7不标完成。main仍89e2a1e，未合并/push/部署。
 
 前一步（2026-10-06）：沿A76准备[Push→User受限资格协议与处理器](stage7-push-user-eligibility-contract.md#本步实现与审查)，仅返回当前活动团队资格的正版本；该批次尚未注册生产监听或连接Push投递。公开本人退出须等Push在线/离线资格检查接好后再开放；原A75基础Compose/真实MySQL/迁移与阶段7完成状态保持上述限制。
