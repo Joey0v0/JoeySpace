@@ -15,6 +15,14 @@ import (
 
 type userClientFunc func(context.Context, *pb.GetUserInfoRequest) (*pb.GetUserInfoResponse, error)
 
+func (f userClientFunc) LeaveTeam(context.Context, *pb.LeaveTeamRequest, ...grpc.CallOption) (*pb.TeamLeaveOperationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not used in demo tests")
+}
+
+func (f userClientFunc) GetTeamLeaveOperation(context.Context, *pb.GetTeamLeaveOperationRequest, ...grpc.CallOption) (*pb.TeamLeaveOperationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not used in demo tests")
+}
+
 func (f userClientFunc) Register(context.Context, *pb.RegisterRequest, ...grpc.CallOption) (*pb.RegisterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not used in demo tests")
 }

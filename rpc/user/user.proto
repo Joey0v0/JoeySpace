@@ -29,6 +29,27 @@ service User {
   rpc CheckTeamMemberByID(CheckTeamMemberByIDRequest) returns (CheckTeamMemberByIDResponse);
   // 当前团队成员按完整用户名/昵称严格匹配启用成员；不自动决定负责人。
   rpc ResolveTeamMember(ResolveTeamMemberRequest) returns (ResolveTeamMemberResponse);
+  // 仅登录本人退出团队；同一请求键可显式重试待清理操作。
+  rpc LeaveTeam(LeaveTeamRequest) returns (TeamLeaveOperationResponse);
+  // 回包丢失后，本人可按原请求键查询固定退出操作。
+  rpc GetTeamLeaveOperation(GetTeamLeaveOperationRequest) returns (TeamLeaveOperationResponse);
+}
+
+message LeaveTeamRequest {
+  int64 team_id = 1;
+  string request_key = 2; // 1—64 位 ASCII 字母、数字、- 或 _。
+}
+
+message GetTeamLeaveOperationRequest {
+  int64 team_id = 1;
+  string request_key = 2;
+}
+
+message TeamLeaveOperationResponse {
+  int64 operation_id = 1;
+  int64 team_id = 2;
+  int64 generation = 3;
+  int32 status = 4; // 0：待清理（可同键重试）；1：已完成。
 }
 
 message ResolveTeamMemberRequest {

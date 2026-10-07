@@ -31,6 +31,8 @@ const (
 	User_CheckTeamMember_FullMethodName            = "/user.User/CheckTeamMember"
 	User_CheckTeamMemberByID_FullMethodName        = "/user.User/CheckTeamMemberByID"
 	User_ResolveTeamMember_FullMethodName          = "/user.User/ResolveTeamMember"
+	User_LeaveTeam_FullMethodName                  = "/user.User/LeaveTeam"
+	User_GetTeamLeaveOperation_FullMethodName      = "/user.User/GetTeamLeaveOperation"
 )
 
 // UserClient is the client API for User service.
@@ -61,6 +63,10 @@ type UserClient interface {
 	CheckTeamMemberByID(ctx context.Context, in *CheckTeamMemberByIDRequest, opts ...grpc.CallOption) (*CheckTeamMemberByIDResponse, error)
 	// 当前团队成员按完整用户名/昵称严格匹配启用成员；不自动决定负责人。
 	ResolveTeamMember(ctx context.Context, in *ResolveTeamMemberRequest, opts ...grpc.CallOption) (*ResolveTeamMemberResponse, error)
+	// 仅登录本人退出团队；同一请求键可显式重试待清理操作。
+	LeaveTeam(ctx context.Context, in *LeaveTeamRequest, opts ...grpc.CallOption) (*TeamLeaveOperationResponse, error)
+	// 回包丢失后，本人可按原请求键查询固定退出操作。
+	GetTeamLeaveOperation(ctx context.Context, in *GetTeamLeaveOperationRequest, opts ...grpc.CallOption) (*TeamLeaveOperationResponse, error)
 }
 
 type userClient struct {
@@ -191,6 +197,26 @@ func (c *userClient) ResolveTeamMember(ctx context.Context, in *ResolveTeamMembe
 	return out, nil
 }
 
+func (c *userClient) LeaveTeam(ctx context.Context, in *LeaveTeamRequest, opts ...grpc.CallOption) (*TeamLeaveOperationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TeamLeaveOperationResponse)
+	err := c.cc.Invoke(ctx, User_LeaveTeam_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) GetTeamLeaveOperation(ctx context.Context, in *GetTeamLeaveOperationRequest, opts ...grpc.CallOption) (*TeamLeaveOperationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TeamLeaveOperationResponse)
+	err := c.cc.Invoke(ctx, User_GetTeamLeaveOperation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServer is the server API for User service.
 // All implementations must embed UnimplementedUserServer
 // for forward compatibility.
@@ -219,6 +245,10 @@ type UserServer interface {
 	CheckTeamMemberByID(context.Context, *CheckTeamMemberByIDRequest) (*CheckTeamMemberByIDResponse, error)
 	// 当前团队成员按完整用户名/昵称严格匹配启用成员；不自动决定负责人。
 	ResolveTeamMember(context.Context, *ResolveTeamMemberRequest) (*ResolveTeamMemberResponse, error)
+	// 仅登录本人退出团队；同一请求键可显式重试待清理操作。
+	LeaveTeam(context.Context, *LeaveTeamRequest) (*TeamLeaveOperationResponse, error)
+	// 回包丢失后，本人可按原请求键查询固定退出操作。
+	GetTeamLeaveOperation(context.Context, *GetTeamLeaveOperationRequest) (*TeamLeaveOperationResponse, error)
 	mustEmbedUnimplementedUserServer()
 }
 
@@ -264,6 +294,12 @@ func (UnimplementedUserServer) CheckTeamMemberByID(context.Context, *CheckTeamMe
 }
 func (UnimplementedUserServer) ResolveTeamMember(context.Context, *ResolveTeamMemberRequest) (*ResolveTeamMemberResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResolveTeamMember not implemented")
+}
+func (UnimplementedUserServer) LeaveTeam(context.Context, *LeaveTeamRequest) (*TeamLeaveOperationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LeaveTeam not implemented")
+}
+func (UnimplementedUserServer) GetTeamLeaveOperation(context.Context, *GetTeamLeaveOperationRequest) (*TeamLeaveOperationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTeamLeaveOperation not implemented")
 }
 func (UnimplementedUserServer) mustEmbedUnimplementedUserServer() {}
 func (UnimplementedUserServer) testEmbeddedByValue()              {}
@@ -502,6 +538,42 @@ func _User_ResolveTeamMember_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_LeaveTeam_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LeaveTeamRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).LeaveTeam(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_LeaveTeam_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).LeaveTeam(ctx, req.(*LeaveTeamRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_GetTeamLeaveOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTeamLeaveOperationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).GetTeamLeaveOperation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_GetTeamLeaveOperation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).GetTeamLeaveOperation(ctx, req.(*GetTeamLeaveOperationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // User_ServiceDesc is the grpc.ServiceDesc for User service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -556,6 +628,14 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResolveTeamMember",
 			Handler:    _User_ResolveTeamMember_Handler,
+		},
+		{
+			MethodName: "LeaveTeam",
+			Handler:    _User_LeaveTeam_Handler,
+		},
+		{
+			MethodName: "GetTeamLeaveOperation",
+			Handler:    _User_GetTeamLeaveOperation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

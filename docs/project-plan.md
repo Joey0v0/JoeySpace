@@ -1,6 +1,6 @@
 # 简化版飞书：微服务与 Agent 学习项目方案
 
-更新日期：2026-10-06
+更新日期：2026-10-07
 状态：阶段1—6主要业务流程已有本地代码和自动化验证；阶段7任务通知、提醒链和本人团队群未读正在收尾。现有验证仍以本机连接和依赖替身为主，真实MySQL、模型、浏览器、容器和云端联调待最终统一验收，不能将本地通过视为上线完成。
 用途：后续需求、架构、开发与验收的共同依据。
 
@@ -11,6 +11,8 @@
 当前接线（2026-10-06）：[User的Push专用mTLS监听](stage7-push-user-listener-contract.md#本步实现与审查)已实现并保持默认关闭，普通User和Agent Trigger端口不注册UserPush；基础Compose尚未配置证书与端口，Push消费者尚未调用，在线/离线投递资格保护未完成。用户已选A76的实施继续按小步推进，公开退出入口仍等待Push保护接线。
 
 最新A76进展（2026-10-06）：[Push团队群投递保护](stage7-push-team-delivery-guard-contract.md#三个小步骤与审查)已在本地代码接入逐接收人User正版本与IM群/关闭记录核验，覆盖在线发送、离线保存及在线失败后的再核权；缺专用客户端时团队群投递拒绝并重试，单聊和旧非团队群保留原路由。基础Compose证书/地址、031—033真实迁移、MySQL/跨进程/浏览器/云端链路尚未验收；公开本人退出、重入仍后续，A16及阶段7不标完成。此前段落中“Push尚未调用”是前一步快照，以本段为当前代码状态。
+
+最新A75进展（2026-10-07）：[本人退出与状态查询 User RPC](stage7-team-leave-public-rpc-contract.md#本步实现与审查)现已注册，Token 本人同键重试、退出后按键查询及未配置IM清理时写入前拒绝均有本地测试；上面的“公开本人退出仍后续”是此前快照。下一步先补 Gateway/页面显式重试与状态入口，再处理重新入队；基础Compose证书、031—033真实迁移、跨进程及浏览器仍未验收，部署须先让 Push 核权和 IM 清理就绪。A16及阶段7仍不标完成。
 
 最新进展（2026-10-06）：main仍89e2a1e，前几批成果继承在codex/stage7-group-unread-recovery。本批沿A73增加独立“从最新消息重新遍历”入口，成功才换历史游标，失败/旧范围回包保留位置；“刷新最新”保持原行为。共同eff7252；root审查/测试并保存A96f81d8、Ba8daf70、Cfff1083，无冲突整合82ee844。定向页面165项、恢复组合24项、全部353项Node及生产IM TCP恢复定向通过；集中Go结果见[七步、全部文件与验证边界](stage7-group-unread-recovery-contract.md#本批实现与审查)，[选择理由](architecture-decisions.md)。较小ID迟到可以重新逐页找到，提交后丢响应/撤权的查询与显式同ID重试已有本地组合证据；SQL/User/DOM仍替身，真实MySQL首次时间/重启、030、浏览器与云端未验收。A16退出清理/Push资格、关联日志及真实环境仍后续；没有新协议/表/依赖或生成文件删除，没有main合并/push/部署，阶段7/整体项目未标完成。
 
@@ -484,7 +486,7 @@ Agent 通过工具适配层调用业务服务，不直接连接业务数据库�
 
 - [x] A69—A72任务提醒运行接线（2026-10-05）：Push/WS分别由YAML显式开启，默认不建新资源；结构校验/TLS预检先于其他基础设施，新Push Reader独立Topic/group、同步commit，新组FirstOffset而已有组沿提交恢复；启动生产消费，坏事件只停提醒。WS新增专用TLS监听、实际绑定错误返回主流程、异常serve通道，取消/等待活动提醒后关闭User；root也接原HTTP端口同步绑定/信号关闭，不扩为旧Hub/WebSocket排空。两个main接线、默认关闭本地/容器模板及可选只读证书Compose覆盖已准备。共同7efed33、Push383f291、配置fe0045b、WS2a787f3/测试修正4b5d3f4由root审查/保存/整合；全仓Go及Linux两个目标通过。[八步和18文件审查](stage7-notification-runtime-contract.md#本批实现与审查)、[运行取舍](architecture-decisions.md)。当前电脑没有Docker命令，未验收Compose合并/挂载、真实Kafka/Redis/User/证书/信号或浏览器，不把运行接线等同于实际部署成功。
 
-当前下一步（2026-10-06）：A75/A76/A77全部A已确认，资格基础、Join/Create写入保护、普通本人群读取、后台触发上下文及负责人解析代际核权已有本地实现；033 User操作表、包内原子退出意图、本人Token鉴别及[IM独立清理监听](stage7-team-leave-im-runtime-contract.md#本批实现与审查)已准备。下一小步让User仅从033固定操作读取team/user/generation并用专用mTLS调用IM；随后完成可恢复的User状态、Push→User专用核权和可选私有Compose证书接线，才注册本人可调用的退出与显式重试RPC/Gateway入口。之后处理重入和原生退出状态入口。开工前继续固定具体接口、事务和部署顺序；不把包内函数或局部读取保护当完整退出链路。原路线单聊未读目标仍保留，新增口径另行讨论。随后沿A64本人状态边界补安全阶段/关联日志，不增加运行列表或公开内部错误。main仍89e2a1e，当前codex/stage7-team-leave-intent继承前几批，未合main/push。027—033未执行，先核对迁移再升级Task/User/IM，协调发布变量、Push/WS私有开关、独立证书及Topic/group/在线地址；可选覆盖不替你开启私有YAML。最终统一验收按[阶段7清单](stage7-acceptance.md)、[阶段6准备](stage6-runtime-acceptance.md)及[部署说明](../deploy/README.md)执行；方舟接入点/预算未定前不请求真实模型。
+此前规划快照（2026-10-06）：A75/A76/A77全部A已确认，资格基础、Join/Create写入保护、普通本人群读取、后台触发上下文及负责人解析代际核权已有本地实现；033 User操作表、包内原子退出意图、本人Token鉴别及[IM独立清理监听](stage7-team-leave-im-runtime-contract.md#本批实现与审查)已准备。下一小步让User仅从033固定操作读取team/user/generation并用专用mTLS调用IM；随后完成可恢复的User状态、Push→User专用核权和可选私有Compose证书接线，才注册本人可调用的退出与显式重试RPC/Gateway入口。之后处理重入和原生退出状态入口。开工前继续固定具体接口、事务和部署顺序；不把包内函数或局部读取保护当完整退出链路。原路线单聊未读目标仍保留，新增口径另行讨论。随后沿A64本人状态边界补安全阶段/关联日志，不增加运行列表或公开内部错误。main仍89e2a1e，当前codex/stage7-team-leave-intent继承前几批，未合main/push。027—033未执行，先核对迁移再升级Task/User/IM，协调发布变量、Push/WS私有开关、独立证书及Topic/group/在线地址；可选覆盖不替你开启私有YAML。最终统一验收按[阶段7清单](stage7-acceptance.md)、[阶段6准备](stage6-runtime-acceptance.md)及[部署说明](../deploy/README.md)执行；方舟接入点/预算未定前不请求真实模型。
 
 - [x] A27/A69/A72原生页面任务提醒与恢复（2026-10-05）：最小WS提示只在当前连接及本人/团队范围内展示，128项内存窗口合并重复，不拼通知详情或自动已读；首次/手动重连成功查询最新页，忙时串行排队一次，刷新期间的新提示保留。Token输入/成功登录使旧身份回调失效，401/403清旧列表并阻断迟到提示。状态a9f2413、展示bc1ea5c、组合8464d04由root测试/保存/无冲突整合，root接线d328ad8；全部303项Node和Gateway API回归通过。[七步、全部12文件及边界](stage7-notification-realtime-page-contract.md#本批实现与审查)，[取舍记录](architecture-decisions.md)。只完成本地替身验证，真实浏览器/部署链、027—029及main合并/push尚未执行；阶段7整体未标完成。
 

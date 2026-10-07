@@ -12,7 +12,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// completeOwnTeamLeave remains internal until the public leave/retry contract is wired.
 // The fixed scope always comes from the User-owned operation, never the IM response.
 func (s *userServer) completeOwnTeamLeave(ctx context.Context, teamID int64, requestKey string) (*teamLeaveIntent, error) {
 	if err := teamLeaveContextError(ctx); err != nil {
@@ -33,6 +32,10 @@ func (s *userServer) completeOwnTeamLeave(ctx context.Context, teamID int64, req
 		Where("user_id = ? AND request_key = ?", actor.GetId(), requestKey).Take(&op).Error
 	var intent *teamLeaveIntent
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// Do not revoke membership when the cleanup service is not configured.
+		if s.leaveIM == nil {
+			return nil, status.Error(codes.Unavailable, "IM leave cleanup unavailable")
+		}
 		intent, err = beginTeamLeaveIntent(ctx, s.db, teamID, actor.GetId(), requestKey)
 	} else if err == nil {
 		if op.ID <= 0 || op.UserID != actor.GetId() || op.TeamID <= 0 || op.Generation <= 0 || op.RequestKey != requestKey || op.Status < 0 || op.Status > 1 {
