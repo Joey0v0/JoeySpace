@@ -217,6 +217,16 @@ func main() {
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodPost,
+		Path:    "/api/v1/teams/:team_id/leave",
+		Handler: leaveTeamHandler(userpb.NewUserClient(rpcClient.Conn())),
+	}, rest.WithTimeout(7*time.Second))
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/teams/:team_id/leave",
+		Handler: getTeamLeaveOperationHandler(userpb.NewUserClient(rpcClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodPost,
 		Path:    "/api/v1/teams/:team_id/members",
 		Handler: addTeamMemberHandler(userpb.NewUserClient(rpcClient.Conn())),
 	})

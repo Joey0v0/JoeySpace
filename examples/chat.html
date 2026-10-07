@@ -78,7 +78,7 @@
     </div>
     <div class="config-row">
       <label>Token:</label>
-      <input type="text" id="token" value="" placeholder="JWT token (auto-filled after login, or paste manually)" oninput="clearAIAnswer(); clearTaskDraftResult()">
+      <input type="text" id="token" value="" placeholder="JWT token (auto-filled after login, or paste manually)" oninput="clearAIAnswer(); clearTaskDraftResult(); clearTeamLeaveStatus()">
       <button type="button" onclick="refreshAgentTriggerIdentity()">读取本人身份</button>
     </div>
     <small id="agentTriggerIdentityHint">登录后读取本人身份，或粘贴 Token 后点击读取；再加载群历史，可从本人原指令查看 AI 草稿。</small>
@@ -122,7 +122,18 @@
     <h2>Step 4 — Team Groups &amp; History</h2>
     <div class="config-row">
       <label>Team ID:</label>
-      <input type="text" inputmode="numeric" id="teamId" placeholder="team_id (int64)" oninput="clearAIAnswer(); clearTaskDraftResult()">
+      <input type="text" inputmode="numeric" id="teamId" placeholder="team_id (int64)" oninput="clearAIAnswer(); clearTaskDraftResult(); clearTeamLeaveStatus()">
+    </div>
+    <div class="config-row">
+      <label>退出团队:</label>
+      <input type="text" id="teamLeaveRequestKey" placeholder="首次退出自动生成；查询和重试保留原键" oninput="clearTeamLeaveStatus()">
+      <button type="button" onclick="newTeamLeaveRequestKey()">生成键（先清空旧键）</button>
+    </div>
+    <div class="config-row">
+      <label></label>
+      <button type="button" onclick="doLeaveTeam()">本人退出／原键重试</button>
+      <button type="button" onclick="doGetTeamLeaveOperation()">按原键查状态</button>
+      <small id="teamLeaveStatus">只有本人可退出；拥有者暂不能退出。请保存请求键，失败或超时先查原键状态。</small>
     </div>
     <div class="config-row">
       <label>New group:</label>
@@ -361,6 +372,7 @@ let directoryCursor = '';
 let directoryFinished = false;
 let directoryLoading = false;
 let creatingTeamGroup = false;
+let teamLeaveBusy = false;
 let taskTeamID = '';
 let taskCursor = '';
 let taskFinished = false;
@@ -1712,6 +1724,112 @@ function newGroupRequestKey() {
   const key = 'group-' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   document.getElementById('groupRequestKey').value = key;
   return key;
+}
+
+function clearTeamLeaveStatus() {
+  document.getElementById('teamLeaveStatus').textContent = '只有本人可退出；拥有者暂不能退出。请保存请求键，失败或超时先查原键状态。';
+}
+
+function newTeamLeaveRequestKey() {
+  const field = document.getElementById('teamLeaveRequestKey');
+  if (field.value.trim()) {
+    document.getElementById('teamLeaveStatus').textContent = '请先用原键查状态；确认不再需要后，手动清空旧键再生成。';
+    return field.value.trim();
+  }
+  if (!globalThis.crypto || !globalThis.crypto.getRandomValues) throw new Error('secure random generator unavailable');
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  const key = 'leave-' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  field.value = key;
+  clearTeamLeaveStatus();
+  return key;
+}
+
+function currentTeamLeaveScope(generateKey) {
+  const token = document.getElementById('token').value;
+  const teamID = document.getElementById('teamId').value.trim();
+  if (!token || !validID(teamID)) throw new Error('enter a token and team ID');
+  const keyField = document.getElementById('teamLeaveRequestKey');
+  const key = keyField.value.trim() || (generateKey ? newTeamLeaveRequestKey() : '');
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(key)) throw new Error('enter a valid leave request key');
+  return { token, teamID, key };
+}
+
+function stillCurrentTeamLeaveScope(scope) {
+  return document.getElementById('token').value === scope.token &&
+    document.getElementById('teamId').value.trim() === scope.teamID &&
+    document.getElementById('teamLeaveRequestKey').value.trim() === scope.key;
+}
+
+function showTeamLeaveResult(scope, data) {
+  if (!data || !validID(data.operation_id) || data.team_id !== scope.teamID ||
+      !validID(data.generation) || (data.status !== 0 && data.status !== 1)) {
+    throw new Error('invalid team leave response');
+  }
+  if (!stillCurrentTeamLeaveScope(scope)) return;
+  document.getElementById('teamLeaveStatus').textContent = data.status === 1 ?
+    '退出已完成（操作 #' + data.operation_id + '）。' :
+    '退出处理中（操作 #' + data.operation_id + '）；可用原键重试。';
+  document.getElementById('toUserId').value = '';
+  document.getElementById('teamGroupSelect').value = '';
+  document.getElementById('chatType').value = '1';
+  historyKey = '';
+  historyCursor = '';
+  historyFinished = false;
+  directoryTeamID = '';
+  directoryCursor = '';
+  directoryFinished = false;
+  clearAIAnswer();
+  clearTaskDraftResult();
+  if (typeof teamGroupUnreadPage !== 'undefined') teamGroupUnreadPage.invalidate();
+}
+
+async function leaveTeam() {
+  if (teamLeaveBusy) return;
+  const scope = currentTeamLeaveScope(true);
+  teamLeaveBusy = true;
+  try {
+    const resp = await fetch('/api/v1/teams/' + scope.teamID + '/leave', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + scope.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_key: scope.key })
+    });
+    if (!resp.ok) throw new Error('team leave HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.code !== 0) throw new Error('team leave failed: ' + (result.msg || 'unknown error'));
+    showTeamLeaveResult(scope, result.data);
+  } catch (e) {
+    if (stillCurrentTeamLeaveScope(scope)) {
+      document.getElementById('teamLeaveStatus').textContent = '结果未确认；保留原键，先查状态，再决定是否重试。';
+    }
+    throw e;
+  } finally {
+    teamLeaveBusy = false;
+  }
+}
+
+async function getTeamLeaveOperation() {
+  if (teamLeaveBusy) return;
+  const scope = currentTeamLeaveScope(false);
+  teamLeaveBusy = true;
+  try {
+    const resp = await fetch('/api/v1/teams/' + scope.teamID + '/leave?request_key=' + encodeURIComponent(scope.key), {
+      headers: { Authorization: 'Bearer ' + scope.token }
+    });
+    if (!resp.ok) throw new Error('team leave status HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.code !== 0) throw new Error('team leave status failed: ' + (result.msg || 'unknown error'));
+    showTeamLeaveResult(scope, result.data);
+  } finally {
+    teamLeaveBusy = false;
+  }
+}
+
+async function doLeaveTeam() {
+  try { await leaveTeam(); } catch (e) { log('Team leave failed: ' + e.message, 'error'); }
+}
+
+async function doGetTeamLeaveOperation() {
+  try { await getTeamLeaveOperation(); } catch (e) { log('Team leave status failed: ' + e.message, 'error'); }
 }
 
 async function createTeamGroup() {

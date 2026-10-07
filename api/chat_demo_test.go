@@ -19,6 +19,7 @@ func TestChatDemoServesEmbeddedPage(t *testing.T) {
 		`/api/v1/user/login`, `/api/v1/message/offline`, `/api/v1/message/offline/ack`,
 		`/api/v1/teams/`, `doLoadTeamGroupHistory`, `Step 5 — Team Tasks`, `doCreateTask`, `doLoadTaskSource`,
 		`id="groupUnreadCount"`, `id="btnGroupUnreadRefresh"`, `id="btnGroupReadLoaded"`, `id="groupUnreadStatus"`,
+		`id="teamLeaveRequestKey"`, `doLeaveTeam()`, `doGetTeamLeaveOperation()`,
 	} {
 		if !strings.Contains(w.Body.String(), expected) {
 			t.Fatalf("embedded page missing %q", expected)

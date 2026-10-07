@@ -11,7 +11,7 @@ UserRPC:
   Endpoints:
     - user-rpc:9001
   NonBlock: true
-  Timeout: 2000
+  Timeout: 5000
 IMRPC:
   Endpoints:
     - im-rpc:9002

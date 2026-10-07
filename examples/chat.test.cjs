@@ -166,6 +166,8 @@ function page(fetch) {
     token: { value: 'test-token' },
     agentTriggerIdentityHint: { textContent: '' },
     teamId: { value: '' },
+    teamLeaveRequestKey: { value: '' },
+    teamLeaveStatus: { textContent: '' },
     newGroupName: { value: '' },
     groupRequestKey: { value: '' },
     teamGroupSelect: groupSelect,
@@ -230,7 +232,7 @@ function page(fetch) {
     send(payload) { this.sent.push(payload); }
     close() { this.readyState = 3; }
   };
-  vm.runInNewContext(script + '\nthis.pullOfflineMessages = pullOfflineMessages; this.isNewChatMessage = isNewChatMessage; this.loadTeamGroupHistory = loadTeamGroupHistory; this.loadTeamGroups = loadTeamGroups; this.selectTeamGroup = selectTeamGroup; this.joinTeamGroup = joinTeamGroup; this.createTeamGroup = createTeamGroup; this.newGroupRequestKey = newGroupRequestKey; this.loadTasks = loadTasks; this.createTask = createTask; this.askAI = askAI; this.doAskAI = doAskAI; this.clearAIAnswer = clearAIAnswer; this.prepareTaskDraft = prepareTaskDraft; this.doPrepareTaskDraft = doPrepareTaskDraft; this.loadTaskDraft = loadTaskDraft; this.newDraftRequestKey = newDraftRequestKey;', context);
+  vm.runInNewContext(script + '\nthis.pullOfflineMessages = pullOfflineMessages; this.isNewChatMessage = isNewChatMessage; this.loadTeamGroupHistory = loadTeamGroupHistory; this.loadTeamGroups = loadTeamGroups; this.selectTeamGroup = selectTeamGroup; this.joinTeamGroup = joinTeamGroup; this.createTeamGroup = createTeamGroup; this.newGroupRequestKey = newGroupRequestKey; this.leaveTeam = leaveTeam; this.getTeamLeaveOperation = getTeamLeaveOperation; this.newTeamLeaveRequestKey = newTeamLeaveRequestKey; this.loadTasks = loadTasks; this.createTask = createTask; this.askAI = askAI; this.doAskAI = doAskAI; this.clearAIAnswer = clearAIAnswer; this.prepareTaskDraft = prepareTaskDraft; this.doPrepareTaskDraft = doPrepareTaskDraft; this.loadTaskDraft = loadTaskDraft; this.newDraftRequestKey = newDraftRequestKey;', context);
   context.log = text => {
     logs.push(text);
     const entry = { children: [], appendChild(child) { this.children.push(child); } };
@@ -1175,6 +1177,57 @@ test('group creation reuses its request key after an uncertain failure and selec
   assert.equal(fields.teamGroupSelect.options.filter(option => option.value === '9007199254740993').length, 1);
   assert.equal(fields.groupRequestKey.value, key);
   assert.notEqual(context.newGroupRequestKey(), key);
+});
+
+test('team leave keeps its key after an uncertain result, then queries and retries that operation', async () => {
+  const calls = [];
+  const { context, fields } = page(async (url, options) => {
+    calls.push({ url, options });
+    if (calls.length === 1) return { ok: false, status: 503 };
+    return reply({ code: 0, data: { operation_id: '9007199254740995', team_id: '9007199254740993',
+      generation: '9007199254740997', status: calls.length === 2 ? 0 : 1 } });
+  });
+  fields.teamId.value = '9007199254740993';
+  fields.toUserId.value = '9007199254740999';
+  fields.chatType.value = '2';
+  await assert.rejects(context.leaveTeam(), /team leave HTTP 503/);
+  const key = fields.teamLeaveRequestKey.value;
+  assert.match(key, /^leave-[a-f0-9]{32}$/);
+  assert.match(fields.teamLeaveStatus.textContent, /保留原键/);
+  assert.equal(context.newTeamLeaveRequestKey(), key);
+  assert.equal(fields.teamLeaveRequestKey.value, key);
+  assert.match(fields.teamLeaveStatus.textContent, /先用原键查状态/);
+  await context.getTeamLeaveOperation();
+  assert.equal(calls[1].url, '/api/v1/teams/9007199254740993/leave?request_key=' + key);
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer test-token');
+  assert.match(fields.teamLeaveStatus.textContent, /退出处理中/);
+  assert.equal(fields.toUserId.value, '');
+  await context.leaveTeam();
+  assert.equal(calls[0].options.body, calls[2].options.body);
+  assert.equal(JSON.parse(calls[2].options.body).request_key, key);
+  assert.match(fields.teamLeaveStatus.textContent, /退出已完成/);
+  assert.equal(fields.chatType.value, '1');
+});
+
+test('team leave rejects invalid input and ignores a response after identity changes', async () => {
+  let finish;
+  const calls = [];
+  const { context, fields } = page((url, options) => {
+    calls.push({ url, options });
+    return new Promise(resolve => { finish = resolve; });
+  });
+  fields.teamId.value = '2';
+  fields.teamLeaveRequestKey.value = 'bad key';
+  await assert.rejects(context.leaveTeam(), /valid leave request key/);
+  assert.equal(calls.length, 0);
+  fields.teamLeaveRequestKey.value = 'same-key';
+  const pending = context.leaveTeam();
+  fields.token.value = 'another-token';
+  finish(reply({ code: 0, data: { operation_id: '7', team_id: '2', generation: '1', status: 1 } }));
+  await pending;
+  assert.equal(fields.teamLeaveStatus.textContent, '');
+  assert.equal(fields.teamLeaveRequestKey.value, 'same-key');
+  assert.equal(fields.teamId.value, '2');
 });
 
 test('group creation rejects invalid input and keeps the key when owner authorization fails', async () => {
