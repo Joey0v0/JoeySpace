@@ -402,7 +402,7 @@ def main():
                 if source_id is None:
                     time.sleep(0.5)
             stage = "background @AI trigger completion"
-            deadline = time.monotonic() + 90
+            deadline = time.monotonic() + 150
             run = None
             while run is None:
                 state = http(base, "GET", "/api/v1/teams/%s/groups/%s/agent-triggers/%s" %
@@ -411,7 +411,7 @@ def main():
                     require(state.get("status") != "exhausted", "@AI trigger exhausted its model budget")
                     if state.get("status") == "completed":
                         run = state.get("run_id")
-                require(run or time.monotonic() < deadline, "@AI trigger did not complete in 90s")
+                require(run or time.monotonic() < deadline, "@AI trigger did not complete in 150s")
                 if run is None:
                     time.sleep(1)
             completed.append("group @AI -> Kafka -> Agent draft")

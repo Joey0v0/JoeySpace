@@ -37,6 +37,16 @@ func TestArkConfigBoundsOneAsk(t *testing.T) {
 	}
 }
 
+func TestArkDraftConfigAllowsLongerStructuredGeneration(t *testing.T) {
+	vars := map[string]string{"ARK_API_KEY": "test-key", "ARK_MODEL_ID": "ep-test-only"}
+	cfg, err := arkDraftConfigFromEnv(func(key string) string { return vars[key] })
+	if err != nil || cfg.Timeout == nil || *cfg.Timeout != arkDraftRequestTimeout ||
+		cfg.MaxTokens == nil || *cfg.MaxTokens != arkMaxOutputTokens ||
+		cfg.RetryTimes == nil || *cfg.RetryTimes != 0 {
+		t.Fatalf("unexpected draft Ark config: %v, %v", cfg, err)
+	}
+}
+
 func TestArkGeneratorConstructionDoesNotRequireProviderCall(t *testing.T) {
 	t.Setenv("ARK_API_KEY", "test-key")
 	t.Setenv("ARK_MODEL_ID", "ep-test-only")

@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	arkRequestTimeout  = 15 * time.Second
-	arkMaxOutputTokens = 1024
-	arkRetryTimes      = 0
+	arkRequestTimeout      = 15 * time.Second
+	arkDraftRequestTimeout = 45 * time.Second
+	arkMaxOutputTokens     = 1024
+	arkRetryTimes          = 0
 )
 
 // NewArkGroupReplyGenerator configures the selected provider. Construction
@@ -31,10 +32,10 @@ func NewArkGroupReplyGenerator(ctx context.Context) (*EinoGroupReplyGenerator, e
 	return NewEinoGroupReplyGenerator(ctx, chatModel)
 }
 
-// NewArkTaskDraftGenerator uses the same bounded provider configuration as Ask.
+// NewArkTaskDraftGenerator allows longer structured output than a direct Ask.
 // Construction does not send a model request.
 func NewArkTaskDraftGenerator(ctx context.Context) (*EinoTaskDraftGenerator, error) {
-	cfg, err := arkConfigFromEnv(os.Getenv)
+	cfg, err := arkDraftConfigFromEnv(os.Getenv)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +44,16 @@ func NewArkTaskDraftGenerator(ctx context.Context) (*EinoTaskDraftGenerator, err
 		return nil, status.Error(codes.Unavailable, "Ark model is unavailable")
 	}
 	return NewEinoTaskDraftGenerator(ctx, chatModel)
+}
+
+func arkDraftConfigFromEnv(getenv func(string) string) (*ark.ChatModelConfig, error) {
+	cfg, err := arkConfigFromEnv(getenv)
+	if err != nil {
+		return nil, err
+	}
+	timeout := arkDraftRequestTimeout
+	cfg.Timeout = &timeout
+	return cfg, nil
 }
 
 func arkConfigFromEnv(getenv func(string) string) (*ark.ChatModelConfig, error) {

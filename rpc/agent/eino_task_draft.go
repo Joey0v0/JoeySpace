@@ -3,7 +3,9 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 
@@ -112,6 +114,10 @@ func (g *EinoTaskDraftGenerator) generateDraftAnswer(ctx context.Context, instru
 		return "", status.FromContextError(ctx.Err()).Err()
 	}
 	if err != nil {
+		var networkError net.Error
+		if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &networkError) && networkError.Timeout() {
+			return "", status.Error(codes.DeadlineExceeded, "model request timed out")
+		}
 		return "", status.Error(codes.Unavailable, "model unavailable")
 	}
 	if answer == nil || answer.Role != schema.Assistant || len(answer.ToolCalls) != 0 || len(answer.Content) > maxBytes {

@@ -147,6 +147,7 @@ func TestEinoTaskDraftsBoundsAndModelErrors(t *testing.T) {
 		{"tool call", &schema.Message{Role: schema.Assistant, Content: batchModelJSON(t, batchModelItem()), ToolCalls: []schema.ToolCall{{ID: "write-task"}}}, nil, codes.FailedPrecondition},
 		{"oversize", schema.AssistantMessage(strings.Repeat(" ", 5*16384+1), nil), nil, codes.FailedPrecondition},
 		{"provider", nil, errors.New("private provider detail"), codes.Unavailable},
+		{"timeout", nil, errors.Join(context.DeadlineExceeded, errors.New("private provider detail")), codes.DeadlineExceeded},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			g, err := NewEinoTaskDraftGenerator(context.Background(), chatModelFunc(func(context.Context, []*schema.Message) (*schema.Message, error) { return tc.answer, tc.err }))
