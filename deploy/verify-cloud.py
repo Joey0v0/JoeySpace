@@ -29,7 +29,7 @@ def require(condition, message):
         raise CheckFailed(message)
 
 
-def http(base, method, path, token=None, body=None, key=None):
+def http(base, method, path, token=None, body=None, key=None, timeout=12):
     headers = {}
     if token:
         headers["Authorization"] = "Bearer " + token
@@ -41,7 +41,7 @@ def http(base, method, path, token=None, body=None, key=None):
         data = json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(base + path, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=12) as response:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
             status = response.status
             raw = response.read(1_000_001)
     except urllib.error.HTTPError as error:
@@ -161,6 +161,8 @@ def main():
     parser.add_argument("--ws-port", type=int, default=8081)
     parser.add_argument("--group-chat", action="store_true",
                         help="also require group Push delivery; needs team-leave mTLS overlay")
+    parser.add_argument("--agent-ask", action="store_true",
+                        help="also require one real Agent model answer; needs agent-rpc and model credentials")
     args = parser.parse_args()
     base = args.gateway.rstrip("/")
     require(base.startswith("http://127.0.0.1:") or base.startswith("http://localhost:"),
@@ -192,6 +194,15 @@ def main():
                      body={"name": "smoke-" + suffix})["group_id"]
         http(base, "POST", "/api/v1/teams/%s/groups/%s/join" % (team, group), token=tokens[1])
         completed.append("team creation, member addition and group join")
+
+        if args.agent_ask:
+            stage = "Agent model answer"
+            answer = http(base, "POST", "/api/v1/teams/%s/groups/%s/ask" % (team, group),
+                          token=tokens[0],
+                          body={"question": "请用一句话说明这个新建群目前是否有消息可供总结。"},
+                          timeout=25).get("answer")
+            require(isinstance(answer, str) and answer.strip(), "Agent returned an empty answer")
+            completed.append("Agent real model answer")
 
         stage = "task and notification checks"
         task = http(base, "POST", "/api/v1/teams/%s/tasks" % team,
@@ -245,7 +256,10 @@ def main():
         print("PASS: " + "; ".join(completed))
         if not args.group_chat:
             print("NOT CHECKED: team-group Push delivery (requires team-leave mTLS overlay)")
-        print("NOT CHECKED: Agent/model, bot reply and real-time task hints (require optional overlays)")
+        if args.agent_ask:
+            print("NOT CHECKED: bot reply and real-time task hints (require optional overlays)")
+        else:
+            print("NOT CHECKED: Agent/model, bot reply and real-time task hints (require optional overlays)")
         print("TEST DATA: users %s, %s; team %s; group %s; task %s" %
               (usernames[0], usernames[1], team, group, task))
         return 0
