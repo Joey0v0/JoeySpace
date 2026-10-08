@@ -24,6 +24,8 @@
    | `docker-compose.notifications.yaml` | `WS_NOTIFICATION_CERT_DIR`、`PUSH_NOTIFICATION_CERT_DIR` |
    | `docker-compose.team-leave.yaml` | `USER_LEAVE_CERT_DIR`、`IM_LEAVE_CERT_DIR`、`USER_PUSH_CERT_DIR`、`PUSH_USER_CERT_DIR` |
 
+   新单机服务器且尚无私有 mTLS 凭证时，可在本目录运行一次 `sh provision-mtls.sh`。该脚本使用服务器上的 OpenSSL 和 Python 3，在仓库外的 `/opt/joeyspace-secrets` 创建私有 CA 与上表 12 个**不同私钥**的证书目录，按用途写入固定 DNS SAN，并在本地验证链、用途和名称；最后只将目录路径写入已有 `.env`。目标目录已存在、`.env` 对应变量已有值或 `.env` 是符号链接时拒绝覆盖；它不会替你启用私有 YAML 开关或重启服务。CA 私钥留在仓库外，仅用于后续签发/轮换，须由部署者私下保管；证书生成后不要把 `.env`、`/opt/joeyspace-secrets` 或完整 `docker compose config` 输出提交/发送。若已有自管 CA 和证书，沿用现有凭证并按上表填写路径，不运行此首次准备脚本。
+
    在私有 `docker-config.local.yaml` 将 `kafka.agent_trigger_enabled`、`task_notifications.push.enabled`、`task_notifications.ws.enabled` 设为 `true`，并保持聊天、Agent 触发和任务通知三个 Topic 不同；Task 发布 Topic 要与 Push 通知 Topic 相同。通知证书目录仅被覆盖文件挂载，覆盖文件**不会**自动打开私有 YAML 中的开关。仅运行基础 Compose 可使用聊天、团队和任务的基础入口，但不会启动完整 Agent/机器人/通知/团队退出链。
 
 4. **完成数据库准备。** 全新空卷可按第 5 步启动，MySQL 会执行 `init.sql`。已有库应先单独启动或连接**已确认的同一 MySQL 实例**，逐项核对缺失迁移并执行。以下是 Linux shell 中执行**某一个已确认缺失**的迁移文件的示例；将文件名替换为实际缺失项，不能循环盲跑 001—035：
@@ -54,7 +56,7 @@
 
    不想逐条调用接口时，可在服务器的本目录运行一次 `python3 verify-cloud.py`。脚本仅用 Python 标准库，自动创建两名随机测试用户、团队、群和任务，验证跨账号任务/通知及单聊的 WebSocket→Kafka→Push→WebSocket 投递；最后只输出 PASS/FAIL 和测试数据 ID，不输出密码或登录 Token。失败时已创建的数据会保留，重跑会新建另一组测试数据。默认**不**测试团队群投递，因为基础 Compose 缺少 Push→User 专用 mTLS 配置；完整覆盖与证书启用后，可加 `--group-chat` 要求实际群投递通过。启用 Agent RPC 并配置真实模型后，可加 `--agent-ask`，用本轮新建的账号和群发起一次真实模型问答，无需保留终端 Token 变量；它只验证模型回答，不验证机器人回帖或后台触发。
 
-   全部可选覆盖、私有 YAML 开关与独立 mTLS 证书准备好后，运行一次 `python3 verify-cloud.py --full`。脚本先检查证书目录、合并后的 Compose 配置及当前容器的覆盖环境；缺配置时输出 `NOT READY` 并在发群消息前退出。通过预检后，它依次验证真实模型问答、在线任务提示、团队群投递、群内 `@AI` 后台草稿、人工确认后的机器人回帖在线投递与历史持久化。它只在模型生成**单项、无负责人、无截止时间**的草稿时自动确认隔离测试任务；其他草稿会停在待人工审查状态。`PASS` 不涵盖撤权、故障恢复或浏览器交互；预检不验证证书握手和模型额度，这些由实际请求检验。不要在只有基础 Compose 的环境绕过预检发送团队群消息，否则 Push 可能保留未确认事件并停止推进聊天消费。未加这些参数时脚本会明确标记未检查，不能把基础脚本通过当作全项目验收通过。
+   全部可选覆盖、私有 YAML 开关与独立 mTLS 证书准备好后，运行一次 `python3 verify-cloud.py --full`。脚本先检查证书目录、合并后的 Compose 配置及当前容器的覆盖环境；缺证书或私有开关时一次列出全部缺项，输出 `NOT READY` 并在发群消息前退出。通过预检后，它依次验证真实模型问答、在线任务提示、团队群投递、群内 `@AI` 后台草稿、人工确认后的机器人回帖在线投递与历史持久化。它只在模型生成**单项、无负责人、无截止时间**的草稿时自动确认隔离测试任务；其他草稿会停在待人工审查状态。`PASS` 不涵盖撤权、故障恢复或浏览器交互；预检不验证证书握手和模型额度，这些由实际请求检验。不要在只有基础 Compose 的环境绕过预检发送团队群消息，否则 Push 可能保留未确认事件并停止推进聊天消费。未加这些参数时脚本会明确标记未检查，不能把基础脚本通过当作全项目验收通过。
 
 上述命令与模板已经过本地静态核对，但不能代替部署者在目标环境完成第 6 步的实际验收。
 

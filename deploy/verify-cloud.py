@@ -192,11 +192,12 @@ def full_preflight():
                   "WS_NOTIFICATION_CERT_DIR", "PUSH_NOTIFICATION_CERT_DIR",
                   "USER_LEAVE_CERT_DIR", "IM_LEAVE_CERT_DIR", "USER_PUSH_CERT_DIR",
                   "PUSH_USER_CERT_DIR")
+    missing_certs = []
     for name in cert_names:
         folder = Path(values.get(name, ""))
-        require(folder.is_absolute() and all((folder / part).is_file()
-                for part in ("cert.pem", "key.pem", "ca.pem")),
-                "full checks need private %s with cert.pem, key.pem and ca.pem" % name)
+        if not (folder.is_absolute() and all((folder / part).is_file()
+                for part in ("cert.pem", "key.pem", "ca.pem"))):
+            missing_certs.append(name)
     yaml_file = directory / "docker-config.local.yaml"
     require(yaml_file.is_file(), "full checks need deploy/docker-config.local.yaml")
     switches = {}
@@ -214,11 +215,18 @@ def full_preflight():
             switches[path] = value.strip().strip("\"'").lower()
         else:
             stack.append((indent, key))
+    missing_switches = []
     for path in (("kafka", "agent_trigger_enabled"),
                  ("task_notifications", "push", "enabled"),
                  ("task_notifications", "ws", "enabled")):
-        require(switches.get(path) == "true", "full checks need %s=true in private YAML" %
-                ".".join(path))
+        if switches.get(path) != "true":
+            missing_switches.append(".".join(path))
+    problems = []
+    if missing_certs:
+        problems.append("certificate directories/files: " + ", ".join(missing_certs))
+    if missing_switches:
+        problems.append("private YAML switches: " + ", ".join(missing_switches))
+    require(not problems, "; ".join(problems))
     compose = ["docker", "compose", "--env-file", ".env", "--profile", "agent"]
     for filename in ("docker-compose.yaml", "docker-compose.bot.yaml",
                      "docker-compose.trigger.yaml", "docker-compose.notifications.yaml",
