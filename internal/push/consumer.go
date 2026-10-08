@@ -31,11 +31,12 @@ type messagePusher interface {
 // NewConsumer 创建 Kafka 消费者
 func NewConsumer(brokers []string, topic, groupID string, pusher *Pusher, logger *zap.Logger) *Consumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  brokers,
-		Topic:    topic,
-		GroupID:  groupID,
-		MinBytes: 1,
-		MaxBytes: 10e6, // 10MB
+		Brokers:               brokers,
+		Topic:                 topic,
+		GroupID:               groupID,
+		MinBytes:              1,
+		MaxBytes:              10e6, // 10MB
+		WatchPartitionChanges: true, // The topic may be auto-created after this reader joins.
 	})
 
 	return &Consumer{

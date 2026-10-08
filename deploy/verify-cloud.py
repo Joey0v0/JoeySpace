@@ -143,7 +143,10 @@ def receive_message(ws, expected_type, msg_id):
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         ws.sock.settimeout(max(0.1, deadline - time.monotonic()))
-        message = ws.recv_json()
+        try:
+            message = ws.recv_json()
+        except socket.timeout as error:
+            raise CheckFailed("timed out waiting for WebSocket " + expected_type) from error
         if message.get("type") == "error":
             raise CheckFailed("WebSocket returned an error: " + str(message.get("data")))
         if message.get("type") == expected_type and message.get("data", {}).get("msg_id") == msg_id:
@@ -167,6 +170,7 @@ def main():
     password = secrets.token_urlsafe(24)
     sockets = []
     completed = []
+    stage = "creating test accounts"
     try:
         for name in usernames:
             http(base, "POST", "/api/v1/user/register",
@@ -178,6 +182,7 @@ def main():
         require(ids[0] != ids[1], "test accounts have the same user ID")
         completed.append("two-account registration, login and profile")
 
+        stage = "team and group setup"
         team = http(base, "POST", "/api/v1/teams", token=tokens[0],
                     body={"name": "smoke-" + suffix})["team_id"]
         http(base, "POST", "/api/v1/teams/%s/members" % team,
@@ -188,6 +193,7 @@ def main():
         http(base, "POST", "/api/v1/teams/%s/groups/%s/join" % (team, group), token=tokens[1])
         completed.append("team creation, member addition and group join")
 
+        stage = "task and notification checks"
         task = http(base, "POST", "/api/v1/teams/%s/tasks" % team,
                     token=tokens[0], key="task-" + suffix,
                     body={"title": "Smoke task " + suffix, "assignee_id": ids[1]})["task_id"]
@@ -207,25 +213,33 @@ def main():
         require(read["read_at_unix_ms"] > 0, "notification was not marked read")
         completed.append("task creation, cross-account status and persisted notification")
 
+        stage = "receiver WebSocket handshake"
         receiver = WS(args.ws_host, args.ws_port, tokens[1])
         sockets.append(receiver)
+        stage = "sender WebSocket handshake"
         sender = WS(args.ws_host, args.ws_port, tokens[0])
         sockets.append(sender)
         time.sleep(0.5)  # Allow the receiver's online route to reach Redis.
         msg_id = "smoke-direct-" + suffix
+        stage = "direct-message send"
         sender.send_json({"type": "chat", "data": {"msg_id": msg_id, "to_id": ids[1],
                                                  "chat_type": 1, "content_type": 1,
                                                  "content": "smoke " + suffix}})
+        stage = "direct-message Kafka acknowledgement"
         receive_message(sender, "ack", msg_id)
+        stage = "direct-message online delivery"
         receive_message(receiver, "chat", msg_id)
         completed.append("WebSocket -> Kafka -> Push -> WebSocket direct message")
 
         if args.group_chat:
             msg_id = "smoke-group-" + suffix
+            stage = "team-group send"
             sender.send_json({"type": "chat", "data": {"msg_id": msg_id, "to_id": group,
                                                      "chat_type": 2, "content_type": 1,
                                                      "content": "smoke " + suffix}})
+            stage = "team-group Kafka acknowledgement"
             receive_message(sender, "ack", msg_id)
+            stage = "team-group online delivery"
             receive_message(receiver, "chat", msg_id)
             completed.append("team-group delivery with current membership checks")
         print("PASS: " + "; ".join(completed))
@@ -237,6 +251,7 @@ def main():
         return 0
     except (CheckFailed, KeyError, OSError, ValueError, socket.timeout) as error:
         print("FAIL after: " + ("; ".join(completed) or "no completed checks"), file=sys.stderr)
+        print("FAILED STAGE: " + stage, file=sys.stderr)
         print("REASON: " + str(error), file=sys.stderr)
         print("Test data already created is retained; do not rerun with the same generated users.",
               file=sys.stderr)

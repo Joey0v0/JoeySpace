@@ -119,7 +119,8 @@ func newAgentTriggerInbox(cfg agentTriggerInboxConfig, db *gorm.DB, factory agen
 		factory = func(config kafka.ReaderConfig) (agent.TriggerEventReader, error) { return kafka.NewReader(config), nil }
 	}
 	reader, err := factory(kafka.ReaderConfig{Brokers: append([]string(nil), cfg.Brokers...), Topic: cfg.Topic,
-		GroupID: cfg.Group, CommitInterval: 0, MinBytes: 1, MaxBytes: 64 * 1024, StartOffset: kafka.FirstOffset})
+		GroupID: cfg.Group, CommitInterval: 0, MinBytes: 1, MaxBytes: 64 * 1024, StartOffset: kafka.FirstOffset,
+		WatchPartitionChanges: true})
 	if err != nil {
 		closePreparedAgentTriggerReader(reader)
 		return nil, errors.New("cannot prepare Agent trigger Kafka reader")

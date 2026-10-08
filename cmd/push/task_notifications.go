@@ -76,7 +76,8 @@ func prepareTaskNotificationPush(cfg *config.Config, logger *zap.Logger, factori
 		routes[address] = origin
 	}
 	readerConfig := kafka.ReaderConfig{Brokers: append([]string(nil), cfg.Kafka.Brokers...), GroupID: c.ConsumerGroup, Topic: c.Topic,
-		CommitInterval: 0, StartOffset: kafka.FirstOffset, MinBytes: 1, MaxBytes: 1e6, QueueCapacity: 1}
+		CommitInterval: 0, StartOffset: kafka.FirstOffset, MinBytes: 1, MaxBytes: 1e6, QueueCapacity: 1,
+		WatchPartitionChanges: true}
 	if err := readerConfig.Validate(); err != nil {
 		return nil, errors.New("invalid task notification reader configuration")
 	}
