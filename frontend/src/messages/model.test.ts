@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { findConversation, getUnreadConversations, type ConversationSummary } from './model.ts'
+import { findConversation, getUniqueConversations, getUnreadConversations, type ConversationSummary } from './model.ts'
 
 const items: readonly ConversationSummary[] = [
   { key: 'direct:9007199254740993', kind: 'direct', title: '小王', unreadCount: '2', mentioned: false, preview: '收到', updatedAt: 40 },
@@ -33,4 +33,18 @@ test('empty and unmentioned lists have no mentioned unread conversations', () =>
   assert.deepEqual(getUnreadConversations([], 'all'), [])
   assert.deepEqual(getUnreadConversations([], 'mentions'), [])
   assert.deepEqual(getUnreadConversations([items[0], items[3]], 'mentions'), [])
+})
+
+test('directory keeps one row and one unread badge count per conversation key', () => {
+  const repeated = [...items, { ...items[0], title: '重复的旧预览' }, items[1]]
+  const unique = getUniqueConversations(repeated)
+  assert.deepEqual(unique.map((item) => item.key), items.map((item) => item.key))
+  assert.equal(unique.filter((item) => item.unreadCount !== '0').length, 3)
+})
+
+test('sidebar and unread overview use the same first snapshot for conflicting duplicate keys', () => {
+  const duplicate = { ...items[2], unreadCount: '3', updatedAt: 100 }
+  const source = [items[2], duplicate]
+  assert.deepEqual(getUniqueConversations(source), [items[2]])
+  assert.deepEqual(getUnreadConversations(source, 'all'), [])
 })

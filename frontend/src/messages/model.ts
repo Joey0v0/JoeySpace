@@ -22,13 +22,8 @@ export function getUnreadConversations(
   items: readonly ConversationSummary[],
   filter: 'all' | 'mentions',
 ): ConversationSummary[] {
-  const seen = new Set<string>()
-  return items
-    .filter((item) => {
-      if (item.unreadCount === '0' || (filter === 'mentions' && !item.mentioned) || seen.has(item.key)) return false
-      seen.add(item.key)
-      return true
-    })
+  return getUniqueConversations(items)
+    .filter((item) => item.unreadCount !== '0' && (filter === 'all' || item.mentioned))
     .sort((left, right) => Number(right.mentioned) - Number(left.mentioned) || right.updatedAt - left.updatedAt)
 }
 
@@ -37,4 +32,13 @@ export function findConversation(
   key: string,
 ): ConversationSummary | undefined {
   return items.find((item) => item.key === key)
+}
+
+export function getUniqueConversations(items: readonly ConversationSummary[]): ConversationSummary[] {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    if (seen.has(item.key)) return false
+    seen.add(item.key)
+    return true
+  })
 }

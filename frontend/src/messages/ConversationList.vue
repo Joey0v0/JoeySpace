@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { ConversationSummary } from './model.ts'
+import { getUniqueConversations } from './model.ts'
 import { conversationPath } from './sample.ts'
 
 const props = defineProps<{ items: readonly ConversationSummary[]; activeKey?: string }>()
 const search = ref('')
-const matches = computed(() => props.items.filter((item) => `${item.title} ${item.teamName ?? ''}`.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())))
+const uniqueItems = computed(() => getUniqueConversations(props.items))
+const matches = computed(() => uniqueItems.value.filter((item) => `${item.title} ${item.teamName ?? ''}`.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())))
 const groups = computed(() => matches.value.filter((item) => item.kind === 'group'))
 const directs = computed(() => matches.value.filter((item) => item.kind === 'direct'))
-const unreadConversations = computed(() => props.items.filter((item) => item.unreadCount !== '0').length)
+const unreadConversations = computed(() => uniqueItems.value.filter((item) => item.unreadCount !== '0').length)
 </script>
 
 <template>
@@ -53,6 +55,6 @@ const unreadConversations = computed(() => props.items.filter((item) => item.unr
       </template>
       <div v-else class="search-empty"><strong>没有匹配的会话</strong><p>试试其他名称；这里仅搜索当前样例目录。</p></div>
     </div>
-    <div class="directory-footer"><span class="status-pulse" />样例目录 · 共 {{ items.length }} 个会话</div>
+    <div class="directory-footer"><span class="status-pulse" />样例目录 · 共 {{ uniqueItems.length }} 个会话</div>
   </aside>
 </template>

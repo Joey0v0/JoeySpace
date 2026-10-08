@@ -12,7 +12,7 @@ defineProps<{ conversation: ConversationSummary; messages: readonly MessagePrevi
       <div class="chat-unread">{{ conversation.unreadCount === '0' ? '暂无未读' : `${conversation.unreadCount} 条未读` }} · 样例</div>
     </header>
     <div class="chat-scroll">
-      <div class="day-divider"><span>今天</span></div>
+      <div class="day-divider"><span>样例讨论</span></div>
       <div class="chat-messages">
         <article v-for="message in messages" :key="message.id" class="chat-message" :class="{ 'is-own': message.own }">
           <div class="message-avatar" :class="{ 'is-bot': message.bot }" aria-hidden="true">{{ message.bot ? '✦' : message.senderName.slice(0, 1) }}</div>
