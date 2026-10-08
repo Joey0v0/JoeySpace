@@ -187,6 +187,12 @@ def full_preflight():
         if "=" in line and not line.lstrip().startswith("#"):
             name, value = line.split("=", 1)
             values[name.strip()] = value.strip().strip("\"'")
+    raw_timeout = values.get("ARK_DRAFT_TIMEOUT_SECONDS") or "90"
+    require(len(raw_timeout) <= 3 and raw_timeout.isascii() and raw_timeout.isdigit() and
+            str(int(raw_timeout)) == raw_timeout and
+            15 <= int(raw_timeout) <= 180,
+            "ARK_DRAFT_TIMEOUT_SECONDS must be 15..180")
+    trigger_wait_seconds = 2 * int(raw_timeout) + 45
     cert_names = ("IM_BOT_CERT_DIR", "AGENT_BOT_CERT_DIR", "USER_TRIGGER_CERT_DIR",
                   "IM_TRIGGER_CERT_DIR", "IM_TRIGGER_USER_CERT_DIR", "AGENT_TRIGGER_CERT_DIR",
                   "WS_NOTIFICATION_CERT_DIR", "PUSH_NOTIFICATION_CERT_DIR",
@@ -242,7 +248,8 @@ def full_preflight():
                "im-rpc": ("IM_BOT_LISTEN_ON", "IM_TRIGGER_LISTEN_ON"),
                "im-push": ("PUSH_USER_RPC_ADDR",),
                "im-ws": (),
-               "agent-rpc": ("AGENT_IM_BOT_ADDR", "AGENT_TRIGGER_WORKER_ENABLED"),
+               "agent-rpc": ("AGENT_IM_BOT_ADDR", "AGENT_TRIGGER_INBOX_ENABLED",
+                             "AGENT_TRIGGER_WORKER_ENABLED"),
                "task-rpc": ("TASK_NOTIFICATION_PUBLISH_ENABLED",)}
     for service, required in markers.items():
         found = subprocess.run(compose + ["ps", "-q", service], cwd=directory,
@@ -259,6 +266,10 @@ def full_preflight():
             raise CheckFailed("invalid container configuration for %s" % service) from error
         require(all(env.get(name) for name in required),
                 "running %s lacks an optional overlay; restart with the full Compose set" % service)
+        if service == "agent-rpc":
+            require(env.get("ARK_DRAFT_TIMEOUT_SECONDS") == raw_timeout,
+                    "running Agent draft timeout differs from .env; recreate with the full Compose set")
+    return trigger_wait_seconds
 
 
 def main():
@@ -281,7 +292,7 @@ def main():
             "smoke check only accepts a loopback Gateway URL")
     if args.full:
         try:
-            full_preflight()
+            trigger_wait_seconds = full_preflight()
         except CheckFailed as error:
             print("NOT READY: " + str(error), file=sys.stderr)
             return 2
@@ -402,7 +413,7 @@ def main():
                 if source_id is None:
                     time.sleep(0.5)
             stage = "background @AI trigger completion"
-            deadline = time.monotonic() + 150
+            deadline = time.monotonic() + trigger_wait_seconds
             run = None
             while run is None:
                 state = http(base, "GET", "/api/v1/teams/%s/groups/%s/agent-triggers/%s" %
@@ -411,7 +422,8 @@ def main():
                     require(state.get("status") != "exhausted", "@AI trigger exhausted its model budget")
                     if state.get("status") == "completed":
                         run = state.get("run_id")
-                require(run or time.monotonic() < deadline, "@AI trigger did not complete in 150s")
+                require(run or time.monotonic() < deadline,
+                        "@AI trigger did not complete in %ss" % trigger_wait_seconds)
                 if run is None:
                     time.sleep(1)
             completed.append("group @AI -> Kafka -> Agent draft")

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,6 +45,18 @@ func TestArkDraftConfigAllowsLongerStructuredGeneration(t *testing.T) {
 		cfg.MaxTokens == nil || *cfg.MaxTokens != arkMaxOutputTokens ||
 		cfg.RetryTimes == nil || *cfg.RetryTimes != 0 {
 		t.Fatalf("unexpected draft Ark config: %v, %v", cfg, err)
+	}
+	vars["ARK_DRAFT_TIMEOUT_SECONDS"] = "120"
+	cfg, err = arkDraftConfigFromEnv(func(key string) string { return vars[key] })
+	if err != nil || cfg.Timeout == nil || *cfg.Timeout != 120*time.Second {
+		t.Fatalf("custom draft timeout = %v, %v", cfg, err)
+	}
+	for _, invalid := range []string{"0", "14", "181", "090", " 90", "abc"} {
+		vars["ARK_DRAFT_TIMEOUT_SECONDS"] = invalid
+		cfg, err = arkDraftConfigFromEnv(func(key string) string { return vars[key] })
+		if cfg != nil || status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("draft timeout %q = %v, %v", invalid, cfg, err)
+		}
 	}
 }
 

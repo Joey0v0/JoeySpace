@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 const (
 	arkRequestTimeout      = 15 * time.Second
-	arkDraftRequestTimeout = 45 * time.Second
+	arkDraftRequestTimeout = 90 * time.Second
 	arkMaxOutputTokens     = 1024
 	arkRetryTimes          = 0
 )
@@ -52,6 +53,13 @@ func arkDraftConfigFromEnv(getenv func(string) string) (*ark.ChatModelConfig, er
 		return nil, err
 	}
 	timeout := arkDraftRequestTimeout
+	if raw := getenv("ARK_DRAFT_TIMEOUT_SECONDS"); raw != "" {
+		seconds, err := strconv.Atoi(raw)
+		if err != nil || seconds < 15 || seconds > 180 || strconv.Itoa(seconds) != raw {
+			return nil, status.Error(codes.FailedPrecondition, "ARK_DRAFT_TIMEOUT_SECONDS must be 15..180")
+		}
+		timeout = time.Duration(seconds) * time.Second
+	}
 	cfg.Timeout = &timeout
 	return cfg, nil
 }

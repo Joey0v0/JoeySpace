@@ -186,6 +186,7 @@ services:
       AGENT_SNOWFLAKE_NODE_ID: "${AGENT_SNOWFLAKE_NODE_ID:-5}"
       ARK_API_KEY: "${ARK_API_KEY:-}"
       ARK_MODEL_ID: "${ARK_MODEL_ID:-}"
+      ARK_DRAFT_TIMEOUT_SECONDS: "${ARK_DRAFT_TIMEOUT_SECONDS:-90}"
     depends_on:
       mysql:
         condition: service_healthy
