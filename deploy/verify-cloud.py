@@ -10,9 +10,11 @@ import base64
 import hashlib
 import json
 import os
+from pathlib import Path
 import secrets
 import socket
 import struct
+import subprocess
 import sys
 import time
 import urllib.error
@@ -29,7 +31,8 @@ def require(condition, message):
         raise CheckFailed(message)
 
 
-def http(base, method, path, token=None, body=None, key=None, timeout=12):
+def http(base, method, path, token=None, body=None, key=None, timeout=12,
+         allow_not_found=False):
     headers = {}
     if token:
         headers["Authorization"] = "Bearer " + token
@@ -54,6 +57,8 @@ def http(base, method, path, token=None, body=None, key=None, timeout=12):
         result = json.loads(raw)
     except (ValueError, UnicodeDecodeError) as error:
         raise CheckFailed("invalid JSON from " + path) from error
+    if allow_not_found and status == 404:
+        return None
     require(status == 200 and result.get("code") == 0,
             "%s %s failed: HTTP %s, code %s, msg %s" %
             (method, path, status, result.get("code"), result.get("msg")))
@@ -154,6 +159,100 @@ def receive_message(ws, expected_type, msg_id):
     raise CheckFailed("timed out waiting for " + expected_type)
 
 
+def receive_hint(ws, notification_id, team_id):
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        ws.sock.settimeout(max(0.1, deadline - time.monotonic()))
+        try:
+            message = ws.recv_json()
+        except socket.timeout as error:
+            raise CheckFailed("timed out waiting for online task hint") from error
+        if message.get("type") == "error":
+            raise CheckFailed("WebSocket returned an error: " + str(message.get("data")))
+        data = message.get("data") or {}
+        if (message.get("type") == "task_notification_changed" and
+                data.get("version") == 1 and data.get("notification_id") == notification_id and
+                data.get("team_id") == team_id):
+            return
+    raise CheckFailed("timed out waiting for online task hint")
+
+
+def full_preflight():
+    """Reject a base-only deployment before a group send can block Push's chat reader."""
+    directory = Path(__file__).resolve().parent
+    values = {}
+    env_file = directory / ".env"
+    require(env_file.is_file(), "full checks need deploy/.env and optional overlays")
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            name, value = line.split("=", 1)
+            values[name.strip()] = value.strip().strip("\"'")
+    cert_names = ("IM_BOT_CERT_DIR", "AGENT_BOT_CERT_DIR", "USER_TRIGGER_CERT_DIR",
+                  "IM_TRIGGER_CERT_DIR", "IM_TRIGGER_USER_CERT_DIR", "AGENT_TRIGGER_CERT_DIR",
+                  "WS_NOTIFICATION_CERT_DIR", "PUSH_NOTIFICATION_CERT_DIR",
+                  "USER_LEAVE_CERT_DIR", "IM_LEAVE_CERT_DIR", "USER_PUSH_CERT_DIR",
+                  "PUSH_USER_CERT_DIR")
+    for name in cert_names:
+        folder = Path(values.get(name, ""))
+        require(folder.is_absolute() and all((folder / part).is_file()
+                for part in ("cert.pem", "key.pem", "ca.pem")),
+                "full checks need private %s with cert.pem, key.pem and ca.pem" % name)
+    yaml_file = directory / "docker-config.local.yaml"
+    require(yaml_file.is_file(), "full checks need deploy/docker-config.local.yaml")
+    switches = {}
+    stack = []
+    for raw in yaml_file.read_text(encoding="utf-8").splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line or ":" not in line:
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        key, value = line.strip().split(":", 1)
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        path = tuple(part for _, part in stack) + (key,)
+        if value.strip():
+            switches[path] = value.strip().strip("\"'").lower()
+        else:
+            stack.append((indent, key))
+    for path in (("kafka", "agent_trigger_enabled"),
+                 ("task_notifications", "push", "enabled"),
+                 ("task_notifications", "ws", "enabled")):
+        require(switches.get(path) == "true", "full checks need %s=true in private YAML" %
+                ".".join(path))
+    compose = ["docker", "compose", "--env-file", ".env", "--profile", "agent"]
+    for filename in ("docker-compose.yaml", "docker-compose.bot.yaml",
+                     "docker-compose.trigger.yaml", "docker-compose.notifications.yaml",
+                     "docker-compose.team-leave.yaml"):
+        compose += ["-f", filename]
+    try:
+        config = subprocess.run(compose + ["config", "--quiet"], cwd=directory,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    except OSError as error:
+        raise CheckFailed("Docker Compose is required for full preflight") from error
+    require(config.returncode == 0, "full Compose overlay configuration is invalid")
+    markers = {"user-rpc": ("USER_PUSH_LISTEN_ON", "USER_TRIGGER_LISTEN_ON"),
+               "im-rpc": ("IM_BOT_LISTEN_ON", "IM_TRIGGER_LISTEN_ON"),
+               "im-push": ("PUSH_USER_RPC_ADDR",),
+               "im-ws": (),
+               "agent-rpc": ("AGENT_IM_BOT_ADDR", "AGENT_TRIGGER_WORKER_ENABLED"),
+               "task-rpc": ("TASK_NOTIFICATION_PUBLISH_ENABLED",)}
+    for service, required in markers.items():
+        found = subprocess.run(compose + ["ps", "-q", service], cwd=directory,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        container_id = found.stdout.decode("utf-8", "replace").strip()
+        require(found.returncode == 0 and container_id, "full checks need running %s" % service)
+        result = subprocess.run(["docker", "inspect", "--format",
+                                 "{{json .Config.Env}}", container_id], cwd=directory,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        require(result.returncode == 0, "cannot inspect running %s" % service)
+        try:
+            env = dict(item.split("=", 1) for item in json.loads(result.stdout) if "=" in item)
+        except (ValueError, TypeError) as error:
+            raise CheckFailed("invalid container configuration for %s" % service) from error
+        require(all(env.get(name) for name in required),
+                "running %s lacks an optional overlay; restart with the full Compose set" % service)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gateway", default="http://127.0.0.1:8082")
@@ -163,10 +262,21 @@ def main():
                         help="also require group Push delivery; needs team-leave mTLS overlay")
     parser.add_argument("--agent-ask", action="store_true",
                         help="also require one real Agent model answer; needs agent-rpc and model credentials")
+    parser.add_argument("--full", action="store_true",
+                        help="require configured mTLS overlays, group delivery, Agent, bot reply and online task hint")
     args = parser.parse_args()
+    if args.full:
+        args.agent_ask = True
+        args.group_chat = True
     base = args.gateway.rstrip("/")
     require(base.startswith("http://127.0.0.1:") or base.startswith("http://localhost:"),
             "smoke check only accepts a loopback Gateway URL")
+    if args.full:
+        try:
+            full_preflight()
+        except CheckFailed as error:
+            print("NOT READY: " + str(error), file=sys.stderr)
+            return 2
     suffix = secrets.token_hex(5)
     usernames = ["js_smoke_a_" + suffix, "js_smoke_b_" + suffix]
     password = secrets.token_urlsafe(24)
@@ -204,6 +314,11 @@ def main():
             require(isinstance(answer, str) and answer.strip(), "Agent returned an empty answer")
             completed.append("Agent real model answer")
 
+        if args.full:
+            stage = "online task hint receiver handshake"
+            sender = WS(args.ws_host, args.ws_port, tokens[0])
+            sockets.append(sender)
+            time.sleep(0.5)
         stage = "task and notification checks"
         task = http(base, "POST", "/api/v1/teams/%s/tasks" % team,
                     token=tokens[0], key="task-" + suffix,
@@ -219,6 +334,10 @@ def main():
                     and row["from_status"] == 0 and row["to_status"] == 1]
         require(len(matching) == 1 and matching[0]["read_at_unix_ms"] == 0,
                 "creator notification missing or already read")
+        if args.full:
+            stage = "online task hint"
+            receive_hint(sender, matching[0]["notification_id"], team)
+            completed.append("Task -> Kafka -> Push -> WebSocket online hint")
         read = http(base, "PUT", "/api/v1/teams/%s/task-notifications/%s/read" %
                     (team, matching[0]["notification_id"]), token=tokens[0])
         require(read["read_at_unix_ms"] > 0, "notification was not marked read")
@@ -227,9 +346,10 @@ def main():
         stage = "receiver WebSocket handshake"
         receiver = WS(args.ws_host, args.ws_port, tokens[1])
         sockets.append(receiver)
-        stage = "sender WebSocket handshake"
-        sender = WS(args.ws_host, args.ws_port, tokens[0])
-        sockets.append(sender)
+        if not args.full:
+            stage = "sender WebSocket handshake"
+            sender = WS(args.ws_host, args.ws_port, tokens[0])
+            sockets.append(sender)
         time.sleep(0.5)  # Allow the receiver's online route to reach Redis.
         msg_id = "smoke-direct-" + suffix
         stage = "direct-message send"
@@ -253,10 +373,86 @@ def main():
             stage = "team-group online delivery"
             receive_message(receiver, "chat", msg_id)
             completed.append("team-group delivery with current membership checks")
+        if args.full:
+            trigger_msg_id = "smoke-trigger-" + suffix
+            stage = "background @AI trigger send"
+            sender.send_json({"type": "chat", "data": {"msg_id": trigger_msg_id,
+                             "to_id": group, "chat_type": 2, "content_type": 1,
+                             "content": "@AI 整理任务 请创建一项标题为验收机器人回帖的测试任务，不指定负责人和截止时间。"}})
+            receive_message(sender, "ack", trigger_msg_id)
+            receive_message(receiver, "chat", trigger_msg_id)
+            stage = "background @AI source persistence"
+            deadline = time.monotonic() + 20
+            source_id = None
+            while source_id is None:
+                history = http(base, "GET", "/api/v1/teams/%s/groups/%s/messages?limit=30" %
+                               (team, group), token=tokens[0])["messages"]
+                source_id = next((row["id"] for row in history
+                                  if row.get("msg_id") == trigger_msg_id), None)
+                require(source_id or time.monotonic() < deadline,
+                        "@AI source message is absent from group history")
+                if source_id is None:
+                    time.sleep(0.5)
+            stage = "background @AI trigger completion"
+            deadline = time.monotonic() + 90
+            run = None
+            while run is None:
+                state = http(base, "GET", "/api/v1/teams/%s/groups/%s/agent-triggers/%s" %
+                             (team, group, source_id), token=tokens[0], allow_not_found=True)
+                if state is not None:
+                    require(state.get("status") != "exhausted", "@AI trigger exhausted its model budget")
+                    if state.get("status") == "completed":
+                        run = state.get("run_id")
+                require(run or time.monotonic() < deadline, "@AI trigger did not complete in 90s")
+                if run is None:
+                    time.sleep(1)
+            completed.append("group @AI -> Kafka -> Agent draft")
+            stage = "Agent draft review"
+            collection = http(base, "GET", "/api/v1/agent/runs/%s/drafts" % run,
+                              token=tokens[0])
+            items = collection.get("items") or []
+            require(collection.get("item_count") == 1 and len(items) == 1,
+                    "generated collection needs manual review; no task was confirmed")
+            item = items[0]
+            draft = item.get("draft") or {}
+            require(item.get("status") == "waiting_confirmation" and draft.get("title") and
+                    draft.get("revision") and draft.get("assignee_id") == "0" and
+                    draft.get("due_at_unix_ms") == 0 and
+                    (draft.get("deadline") or {}).get("resolution") == "none",
+                    "generated draft needs manual review; no task was confirmed")
+            stage = "Agent draft confirmation and bot reply"
+            confirmed = http(base, "POST", "/api/v1/agent/runs/%s/drafts/0/confirm" % run,
+                             token=tokens[0], body={
+                                 "expected_revision": draft["revision"],
+                                 "expected_title": draft["title"],
+                                 "expected_description": draft["description"],
+                                 "expected_assignee_id": draft["assignee_id"],
+                                 "expected_due_at_unix_ms": draft["due_at_unix_ms"],
+                                 "expected_deadline_resolution": "none",
+                             }, timeout=25)["item"]
+            reply_id = confirmed.get("reply_msg_id")
+            require(confirmed.get("status") == "succeeded" and
+                    confirmed.get("reply_status") == "accepted" and reply_id,
+                    "task was confirmed but bot reply is not accepted; inspect this run before retrying")
+            stage = "bot reply online delivery"
+            receive_message(receiver, "chat", reply_id)
+            stage = "bot reply persisted history"
+            deadline = time.monotonic() + 20
+            while True:
+                history = http(base, "GET", "/api/v1/teams/%s/groups/%s/messages?limit=30" %
+                               (team, group), token=tokens[1])["messages"]
+                if any(row.get("msg_id") == reply_id and row.get("sender_type") == 2
+                       for row in history):
+                    break
+                require(time.monotonic() < deadline, "accepted bot reply is absent from group history")
+                time.sleep(0.5)
+            completed.append("Agent draft -> confirmation -> bot reply online and persisted")
         print("PASS: " + "; ".join(completed))
         if not args.group_chat:
             print("NOT CHECKED: team-group Push delivery (requires team-leave mTLS overlay)")
-        if args.agent_ask:
+        if args.full:
+            print("NOT CHECKED: failure-recovery, revoked-access and browser interaction scenarios")
+        elif args.agent_ask:
             print("NOT CHECKED: bot reply and real-time task hints (require optional overlays)")
         else:
             print("NOT CHECKED: Agent/model, bot reply and real-time task hints (require optional overlays)")
