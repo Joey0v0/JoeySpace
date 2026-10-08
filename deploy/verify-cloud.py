@@ -70,6 +70,7 @@ class WS:
         self.sock = socket.create_connection((host, port), timeout=15)
         self.sock.settimeout(15)
         self.buffer = b""
+        self.last_pong = time.monotonic()
         key = base64.b64encode(os.urandom(16)).decode("ascii")
         path = "/ws?" + urllib.parse.urlencode({"token": token})
         request = ("GET %s HTTP/1.1\r\nHost: %s:%d\r\nUpgrade: websocket\r\n"
@@ -120,6 +121,15 @@ class WS:
 
     def send_json(self, value):
         self.send_frame(1, json.dumps(value, ensure_ascii=False).encode("utf-8"))
+
+    def keepalive(self):
+        # The server closes a connection without Pong after 60 seconds. During
+        # the model HTTP poll no WebSocket reads occur, so answer with a Pong
+        # proactively before the server's read deadline expires.
+        now = time.monotonic()
+        if now - self.last_pong >= 20:
+            self.send_frame(10, b"")
+            self.last_pong = now
 
     def recv_json(self):
         while True:
@@ -416,6 +426,8 @@ def main():
             deadline = time.monotonic() + trigger_wait_seconds
             run = None
             while run is None:
+                sender.keepalive()
+                receiver.keepalive()
                 state = http(base, "GET", "/api/v1/teams/%s/groups/%s/agent-triggers/%s" %
                              (team, group, source_id), token=tokens[0], allow_not_found=True)
                 if state is not None:
