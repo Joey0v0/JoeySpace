@@ -1,18 +1,18 @@
-import { h } from 'vue'
-import { createRouter, createWebHistory } from 'vue-router'
-
-const placeholder = (title: string) => ({
-  render: () => h('section', { class: 'placeholder-page' }, [
-    h('h1', title),
-    h('p', '页面框架已就绪，内容将在下一步接入。'),
-  ]),
-})
+import { createRouter, createWebHistory, RouterView } from 'vue-router'
+import MessagesPage from './messages/MessagesPage.vue'
+import TaskPreview from './TaskPreview.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/messages' },
-    { path: '/messages', component: placeholder('消息') },
-    { path: '/tasks', component: placeholder('我的任务') },
+    {
+      path: '/messages', component: RouterView, children: [
+        { path: '', name: 'overview', component: MessagesPage },
+        { path: 'direct/:peerId', name: 'direct', component: MessagesPage },
+        { path: 'teams/:teamId/groups/:groupId', name: 'group', component: MessagesPage },
+      ],
+    },
+    { path: '/tasks', component: TaskPreview },
   ],
 })
