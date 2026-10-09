@@ -15,13 +15,15 @@ export function errorText(error: unknown): string {
 function statusMessage(status: number) {
   if (status === 401) return '登录已失效，或用户名、密码不正确'
   if (status === 403) return '当前账号无权访问此资源'
+  if (status === 409) return '用户名已存在，请换一个用户名'
+  if (status === 400) return '输入信息不符合要求，请检查后重试'
   if (status === 404) return '会话不存在或当前账号无法访问'
   if (status === 503) return '服务暂时不可用，请稍后重试'
   if (status === 504) return '服务响应超时，请重试'
   return '请求失败，请重试'
 }
 export function createApiClient(identity: ReturnType<typeof createSession>, transport: typeof fetch = globalThis.fetch) {
-  async function request<T>(path: string, options: RequestInit = {}, authenticated = true): Promise<T> {
+  async function request<T>(path: string, options: RequestInit = {}, authenticated = true, expectData = true): Promise<T> {
     const epoch = identity.version()
     const token = identity.token()
     const controller = new AbortController()
@@ -39,7 +41,7 @@ export function createApiClient(identity: ReturnType<typeof createSession>, tran
       }
       const envelope = await response.json()
       unchanged()
-      if (envelope?.code !== 0 || !('data' in envelope)) throw new ApiError(502, '服务返回的数据无效，请重试')
+      if (envelope?.code !== 0 || (expectData && !('data' in envelope))) throw new ApiError(502, '服务返回的数据无效，请重试')
       return envelope.data as T
     } catch (error) {
       if (error instanceof ApiError || error instanceof StaleRequestError) throw error
@@ -61,7 +63,15 @@ export function createApiClient(identity: ReturnType<typeof createSession>, tran
     try { return await getMyInfo() }
     catch (error) { if (identity.version() === epoch) identity.clearSession(); throw error }
   }
-  return { request, getMyInfo, login }
+  async function register(username: string, password: string, nickname: string): Promise<void> {
+    const usernameLength = [...username].length
+    const passwordLength = [...password].length
+    if (usernameLength < 3 || usernameLength > 32 || passwordLength < 6 || passwordLength > 64 || new TextEncoder().encode(password).length > 72 || [...nickname].length > 64) {
+      throw new ApiError(400, '用户名需 3—32 字，密码需 6—64 字且不超过 72 字节，昵称最多 64 字')
+    }
+    await request<void>('/user/register', { method: 'POST', body: JSON.stringify({ username, password, nickname }) }, false, false)
+  }
+  return { request, getMyInfo, login, register }
 }
 export const api = createApiClient(session)
 let verifiedEpoch = -1

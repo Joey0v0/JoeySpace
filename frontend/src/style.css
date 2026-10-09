@@ -58,3 +58,13 @@ a { color: inherit; }
 .message-content p { font-size: 13px; }
 .unread-card { padding: var(--space-3); }
 .composer-area { padding-top: var(--space-2); }
+
+.team-toggle { border:0; background:transparent; color:var(--color-text); width:100%; text-align:left; padding:10px 8px; font-size:13px; font-weight:700; overflow-wrap:anywhere }
+.directory-more { border:1px solid #d8e1ef; border-radius:7px; color:var(--color-primary); background:#fff; padding:7px 10px; margin:8px; font-size:12px }
+.directory-error { color:#9a3131; padding:8px; font-size:12px; line-height:1.7 }
+.directory-error button { border:0; background:transparent; color:#3859c7; text-decoration:underline }
+button:disabled { cursor:wait; opacity:.6 }
+.module-footer { border:0; background:transparent; padding:8px }
+.overview-empty { margin-top:28px }
+.chat-scroll > .unavailable-state { margin:65px auto }
+.unavailable-state button.primary-link { border:0; margin-right:8px }

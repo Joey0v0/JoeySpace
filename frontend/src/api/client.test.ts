@@ -63,3 +63,30 @@ test('network failure and malformed profile do not become authenticated success'
   const network = createApiClient(session, async () => { throw new Error('secret raw message') })
   await assert.rejects(network.request('/teams'), (error: unknown) => error instanceof ApiError && !error.message.includes('secret'))
 })
+test('register submits public fields and does not log in after success without data', async () => {
+  const session = createSession()
+  const client = createApiClient(session, async (url, options) => {
+    assert.equal(url, '/api/v1/user/register')
+    assert.equal(new Headers(options?.headers).has('Authorization'), false)
+    assert.deepEqual(JSON.parse(String(options?.body)), { username: 'alice', password: 'password', nickname: 'Alice' })
+    return new Response(JSON.stringify({ code: 0, msg: 'success' }))
+  })
+  await client.register('alice', 'password', 'Alice')
+  assert.equal(session.token(), null)
+})
+test('register conflict explains username and leaves session unauthenticated', async () => {
+  const session = createSession()
+  const client = createApiClient(session, async () => reply(null, 409))
+  await assert.rejects(client.register('alice', 'password', ''), (error: unknown) => error instanceof ApiError && error.status === 409 && error.message.includes('用户名'))
+  assert.equal(session.token(), null)
+})
+test('registration rejects invalid Unicode lengths and bcrypt byte overflow before HTTP', async () => {
+  let requests = 0
+  const client = createApiClient(createSession(), async () => { requests++; return new Response(JSON.stringify({ code: 0, msg: 'success' })) })
+  for (const [username, password, nickname] of [['ab', 'password', ''], ['alice', '短短', ''], ['alice', '中'.repeat(25), ''], ['alice', 'password', '名'.repeat(65)]]) {
+    await assert.rejects(client.register(username!, password!, nickname!), (error: unknown) => error instanceof ApiError && error.status === 400)
+  }
+  assert.equal(requests, 0)
+  await client.register('三字名', '中'.repeat(24), '')
+  assert.equal(requests, 1)
+})

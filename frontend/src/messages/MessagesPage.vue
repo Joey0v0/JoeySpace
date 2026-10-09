@@ -1,34 +1,38 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted, reactive, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ConversationList from './ConversationList.vue'
 import ConversationView from './ConversationView.vue'
 import UnreadOverview from './UnreadOverview.vue'
-import { findConversation } from './model.ts'
-import { conversations, messages } from './sample.ts'
-
+import { createDirectory, initialDirectoryState } from './directory.ts'
+import { api, currentProfile } from '../api/client.ts'
+import { session } from '../auth/session.ts'
 const route = useRoute()
+const state = reactive(initialDirectoryState())
+const directory = createDirectory(api.request, session, state)
 const key = computed(() => {
-  if (route.name === 'direct') return `direct:${route.params.peerId}`
-  if (route.name === 'group') return `group:${route.params.teamId}:${route.params.groupId}`
+  if (route.name === 'direct') return 'direct:' + String(route.params.peerId)
+  if (route.name === 'group') return 'group:' + String(route.params.teamId) + ':' + String(route.params.groupId)
   return undefined
 })
-const current = computed(() => key.value ? findConversation(conversations, key.value) : undefined)
+watch(key, value => { void directory.select(value) }, { immediate: true })
+void directory.loadTeams()
+void directory.loadDirects()
+onUnmounted(directory.dispose)
 </script>
-
 <template>
   <main class="messages-layout">
-    <ConversationList :items="conversations" :active-key="key" />
+    <ConversationList :state="state" :active-key="key" @teams="directory.loadTeams" @groups="directory.loadGroups" @directs="directory.loadDirects" />
     <div class="messages-workspace">
-      <div class="sample-ribbon" role="note"><span class="sample-dot" />界面样例 · 未连接真实账号或消息服务</div>
-      <UnreadOverview v-if="!key" :items="conversations" />
-      <ConversationView v-else-if="current" :conversation="current" :messages="messages[current.key] ?? []" />
+      <div class="sample-ribbon" role="note">{{ currentProfile?.nickname || currentProfile?.username }} · 真实会话导航</div>
+      <UnreadOverview v-if="!key" />
+      <section v-else-if="state.detailLoading" class="unavailable-state" role="status"><h1>正在复核会话…</h1><p>按当前登录身份检查访问权限。</p></section>
+      <ConversationView v-else-if="state.current" :conversation="state.current" :joining="state.joining" :error="state.detailError" @join="directory.joinCurrent" />
       <section v-else class="unavailable-state">
-        <div class="empty-symbol" aria-hidden="true">?</div>
-        <p class="eyebrow">会话不可用</p>
-        <h1>当前会话不可用</h1>
-        <p>这个地址不在当前样例会话目录中。请从左侧选择会话，或返回未读总览。</p>
-        <RouterLink class="primary-link" to="/messages">返回未读总览</RouterLink>
+        <div class="empty-symbol" aria-hidden="true">?</div><h1>会话暂时无法打开</h1>
+        <p role="alert">{{ state.detailError || '请从左侧选择会话' }}</p>
+        <button class="primary-link" type="button" @click="directory.select(key)">重新检查</button>
+        <RouterLink class="primary-link" to="/messages">返回会话总览</RouterLink>
       </section>
     </div>
   </main>
