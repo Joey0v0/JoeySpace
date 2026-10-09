@@ -54,27 +54,32 @@ test('explicit read submits only loaded received IDs and never reads on opening 
 })
 
 test('group read includes received bot messages and caps a batch at 100', async () => {
-  let submitted: string[] = []
+  const submitted: string[][] = []
   const history = createHistory(async (path, options) => {
     if (path.endsWith('/unread')) return { team_id: '3', group_id: '4', unread_count: '101' }
-    if (path.endsWith('/read')) { submitted = JSON.parse(options!.body as string).message_ids; return { team_id: '3', group_id: '4', unread_count: '1' } }
+    if (path.endsWith('/read')) { submitted.push(JSON.parse(options!.body as string).message_ids); return { team_id: '3', group_id: '4', unread_count: '1' } }
     return { messages: [], next_before_message_id: '0' }
   }, createSession(), '9007199254740993')
   history.select(group); await tick()
-  history.state.messages = Array.from({ length: 101 }, (_, index) => ({ ...received(String(index + 1)), sender_type: index === 0 ? 2 : 1 }))
+  history.state.messages = Array.from({ length: 101 }, (_, index) => ({ ...received(String(index + 1)), from_id: index === 0 ? '9007199254740993' : '9007199254740995', sender_type: index === 0 ? 2 : 1 }))
   history.state.messages.push({ ...own('102'), sender_type: 1 })
   await history.markLoadedRead()
-  assert.equal(submitted.length, 100)
-  assert.equal(submitted[0], '1')
-  assert.equal(submitted.includes('102'), false)
+  assert.equal(submitted[0]!.length, 100)
+  assert.equal(submitted[0]![0], '1')
+  assert.equal(submitted[0]!.includes('102'), false)
+  assert.deepEqual(history.receivedIDs(), ['101'])
+  await history.markLoadedRead()
+  assert.deepEqual(submitted[1], ['101'])
+  assert.deepEqual(history.receivedIDs(), [])
   history.dispose()
 })
 
 test('timeout requires unread recheck before a read retry', async () => {
   let fail = true
-  const history = createHistory(async (path) => {
+  const batches: string[][] = []
+  const history = createHistory(async (path, options) => {
     if (path.endsWith('/unread')) return { peer_id: '9007199254740995', unread_count: '1' }
-    if (path.endsWith('/read')) { if (fail) throw new ApiError(504, '超时'); return { peer_id: '9007199254740995', unread_count: '0' } }
+    if (path.endsWith('/read')) { batches.push(JSON.parse(options!.body as string).message_ids); if (fail) throw new ApiError(504, '超时'); return { peer_id: '9007199254740995', unread_count: '0' } }
     if (path.includes('before_message_id=0')) return { messages: [received('1')], next_before_message_id: '0' }
     throw new ApiError(403, '撤权')
   }, createSession(), '9007199254740993')
@@ -82,9 +87,14 @@ test('timeout requires unread recheck before a read retry', async () => {
   await history.markLoadedRead()
   assert.equal(history.state.pendingConfirmation, true)
   assert.match(history.state.markError, /待核对/)
+  await history.markLoadedRead()
+  assert.equal(batches.length, 1)
   await history.refreshUnread()
   assert.equal(history.state.pendingConfirmation, false)
+  history.state.messages.push(received('2'))
   fail = false; await history.markLoadedRead()
+  assert.deepEqual(batches, [['1'], ['1']])
+  assert.deepEqual(history.receivedIDs(), ['2'])
   assert.equal(history.state.unreadCount, '1')
   history.dispose()
 })

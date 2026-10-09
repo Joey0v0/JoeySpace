@@ -29,11 +29,15 @@ export function createHistory(request: Request, identity: ReturnType<typeof crea
   let selected: Selection | null = null
   let scope = 0
   let unreadRequest = 0
-  const unsubscribe = identity.subscribe(() => { scope++; selected = null; Object.assign(state, initialHistoryState()) })
-  function deny() { scope++; selected = null; Object.assign(state, { ...initialHistoryState(), denied: true, error: '当前账号已无权访问这个会话' }) }
+  let confirmedIDs = new Set<string>()
+  let pendingBatch: string[] | null = null
+  function clearReadBatch() { confirmedIDs = new Set(); pendingBatch = null }
+  const unsubscribe = identity.subscribe(() => { scope++; selected = null; clearReadBatch(); Object.assign(state, initialHistoryState()) })
+  function deny() { scope++; selected = null; clearReadBatch(); Object.assign(state, { ...initialHistoryState(), denied: true, error: '当前账号已无权访问这个会话' }) }
   function select(conversation: Selection | null) {
     scope++
     selected = conversation && (conversation.kind !== 'group' || conversation.joined) ? conversation : null
+    clearReadBatch()
     Object.assign(state, initialHistoryState())
     if (selected) { void loadLatest(); void refreshUnread() }
   }
@@ -79,23 +83,25 @@ export function createHistory(request: Request, identity: ReturnType<typeof crea
   }
   function receivedIDs() {
     if (!selected || !isId(ownId)) return []
-    return [...new Set(state.messages.filter(item => item.from_id !== ownId && (selected?.kind === 'direct' ? item.from_id === selected.key.slice('direct:'.length) && item.to_id === ownId : true)).map(item => item.id))]
+    return [...new Set(state.messages.filter(item => !confirmedIDs.has(item.id) && (selected?.kind === 'direct' ? item.from_id === selected.key.slice('direct:'.length) && item.to_id === ownId : item.sender_type === 2 || item.from_id !== ownId)).map(item => item.id))]
   }
   async function markLoadedRead() {
     if (!selected || state.marking || state.pendingConfirmation) return
-    const ids = receivedIDs().slice(0, 100)
+    const ids = pendingBatch ?? receivedIDs().slice(0, 100)
     if (!ids.length) return
     const epoch = scope, selectedKey = selected.key, path = conversationPath(selected)
     state.marking = true; state.markError = ''
     try {
       await request(path + '/read', { method: 'POST', body: JSON.stringify({ message_ids: ids }) })
       if (epoch !== scope || selected?.key !== selectedKey) return
+      ids.forEach(id => confirmedIDs.add(id))
+      pendingBatch = null
       state.pendingConfirmation = false
       await refreshUnread(true)
     } catch (error) {
       if (epoch !== scope || error instanceof StaleRequestError) return
       if (error instanceof ApiError && (error.status === 403 || error.status === 404)) deny()
-      else { state.pendingConfirmation = true; state.markError = errorText(error) + '；结果待核对，请刷新未读后再试' }
+      else { pendingBatch = ids; state.pendingConfirmation = true; state.markError = errorText(error) + '；结果待核对，请刷新未读后再试' }
     } finally { if (epoch === scope) state.marking = false }
   }
   function dispose() { scope++; selected = null; unsubscribe() }
