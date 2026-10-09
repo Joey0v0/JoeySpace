@@ -646,3 +646,15 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 66. 前端 F6 两批实施计划（2026-10-10）
 
 用户审查 F6 设计后，主 agent 在同一隔离 worktree 写[十二任务实施计划](superpowers/plans/2026-10-10-frontend-f6-acceptance.md)：任务 1—5 为可本地复核的入口、Compose、检查器、Vue 浏览器工具与部署前审计；任务 6—12 为经具体部署差异审查后的真实环境路由、聊天、任务、AI、权限恢复、桌面体验及最终报告。每批不超过九步，主 agent 保留 Compose、文档、依赖、迁移和 Git 集成；如调度执行 agent，Nginx 镜像与 Vue 浏览器脚本分别使用独立 worktree 和严格允许文件。本轮只修改设计状态、实施计划与共同记录，未实施配置或云端操作；计划待用户审查。
+
+## 67. 前端 F6 本地准备批次（2026-10-10）
+
+用户审查上述计划后，主 agent 在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-acceptance`、分支 `codex/frontend-f6-acceptance` 执行任务 1—5。共同起点为 `9e54201`。执行 agent 从同一起点分别建立独立 worktree，主 agent 保留 Compose、共同文档、验收清单、路由检查器、Git 集成和部署操作单；没有执行云端部署。
+
+| 角色 | 绝对工作目录与分支 | 允许文件 |
+| --- | --- | --- |
+| 主 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-acceptance`，`codex/frontend-f6-acceptance` | `deploy/docker-compose.frontend.yaml`、`deploy/.env.example`、`deploy/README.md`、`deploy/verify-frontend-routes.cjs` 及测试、共同 `docs/` 和最终集成 |
+| Nginx 执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-nginx`，`codex/frontend-f6-nginx` | 仅 `deploy/Dockerfile.frontend`、`deploy/frontend-nginx.conf`；提交 `66aa712`，主分支集成 `1fb0d5c` |
+| Vue 浏览器执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-browser`，`codex/frontend-f6-browser` | 仅 `deploy/verify-vue-browser.cjs`；审查与集成状态在本批完成后补记 |
+
+Task 1 静态规格与质量审查通过，前端依赖安装/构建通过，但 Docker daemon 不可用，镜像和 Nginx 运行检查标 `BLOCKED`。Task 2 的占位 Compose 合并解析通过，Task 3 的四项路由检查器单测通过；真实入口未启动，实际代理验证仍留任务 6。任务 4/5 结果和完整本地证据以本批审查记录为准；本批不合 main、不推送、不部署。
