@@ -152,6 +152,16 @@ func main() {
 		Handler: createTeamGroupHandler(impb.NewIMClient(imRPCClient.Conn())),
 	})
 	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/tasks",
+		Handler: listMyTasksHandler(taskpb.NewTaskClient(taskRPCClient.Conn()), userpb.NewUserClient(rpcClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/teams/:team_id/tasks/:task_id",
+		Handler: getTaskDetailHandler(taskpb.NewTaskClient(taskRPCClient.Conn()), userpb.NewUserClient(rpcClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
 		Method:  http.MethodPost,
 		Path:    "/api/v1/teams/:team_id/tasks",
 		Handler: createTaskHandler(taskpb.NewTaskClient(taskRPCClient.Conn())),
