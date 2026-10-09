@@ -585,3 +585,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 52. 前端 F3 第二批 F10/F11 协作（2026-10-09）
 
 主 agent 在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-chat` 固定 `fc3ae90` 协议/文档及各文件边界。F10 IM、Gateway、Vue 执行分支分别提交 `ec4e195`、`95b5fd1`、`5d14d6e`，由主 agent 依次整合；F11 Push 执行分支在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-mention-push` 仅编辑 `cmd/push/main.go`、`internal/push/mention_client.go`、`internal/push/mention_test.go`、`internal/push/pusher.go`、`internal/repository/message_repo.go`、`internal/repository/message_mention_test.go`，提交 `2a0296c`、`a8296ea`，主 agent 整合为 `8edc3fe`、`63d68f5`。共同协议/生成、迁移、模型、WS、IM 读取、前端补齐、部署和文档均由主 agent 负责。所有人未自行合 main、推送或部署。九步和全部文件见[F3 第二批审查](frontend-f3-second-review.md)。
+
+## 53. 前端 F4 方案只读审查（2026-10-09）
+
+主 agent 从 F3 `69bb016` 建立 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f4-tasks`、分支 `codex/frontend-f4-tasks`。三个执行 agent 只读 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-chat`：分别核对 Task 接口/权限/索引、持久通知与实时链、Vue 路由/布局/复用点；没有编辑、测试、构建或 Git 写操作。主 agent 统一写[F4 设计](frontend-f4-tasks-design.md)、[九步计划](superpowers/plans/2026-10-09-frontend-f4-tasks.md)、架构待确认项和项目进度。F12—F16 确认前不启动业务代码；后续执行 worktree、共同提交和允许文件须在实施开始前另行固定。
