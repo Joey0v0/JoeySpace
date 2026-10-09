@@ -50,7 +50,7 @@ Task 在现有 SELECT FOR UPDATE 事务内按以下顺序处理：
 
 HTTP PUT /api/v1/teams/{team_id}/tasks/{task_id}/status 的 JSON 同时要求 status 和 expected_status；Aborted 映射 409，任务页面显示“任务状态已变化，请重新确认”。
 
-创建继续使用 POST /api/v1/teams/{team_id}/tasks 和 Idempotency-Key。Vue 第一次提交生成键并冻结规范化请求；结果不确定时先按详情核对，再以原键和原请求重试。状态超时同样先重读详情，再判断成功、可重试或冲突。
+创建继续使用 POST /api/v1/teams/{team_id}/tasks 和 Idempotency-Key。Vue 第一次提交生成键并冻结规范化请求；结果不确定且尚未获得 task_id 时，先以原键和冻结请求重放创建，由 Task 的既有幂等记录恢复同一个 task_id，再读取该详情核对结果。状态更新已有 task_id，超时后先重读详情，再判断成功、可重试或冲突。
 
 ## 5. 来源消息上下文
 

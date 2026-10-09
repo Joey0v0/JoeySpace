@@ -27,7 +27,7 @@
 - Task 6、8 覆盖账号、路由、筛选变化后旧请求和旧 WebSocket 回调不能污染新状态。
 - Task 1、3、5、6、8 覆盖超过 JavaScript 安全整数的所有 ID。
 - Task 2、3、5 覆盖离队或撤权后任务、详情、通知和来源正文都不返回。
-- Task 4、7 覆盖创建或状态超时后先重读权威详情。
+- Task 4、7 覆盖创建超时后以原键和冻结请求恢复 task_id 再读详情，以及状态超时后先重读已有详情。
 - Task 6、8 覆盖分页失败保留已加载内容，通知刷新失败保留提示圆点。
 
 ---
@@ -141,9 +141,9 @@
 - Modify: frontend/src/messages/ConversationView.vue, MessagesPage.vue, frontend/src/router.ts, frontend/src/style.css, frontend/package.json
 
 **Interfaces:**
-- Produces frozen create attempts with one request key, endpoint-specific 409 text, timeout detail recheck, persisted group-message action, focus_message_id context and browser-back return.
+- Produces frozen create attempts that replay the same key to recover task_id before detail verification, endpoint-specific 409 text, status-timeout detail recheck, persisted group-message action, focus_message_id context and browser-back return.
 
-- [ ] Write failing tests for key reuse, frozen form, assignment, Shanghai-to-UTC conversion, status timeout branches, private/unpersisted source, task-specific 409 and revoked source.
+- [ ] Write failing tests for key reuse, frozen form, assignment, Shanghai-to-UTC conversion, create-timeout same-key task_id recovery, status-timeout branches, private/unpersisted source, task-specific 409 and revoked source.
 - [ ] Implement creation and status state transitions before controls.
 - [ ] Add one action to persisted group messages and source context highlight without arbitrary returnTo.
 - [ ] Run npm test and npm run build, then commit.
