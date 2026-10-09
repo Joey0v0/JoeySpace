@@ -25,6 +25,8 @@
 
 前端 F5 方案待审查（2026-10-10）：用户要求从 F4 进入下一步，主 agent 从本地 F4 提交 `6a4aaaf` 建立隔离 `codex/frontend-f5-ai-draft`，核对现有 Agent/Gateway 契约、Vue 群聊入口和优秀产品的人机审查方式，形成[F5 AI 草稿前端方案](frontend-f5-ai-draft-design.md)。推荐当前群顶部临时问答、本人已保存 `@AI` 原消息状态入口、1—5 项草稿逐项人工确认及独立回帖恢复；发现 Vue 默认 15 秒超时短于部分 Gateway AI 接口上限，纳入[F17—F19 待审查取舍](architecture-decisions.md#前端-f17f19f5-ai-草稿方案待用户审查2026-10-10)。本步只修改文档，未接入 Vue AI 或运行产品代码测试；F5 能力仍未完成，F6 真实环境统一验收仍在后续。F4/main 未合并、推送或部署。
 
+前端 F5 实施计划待审查（2026-10-10）：用户要求继续后，主 agent 在同一隔离分支依据 F5 方案、真实 Gateway/Agent JSON 字段和 Vue 群聊结构，写成[八任务实施计划](superpowers/plans/2026-10-10-frontend-f5-ai-draft.md)。计划从原消息资格/严格解码、按操作超时、Ask/状态、集合、编辑、逐项决策到页面集成和本地组合验收；本轮仍只修改文档，F17—F19 取舍与实施计划待用户审查，未启动业务代码、协议、迁移或依赖改动。
+
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 
 前端 F2 方案待审查（2026-10-09）：从 F1 提交 `e75c322` 建立独立 `codex/frontend-f2-navigation` 工作区，完成现有 User/IM/Gateway 接口的只读核对，并写成[真实登录与会话导航设计](frontend-f2-navigation-design.md)和[八任务实施计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)。推荐复用现有 Bearer 登录、按本标签页保存会话；User/IM 分属目录数据，Gateway 组合有限显示名；F2 先交付真实导航，完整消息阅读、未读/@我和主群配置后续单独接线。这些涉及身份保存、资料读取和跨服务读契约，[F06—F08](architecture-decisions.md#前端设计记录2026-10-09)仍待用户审查确认。当前 F2 仅有文档，未修改产品代码、协议或数据库；F1/main 均未合并或部署。

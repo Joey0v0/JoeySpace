@@ -48,7 +48,7 @@ F5 延续“先看讨论，再处理本人事项”的聊天优先结构。AI �
 - 问答视图显示当前团队群名称、问题输入、提交与回答。回答只在当前面板保存；关闭、换群、换账号后清除。503/504 表示本次回答没有得到确认，可由用户重新提问；不会自动发群消息或创建任务。
 - “整理讨论事项”只把明确的 `@AI 整理任务 ` 前缀写入当前群输入框并聚焦，用户补充要求后亲自发送。发送继续遵守 F3 的 WebSocket 受理与历史持久化区别；未进入历史的临时气泡不显示草稿入口。
 - 仅本人、普通用户发送且有正持久消息 ID 的候选指令旁显示“查看 AI 处理”。入口须有明确的 `sender_type` 为普通用户、`initiator_id` 为 `"0"`、`content_type` 为文本，并完整匹配允许前导空白的 `@AI 整理任务 <要求>` 格式及 2000 个 Unicode 码点限制；缺字段时隐藏入口，实施前核实历史接口稳定回传这些字段。页面匹配只决定入口可见，**是否真有触发记录由 Agent 状态接口决定**；不会从正文推断运行 ID 或结果。别人的指令和机器人回帖不提供本人草稿入口。
-- 打开原指令时，浏览器地址保留团队、群和消息 ID，例如 `/messages/teams/{team}/groups/{group}?ai_message_id={message}`。刷新后重新按原消息查询状态，完成后才按返回的 `run_id` 读取草稿，并核对草稿的团队/群/来源消息范围；不接受地址栏单独提供的 run ID 作为权限依据。原消息入口由已有群历史提供，旧消息可通过已有历史分页找到；不另建全局运行目录。
+- 打开原指令时，浏览器地址保留团队、群和消息 ID，例如 `/messages/teams/{team}/groups/{group}?ai_message_id={message}`。刷新后重新按原消息查询状态，完成后才按返回的 `run_id` 读取草稿，并核对集合返回的运行 ID、团队与群范围；不接受地址栏单独提供的 run ID 作为权限依据。草稿项的 `source_message_id` 是讨论依据，可能与触发指令消息不同，单独按当前群权限提供来源链接。原消息入口由已有群历史提供，旧消息可通过已有历史分页找到；不另建全局运行目录。
 - 关闭面板、切换群/账号或失去群资格时，取消轮询并使在途回包失效。群历史、任务状态和草稿数据各按其服务端权限核验；403/404 清除面板内私有数据。
 
 ## 5. 指令与草稿状态
@@ -87,7 +87,7 @@ API 客户端只为 F5 操作增加可配置等待：问答至少覆盖 Gateway 
 | Vue → Gateway → Agent Collection | 用状态返回的 `run_id` 读取当前群 1—5 项；`run_id/task_id/revision/source_message_id` 均保持十进制字符串，`item_index` 是 0—4 的数字，期限毫秒值在现有安全范围内 |
 | Vue → Gateway → Agent Item | 文字/负责人/期限的 PUT、确认/跳过/回帖的 POST；写后使用权威返回项，失败时重读同一项 |
 
-预计主要修改 `frontend/src/messages/ConversationView.vue`、`MessagesPage.vue`、`frontend/src/router.ts`、`frontend/src/api/client.ts`，新增 `frontend/src/agent/` 的类型化解码、状态控制和面板组件，并少量扩展 `frontend/src/style.css` 与相应测试。现有 Gateway/Agent RPC、数据库表和协议先复用；若实施时发现契约缺口，先给出具体备选和影响再动后端。旧原生演示页保持兼容，不把其脚本嵌入 Vue。
+预计主要修改 `frontend/src/messages/ConversationView.vue`、`MessagesPage.vue`、`frontend/src/api/client.ts`，新增 `frontend/src/agent/` 的类型化解码、状态控制和面板组件，并少量扩展 `frontend/src/style.css` 与相应测试。现有群路由已支持查询参数，不计划修改 `frontend/src/router.ts`。现有 Gateway/Agent RPC、数据库表和协议先复用；若实施时发现契约缺口，先给出具体备选和影响再动后端。旧原生演示页保持兼容，不把其脚本嵌入 Vue。
 
 ## 8. 审查重点、验收与边界
 
