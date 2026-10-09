@@ -634,3 +634,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 63. 前端 F5 任务 7 群聊入口与面板（2026-10-10）
 
 主 agent 继续在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-ai-draft`、分支 `codex/frontend-f5-ai-draft` 实施，无执行子 agent；本步只改 `frontend/src/messages/ConversationView.vue`、`MessagesPage.vue`、`frontend/src/style.css`、`frontend/src/agent/AgentPanel.vue`，新增 `frontend/src/agent/navigation.ts`、`navigation.test.ts`，并维护本节及项目进度。定向测试先因导航模块不存在而失败，再实现已加入群和本人持久原指令资格、互斥面板查询参数、页面路由/账号状态接线、Ask 和草稿面板、填入不发送、420px 桌面侧栏及窄屏覆盖。复核时补齐撤权后历史消息入口隐藏。最终 F5 聚焦 37/37、既有前端 95/95、类型检查与生产构建通过；本地 Chrome 与 HTTP 替身核对 900/1280/1440/1920 宽度，以及 Ask、填入、原消息状态、深链刷新、关闭后焦点恢复。多项审查与失败恢复组合验收留待任务 8；未修改 Go、协议、迁移、依赖，未合 main、推送或部署。
+
+## 64. 前端 F5 任务 8 本地组合验收（2026-10-10）
+
+主 agent 在同一隔离 worktree 将四组 Agent 测试加入 `frontend/package.json` 的统一脚本，新增 `docs/frontend-f5-review.md` 并维护项目进度和本节；本地 HTTP/WS 替身脚本及 PNG/JSON 证据留在忽略目录 `.superpowers/sdd/2026-10-10-frontend-f5-ai-draft/`，未增加项目依赖。Chrome 从群聊 Ask 进入五项草稿，覆盖 409 重读后保存、确认、跳过、负责人和期限补正、已创建项的回帖状态重读与显式重试；第二账号的他人指令入口隐藏和 403 深链清理、未入群入口隐藏及切离群后旧回包失效均通过。900/1280/1440/1920 桌面宽度无横向溢出。前端 `npm test` 132/132、类型检查与生产构建通过；真实服务和云端验收留待 F6。主 agent 独占共同文档和 Git 保存；未修改 Go、协议、迁移、依赖，未合 main、推送或部署。
