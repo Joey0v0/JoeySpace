@@ -13,13 +13,13 @@ class CheckError extends Error {
   constructor(message, blocked = false) { super(message); this.blocked = blocked; }
 }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function until(check, timeout = 20000) {
+async function until(check, timeout = 20000, timeoutError = new CheckError('expected browser state was not observed before timeout')) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     if (await check()) return;
     await sleep(150);
   }
-  throw new CheckError('expected browser state was not observed before timeout');
+  throw timeoutError;
 }
 function chromeBinary() {
   if (process.env.JOEY_CHROME_PATH) return fs.existsSync(process.env.JOEY_CHROME_PATH) ? process.env.JOEY_CHROME_PATH : null;
@@ -36,7 +36,7 @@ async function connectPage(profile, child) {
     if (!fs.existsSync(file)) return false;
     port = Number(fs.readFileSync(file, 'utf8').split(/\r?\n/)[0]);
     return Number.isInteger(port) && port > 0;
-  });
+  }, 20000, new CheckError('Chrome DevTools port unavailable before startup timeout', true));
   let target;
   await until(async () => {
     try {
@@ -44,7 +44,7 @@ async function connectPage(profile, child) {
       target = (await response.json()).find(item => item.type === 'page');
       return !!target;
     } catch { return false; }
-  });
+  }, 20000, new CheckError('Chrome DevTools page target unavailable before startup timeout', true));
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new CheckError('DevTools connection timeout', true)), 10000);
