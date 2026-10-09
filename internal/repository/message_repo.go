@@ -13,10 +13,75 @@ import (
 // MessageRepository 消息数据访问接口
 type MessageRepository interface {
 	Create(ctx context.Context, msg *model.Message) error
+	CreateWithMentions(ctx context.Context, msg *model.Message, groupID int64, userIDs []int64) error
 	GetHistory(ctx context.Context, userID, targetID int64, chatType int8, cursorMsgID int64, limit int) ([]model.Message, error)
 	CreateOffline(ctx context.Context, offline *model.OfflineMessage) error
 	ListOffline(ctx context.Context, userID int64) ([]model.Message, error)
 	DeleteOffline(ctx context.Context, userID int64, messageIDs []int64) error
+}
+
+// CreateWithMentions commits the message and its structured targets together.
+// A replay may only reuse a msg_id when both the message and target set match.
+func (r *messageRepository) CreateWithMentions(ctx context.Context, msg *model.Message, groupID int64, userIDs []int64) error {
+	return r.createWithMentions(ctx, msg, groupID, userIDs, func(tx *gorm.DB) error {
+		return (&messageRepository{db: tx}).Create(ctx, msg)
+	})
+}
+
+// The Agent-trigger repository must keep its outbox write in the same outer
+// transaction when a group message also carries ordinary member mentions.
+func (r *agentTriggerMessageRepository) CreateWithMentions(ctx context.Context, msg *model.Message, groupID int64, userIDs []int64) error {
+	return r.messageRepository.createWithMentions(ctx, msg, groupID, userIDs, func(tx *gorm.DB) error {
+		return (&agentTriggerMessageRepository{messageRepository: &messageRepository{db: tx}}).Create(ctx, msg)
+	})
+}
+
+func (r *messageRepository) createWithMentions(ctx context.Context, msg *model.Message, groupID int64, userIDs []int64, create func(*gorm.DB) error) error {
+	if msg == nil || groupID <= 0 || msg.ToID != groupID || msg.ChatType != 2 || msg.ContentType != 1 || msg.SenderType != model.MessageSenderUser || len(userIDs) < 1 || len(userIDs) > 10 {
+		return errors.New("invalid group mention message")
+	}
+	seen := make(map[int64]struct{}, len(userIDs))
+	for _, id := range userIDs {
+		if id <= 0 {
+			return errors.New("invalid mention target")
+		}
+		if _, exists := seen[id]; exists {
+			return errors.New("duplicate mention target")
+		}
+		seen[id] = struct{}{}
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		initialID := msg.ID
+		if err := create(tx); err != nil {
+			return err
+		}
+		if msg.ID != initialID { // Existing msg_id: the old relation set must match exactly.
+			var existing []model.GroupMessageMention
+			if err := tx.Where("message_id = ?", msg.ID).Find(&existing).Error; err != nil {
+				return fmt.Errorf("check message mentions failed: %w", err)
+			}
+			if len(existing) != len(seen) {
+				return errors.New("message ID belongs to different mentions")
+			}
+			for _, row := range existing {
+				if row.GroupID != groupID {
+					return errors.New("message ID belongs to different group mentions")
+				}
+				if _, ok := seen[row.MentionedUserID]; !ok {
+					return errors.New("message ID belongs to different mentions")
+				}
+			}
+			return nil
+		}
+		rows := make([]model.GroupMessageMention, 0, len(userIDs))
+		for _, id := range userIDs {
+			rows = append(rows, model.GroupMessageMention{MessageID: msg.ID, GroupID: groupID, MentionedUserID: id})
+		}
+		if err := tx.Create(&rows).Error; err != nil {
+			return fmt.Errorf("create message mentions failed: %w", err)
+		}
+		return nil
+	})
 }
 
 type messageRepository struct {

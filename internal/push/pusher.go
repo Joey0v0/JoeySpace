@@ -23,17 +23,20 @@ const (
 
 // Pusher 消息路由与推送
 type Pusher struct {
-	messageRepo     repository.MessageRepository
-	groupRepo       repository.GroupRepository
-	teamEligibility TeamEligibility
-	redisRepo       repository.RedisRepository
-	httpClient      *http.Client
-	logger          *zap.Logger
+	messageRepo      repository.MessageRepository
+	groupRepo        repository.GroupRepository
+	teamEligibility  TeamEligibility
+	mentionValidator MentionValidator
+	redisRepo        repository.RedisRepository
+	httpClient       *http.Client
+	logger           *zap.Logger
 }
 
 func (p *Pusher) SetTeamEligibility(eligibility TeamEligibility) {
 	p.teamEligibility = eligibility
 }
+
+func (p *Pusher) SetMentionValidator(validator MentionValidator) { p.mentionValidator = validator }
 
 // NewPusher 创建 Pusher
 func NewPusher(
@@ -72,8 +75,18 @@ func (p *Pusher) HandleMessage(ctx context.Context, chatMsg *ws.KafkaChatMsg) er
 		Content:     chatMsg.Content,
 	}
 
-	if err := p.messageRepo.Create(ctx, msgModel); err != nil {
-		return fmt.Errorf("persist message failed: %w", err)
+	var persistErr error
+	if len(chatMsg.MentionedUserIDs) > 0 {
+		if err := p.validateMentions(ctx, chatMsg, senderType); err != nil {
+			return err
+		}
+		msgModel.MentionedUserIDs = append([]int64(nil), chatMsg.MentionedUserIDs...)
+		persistErr = p.messageRepo.CreateWithMentions(ctx, msgModel, chatMsg.ToID, chatMsg.MentionedUserIDs)
+	} else {
+		persistErr = p.messageRepo.Create(ctx, msgModel)
+	}
+	if persistErr != nil {
+		return fmt.Errorf("persist message failed: %w", persistErr)
 	}
 
 	p.logger.Info("message persisted",
@@ -94,6 +107,55 @@ func (p *Pusher) HandleMessage(ctx context.Context, chatMsg *ws.KafkaChatMsg) er
 		)
 		return nil
 	}
+}
+
+func (p *Pusher) validateMentions(ctx context.Context, chatMsg *ws.KafkaChatMsg, senderType int8) error {
+	if senderType != model.MessageSenderUser || chatMsg.ChatType != 2 || chatMsg.ContentType != 1 || chatMsg.FromID <= 0 || chatMsg.ToID <= 0 || len(chatMsg.MentionedUserIDs) > 10 {
+		return errors.New("invalid group mention message")
+	}
+	if p.teamEligibility == nil || p.mentionValidator == nil {
+		return errors.New("mention authorization unavailable")
+	}
+	seen := make(map[int64]struct{}, len(chatMsg.MentionedUserIDs))
+	for _, id := range chatMsg.MentionedUserIDs {
+		if id <= 0 {
+			return errors.New("invalid mention target")
+		}
+		if _, exists := seen[id]; exists {
+			return errors.New("duplicate mention target")
+		}
+		seen[id] = struct{}{}
+	}
+	group, err := p.groupRepo.GetByID(ctx, chatMsg.ToID)
+	if err != nil {
+		return fmt.Errorf("get mention group failed: %w", err)
+	}
+	if group == nil || group.ID != chatMsg.ToID || group.TeamID == nil || *group.TeamID <= 0 {
+		return errors.New("mentions require a team group")
+	}
+	teamID := *group.TeamID
+	senderGeneration, allowed, err := p.teamEligibility.CheckCurrentTeamMember(ctx, teamID, chatMsg.FromID)
+	if err != nil {
+		return fmt.Errorf("check mention sender failed: %w", err)
+	}
+	if !allowed || senderGeneration <= 0 {
+		return errors.New("mention sender is not a current team member")
+	}
+	targets := make([]MentionMemberGeneration, 0, len(chatMsg.MentionedUserIDs))
+	for _, id := range chatMsg.MentionedUserIDs {
+		generation, eligible, err := p.teamEligibility.CheckCurrentTeamMember(ctx, teamID, id)
+		if err != nil {
+			return fmt.Errorf("check mention target failed: %w", err)
+		}
+		if !eligible || generation <= 0 {
+			return errors.New("mention target is not a current team member")
+		}
+		targets = append(targets, MentionMemberGeneration{UserID: id, Generation: generation})
+	}
+	if err := p.mentionValidator.ValidateGroupMentionTargets(ctx, chatMsg.ToID, teamID, chatMsg.FromID, senderGeneration, targets); err != nil {
+		return fmt.Errorf("validate group mention targets failed: %w", err)
+	}
+	return nil
 }
 
 // pushToUser 单聊推送：检查在线状态，在线则推送，离线则写离线表

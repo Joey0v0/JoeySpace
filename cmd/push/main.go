@@ -48,6 +48,15 @@ func runPush() error {
 		return err
 	}
 	defer eligibility.Close()
+	mentionConfig, err := push.LoadMentionClientConfig(os.Getenv)
+	if err != nil {
+		return err
+	}
+	mentionClient, err := push.NewMentionClient(mentionConfig)
+	if err != nil {
+		return err
+	}
+	defer mentionClient.Close()
 
 	// 初始化日志
 	if err := logger.Init(cfg.Log.Level, cfg.Log.Filename); err != nil {
@@ -90,6 +99,7 @@ func runPush() error {
 	// 创建 Pusher
 	pusher := push.NewPusher(messaging.messages, groupRepo, redisRepo, logger.L)
 	pusher.SetTeamEligibility(eligibility)
+	pusher.SetMentionValidator(mentionClient)
 
 	// 创建 Kafka Consumer
 	consumer := push.NewConsumer(
