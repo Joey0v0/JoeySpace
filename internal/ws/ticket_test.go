@@ -69,7 +69,7 @@ func TestWSTicketSingleUseAndOrigin(t *testing.T) {
 	store := &testTicketStore{}
 	hub := NewHub(zap.NewNop())
 	go hub.Run()
-	server := &Server{hub: hub, redisRepo: ticketTestRedis{}, tickets: store, jwtSecret: secret, logger: zap.NewNop(), allowedOrigins: map[string]struct{}{}}
+	server := &Server{hub: hub, redisRepo: ticketTestRedis{}, tickets: store, jwtSecret: secret, logger: zap.NewNop(), allowedOrigins: map[string]struct{}{"https://demo.example": {}}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws-ticket", server.HandleWSTicket)
 	mux.HandleFunc("/ws", server.HandleWS)
@@ -150,4 +150,15 @@ func TestWSTicketSingleUseAndOrigin(t *testing.T) {
 	if store.consumes != 2 {
 		t.Fatalf("consume count = %d", store.consumes)
 	}
+	legacyURL := "ws" + strings.TrimPrefix(httpServer.URL, "http") + "/ws?token=" + token
+	legacy, handshake, err := dialer.Dial(legacyURL, http.Header{"Origin": []string{"https://demo.example"}})
+	if err != nil {
+		t.Fatalf("allowed legacy demo handshake: %v, %v", handshake, err)
+	}
+	legacy.Close()
+	_, denied, err := dialer.Dial(legacyURL, http.Header{"Origin": []string{"https://other.example"}})
+	if err == nil || denied == nil || denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("unexpected legacy origin result: %v, %v", denied, err)
+	}
+	denied.Body.Close()
 }
