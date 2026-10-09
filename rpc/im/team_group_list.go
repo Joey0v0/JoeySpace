@@ -4,10 +4,8 @@ import (
 	"context"
 
 	"github.com/yjydist/go-im/rpc/im/pb"
-	userpb "github.com/yjydist/go-im/rpc/user/pb"
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -22,18 +20,13 @@ func (s *imServer) ListTeamGroups(ctx context.Context, req *pb.ListTeamGroupsReq
 	if limit == 0 {
 		limit = 20
 	}
-	_, authorization, err := s.authenticatedUser(ctx)
+	userID, authorization, err := s.authenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	teamCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs("authorization", authorization))
-	if _, err := s.teamClient.CheckTeamMember(teamCtx, &userpb.CheckTeamMemberRequest{TeamId: req.GetTeamId()}); err != nil {
-		switch status.Code(err) {
-		case codes.PermissionDenied, codes.Unauthenticated, codes.DeadlineExceeded, codes.Canceled:
-			return nil, err
-		default:
-			return nil, status.Error(codes.Unavailable, "team membership check unavailable")
-		}
+	generation, err := s.directoryTeamGeneration(ctx, authorization, req.GetTeamId(), userID)
+	if err != nil {
+		return nil, err
 	}
 	var rows []struct {
 		ID      int64
@@ -56,7 +49,14 @@ func (s *imServer) ListTeamGroups(ctx context.Context, req *pb.ListTeamGroupsReq
 		result.NextAfterGroupId = rows[len(rows)-1].ID
 	}
 	for _, row := range rows {
-		result.Groups = append(result.Groups, &pb.TeamGroup{GroupId: row.ID, Name: row.Name, OwnerId: row.OwnerID})
+		joined, err := s.directoryJoined(ctx, row.ID, req.GetTeamId(), userID, generation)
+		if err != nil {
+			return nil, err
+		}
+		result.Groups = append(result.Groups, &pb.TeamGroup{GroupId: row.ID, Name: row.Name, OwnerId: row.OwnerID, Joined: joined})
+	}
+	if err := s.directoryTeamUnchanged(ctx, authorization, req.GetTeamId(), userID, generation); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

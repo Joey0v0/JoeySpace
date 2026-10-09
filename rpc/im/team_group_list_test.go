@@ -34,6 +34,9 @@ func TestListTeamGroupsPage(t *testing.T) {
 			AddRow(int64(11), "Planning", int64(42)).
 			AddRow(int64(12), "Delivery", int64(43)).
 			AddRow(int64(13), "Extra", int64(44)))
+	for _, id := range []int64{11, 12} {
+		mock.ExpectQuery(regexp.QuoteMeta(teamGroupReadFenceSQL)).WithArgs(id, int64(42), int64(200)).WillReturnRows(sqlmock.NewRows([]string{"group_id", "closed_through_generation"}))
+	}
 	result, err := s.ListTeamGroups(teamGroupListContext(t), &pb.ListTeamGroupsRequest{TeamId: 200, AfterGroupId: 10, Limit: 2})
 	if err != nil || len(result.GetGroups()) != 2 || result.GetGroups()[0].GetGroupId() != 11 || result.GetGroups()[1].GetName() != "Delivery" || result.GetNextAfterGroupId() != 12 {
 		t.Fatalf("list result: %v, %v", result, err)
@@ -69,5 +72,31 @@ func TestListTeamGroupsRejectsInvalidRequestAndDatabaseFailure(t *testing.T) {
 	result, err = s.ListTeamGroups(teamGroupListContext(t), &pb.ListTeamGroupsRequest{TeamId: 200})
 	if result != nil || status.Code(err) != codes.Unavailable || status.Convert(err).Message() == "private DB detail" {
 		t.Fatalf("database failure: %v, %v", result, err)
+	}
+}
+
+func TestListTeamGroupsJoinedAndFinalRevocation(t *testing.T) {
+	for _, revoke := range []bool{false, true} {
+		t.Run(map[bool]string{false: "joined", true: "revoked during query"}[revoke], func(t *testing.T) {
+			s, m := testIMServer(t)
+			calls := 0
+			s.teamClient = teamCheckFunc(func(context.Context, *userpb.CheckTeamMemberRequest) error {
+				calls++
+				if revoke && calls == 2 {
+					return status.Error(codes.PermissionDenied, "left")
+				}
+				return nil
+			})
+			m.ExpectQuery("SELECT id, name, owner_id FROM").WithArgs(int64(200), int64(0), 21).WillReturnRows(sqlmock.NewRows([]string{"id", "name", "owner_id"}).AddRow(100, "Group", 42))
+			m.ExpectQuery(regexp.QuoteMeta(teamGroupReadFenceSQL)).WithArgs(int64(100), int64(42), int64(200)).WillReturnRows(sqlmock.NewRows([]string{"group_id", "closed_through_generation"}).AddRow(100, 0))
+			got, err := s.ListTeamGroups(teamGroupListContext(t), &pb.ListTeamGroupsRequest{TeamId: 200})
+			if revoke {
+				if got != nil || status.Code(err) != codes.PermissionDenied {
+					t.Fatalf("%v %v", got, err)
+				}
+			} else if err != nil || !got.GetGroups()[0].GetJoined() {
+				t.Fatalf("%v %v", got, err)
+			}
+		})
 	}
 }
