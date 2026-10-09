@@ -29,9 +29,12 @@ export interface AgentReviewState {
   itemBusy: boolean
   itemError: string
   counts: { waiting: number; created: number; skipped: number }
+  textInput: { index: number; title: string; description: string } | null
+  writeBusy: boolean
+  writeError: string
 }
 export function initialAgentReviewState(): AgentReviewState {
-  return { mode: 'closed', group: null, source: null, question: '', answer: '', askBusy: false, askError: '', trigger: null, triggerBusy: false, triggerError: '', collection: null, collectionBusy: false, collectionError: '', selectedIndex: null, itemBusy: false, itemError: '', counts: { waiting: 0, created: 0, skipped: 0 } }
+  return { mode: 'closed', group: null, source: null, question: '', answer: '', askBusy: false, askError: '', trigger: null, triggerBusy: false, triggerError: '', collection: null, collectionBusy: false, collectionError: '', selectedIndex: null, itemBusy: false, itemError: '', counts: { waiting: 0, created: 0, skipped: 0 }, textInput: null, writeBusy: false, writeError: '' }
 }
 
 const realClock: Clock = {
@@ -51,6 +54,7 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
   let triggerPending = false
   let collectionPending = false
   let itemPending = false
+  let writePending = false
   let dataGeneration = 0
   let disposed = false
   const subscribed = identity.subscribe(() => close())
@@ -66,6 +70,7 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
     triggerPending = false
     collectionPending = false
     itemPending = false
+    writePending = false
     Object.assign(state, initialAgentReviewState())
   }
   function current(epoch: number, version: number) { return !disposed && epoch === generation && version === identity.version() }
@@ -81,10 +86,14 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
     dataGeneration++
     collectionPending = false
     itemPending = false
+    writePending = false
     state.collection = null
     state.selectedIndex = null
+    state.textInput = null
     state.collectionBusy = false
     state.itemBusy = false
+    state.writeBusy = false
+    state.writeError = ''
     state.counts = { waiting: 0, created: 0, skipped: 0 }
   }
   function recount(items: DraftItem[]) {
@@ -169,8 +178,12 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
       const result = await api.collection(scope)
       if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
       if (result.run_id !== scope.runId || result.team_id !== scope.teamId || result.group_id !== scope.groupId || result.item_count !== result.items.length || result.item_count < 1 || result.item_count > 5 || result.items.some((item, index) => item.item_index !== index)) throw new ApiError(502, 'AI 草稿范围无效')
+      const dirty = hasUnsavedText()
+      if (dirty && state.textInput && state.textInput.index >= result.items.length) throw new ApiError(502, '未保存草稿项已不在集合中')
+      const selectedIndex = state.selectedIndex !== null && state.selectedIndex < result.items.length ? state.selectedIndex : 0
       state.collection = result
-      state.selectedIndex = 0
+      state.selectedIndex = selectedIndex
+      if (!dirty) state.textInput = { index: selectedIndex, title: result.items[selectedIndex]!.draft.title, description: result.items[selectedIndex]!.draft.description }
       recount(result.items)
     } catch (error) {
       if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
@@ -180,9 +193,21 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
       if (current(epoch, version) && dataEpoch === dataGeneration) { collectionPending = false; state.collectionBusy = false }
     }
   }
-  function selectItem(index: number) {
-    if (!state.collection || !Number.isInteger(index) || index < 0 || index >= state.collection.items.length) return
+  function hasUnsavedText() {
+    const input = state.textInput, item = input && state.collection?.items[input.index]
+    return !!input && !!item && (input.title !== item.draft.title || input.description !== item.draft.description)
+  }
+  function updateText(title: string, description: string) {
+    if (state.writeBusy || state.selectedIndex === null || !state.collection?.items[state.selectedIndex] || typeof title !== 'string' || typeof description !== 'string') return
+    state.textInput = { index: state.selectedIndex, title, description }
+  }
+  function selectItem(index: number, discard = false): boolean {
+    if (!state.collection || !Number.isInteger(index) || index < 0 || index >= state.collection.items.length || state.writeBusy || (hasUnsavedText() && !discard)) return false
     state.selectedIndex = index
+    const item = state.collection.items[index]!
+    state.textInput = { index, title: item.draft.title, description: item.draft.description }
+    state.writeError = ''
+    return true
   }
   async function reloadItem(index: number) {
     const scope = currentRun()
@@ -195,7 +220,9 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
       const result = await api.item(scope, index)
       if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope) || !state.collection) return
       if (result.item_index !== index) throw new ApiError(502, 'AI 草稿项无效')
+      const replaceCleanInput = state.textInput?.index === index && !hasUnsavedText()
       state.collection = { ...state.collection, items: state.collection.items.map((item, i) => i === index ? result : item) }
+      if (replaceCleanInput) state.textInput = { index, title: result.draft.title, description: result.draft.description }
       recount(state.collection.items)
     } catch (error) {
       if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
@@ -205,11 +232,51 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
       if (current(epoch, version) && dataEpoch === dataGeneration) { itemPending = false; state.itemBusy = false }
     }
   }
+  async function writeItem(index: number, operation: (scope: AgentScope, item: DraftItem) => Promise<DraftItem>, resetText = false) {
+    const scope = currentRun(), item = state.collection?.items[index]
+    if (!scope || !item || item.status !== 'waiting_confirmation' || !Number.isInteger(index) || index < 0 || index > 4 || writePending || itemPending) return
+    const epoch = generation, version = identity.version(), dataEpoch = dataGeneration
+    const submittedInput = state.textInput, replaceCleanInput = !hasUnsavedText()
+    writePending = true
+    state.writeBusy = true
+    state.writeError = ''
+    try {
+      const result = await operation(scope, item)
+      if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope) || !state.collection) return
+      if (result.item_index !== index) throw new ApiError(502, 'AI 草稿项无效')
+      state.collection = { ...state.collection, items: state.collection.items.map((row, i) => i === index ? result : row) }
+      if (state.textInput === submittedInput && submittedInput?.index === index && (resetText || replaceCleanInput)) state.textInput = { index, title: result.draft.title, description: result.draft.description }
+      recount(state.collection.items)
+    } catch (error) {
+      if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) { close(); return }
+      if (!(error instanceof ApiError && error.status === 400)) {
+        await reloadItem(index)
+        if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
+        state.writeError = state.itemError ? '保存结果未确认，重新核对失败，请稍后重试' : '已重新核对草稿项，请对照保存状态和本地输入'
+      } else state.writeError = error.message
+    } finally {
+      if (current(epoch, version) && dataEpoch === dataGeneration) { writePending = false; state.writeBusy = false }
+    }
+  }
+  function editText(index: number) {
+    const input = state.textInput
+    if (!input || input.index !== index || !hasUnsavedText()) return Promise.resolve()
+    const title = trim(input.title), description = trim(input.description)
+    if (!title || [...title].length > 200 || [...description].length > 2000 || /[\uD800-\uDFFF]/u.test(title + description)) { state.writeError = '标题需为 1—200 字，说明最多 2000 字'; return Promise.resolve() }
+    return writeItem(index, (scope, item) => api.editText(scope, index, { title, description, expected_revision: item.draft.revision }), true)
+  }
+  function selectAssignee(index: number, assigneeId: string) {
+    return writeItem(index, (scope, item) => api.selectAssignee(scope, index, { assignee_id: assigneeId, expected_revision: item.draft.revision }))
+  }
+  function editDeadline(index: number, dueAtUnixMs: number) {
+    return writeItem(index, (scope, item) => api.editDeadline(scope, index, { due_at_unix_ms: dueAtUnixMs, expected_revision: item.draft.revision }))
+  }
   function dispose() {
     if (disposed) return
     disposed = true
     subscribed()
     close()
   }
-  return { openAsk, ask, openTrigger, refreshTrigger, loadCollection, selectItem, reloadItem, close, dispose }
+  return { openAsk, ask, openTrigger, refreshTrigger, loadCollection, selectItem, reloadItem, updateText, hasUnsavedText, editText, selectAssignee, editDeadline, close, dispose }
 }

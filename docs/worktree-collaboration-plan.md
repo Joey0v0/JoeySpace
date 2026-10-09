@@ -622,3 +622,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 任务 3 的共同契约由主 agent 保存于 `93ae034`。执行 worktree `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-review-state`、分支 `codex/frontend-f5-review-state`，仅允许修改 `frontend/src/agent/review.ts` 和 `frontend/src/agent/review.test.ts`；锁定依赖离线恢复成功。执行 agent 随后遇到用量上限且未留下文件，主 agent 在该 worktree 接手：先写失败测试，再实现临时 Ask、原指令状态与限时轮询；集成分支独立通过聚焦 5/5、现有 95/95、类型检查、生产构建与 `git diff --check`，保存 `419e2d0`。
 
 任务 4 基于该提交由主 agent 在集成 worktree `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-ai-draft` 继续，仅修改同两份状态文件。先见集合/单项新增测试失败，再实现当前已完成运行的集合读取、计数、选择和单项重读；又用运行切换竞争的失败测试修正旧请求占用新读取状态。最终聚焦 9/9、类型检查与生产构建通过，保存 `ba2d64e`。两个任务未修改协议、后端、数据库、依赖或页面；未合 main、推送或部署。任务 5—8 仍待实施。
+
+## 61. 前端 F5 任务 5 逐项编辑（2026-10-10）
+
+主 agent 在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-ai-draft`、分支 `codex/frontend-f5-ai-draft` 按已确认计划直接实施；仅修改 `frontend/src/agent/review.ts`、`review.test.ts`，新增 `AgentPanel.vue`，并维护本节及项目进度。先新增文字未保存/冲突、负责人和期限版本、超时重读、账号切换测试，见 4 项失败，再实现编辑；另见集合刷新覆盖当前选中项的失败测试并修复。实际验证：F5 聚焦 27/27、现有前端 95/95、TypeScript 和生产构建通过。表单目前由 Vue 类型检查覆盖，尚未接入页面进行浏览器交互验收；确认/跳过和回帖留待任务 6，群聊接线与视觉检查留待任务 7。未改后端、协议、迁移、依赖；未合 main、推送或部署。

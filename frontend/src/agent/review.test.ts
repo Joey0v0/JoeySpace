@@ -17,6 +17,7 @@ function harness() {
   const triggers: Array<{ scope: TriggerScope; resolve: (value: AgentTrigger) => void; reject: (error: unknown) => void }> = []
   const collections: Array<{ resolve: (value: DraftCollection) => void; reject: (error: unknown) => void }> = []
   const items: Array<{ index: number; resolve: (value: DraftItem) => void; reject: (error: unknown) => void }> = []
+  const writes: Array<{ kind: string; index: number; body: unknown; resolve: (value: DraftItem) => void; reject: (error: unknown) => void }> = []
   let now = 0
   let nextTimer = 0
   const timers = new Map<number, { due: number; callback: () => void }>()
@@ -25,6 +26,9 @@ function harness() {
     trigger: (scope: TriggerScope) => new Promise<AgentTrigger>((resolve, reject) => { triggers.push({ scope, resolve, reject }) }),
     collection: () => new Promise<DraftCollection>((resolve, reject) => { collections.push({ resolve, reject }) }),
     item: (_scope: unknown, index: number) => new Promise<DraftItem>((resolve, reject) => { items.push({ index, resolve, reject }) }),
+    editText: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { writes.push({ kind: 'text', index, body, resolve, reject }) }),
+    selectAssignee: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { writes.push({ kind: 'assignee', index, body, resolve, reject }) }),
+    editDeadline: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { writes.push({ kind: 'deadline', index, body, resolve, reject }) }),
   } as unknown as ReturnType<typeof createAgentApi>
   const review = createAgentReview(api, identity, state, {
     now: () => now,
@@ -40,7 +44,7 @@ function harness() {
     }
     now = target
   }
-  return { identity, state, asks, triggers, collections, items, timers, review, advance }
+  return { identity, state, asks, triggers, collections, items, writes, timers, review, advance }
 }
 
 const draftItem = (item_index: number, status: DraftItem['status'] = 'waiting_confirmation'): DraftItem => ({
@@ -207,5 +211,88 @@ test('a changed run releases old collection loading without clearing the new loa
   h.collections[1]!.resolve(draftCollection([draftItem(0, 'succeeded')], '9')); await newLoad
   assert.equal(h.state.collection?.run_id, '9')
   assert.equal(h.state.collectionBusy, false)
+  h.review.dispose()
+})
+
+async function loadedReview(h: ReturnType<typeof harness>, drafts = [draftItem(0), draftItem(1)]) {
+  const trigger = h.review.openTrigger(source)
+  h.triggers.at(-1)!.resolve(status('completed', '7')); await trigger
+  const load = h.review.loadCollection()
+  h.collections.at(-1)!.resolve(draftCollection(drafts)); await load
+}
+
+test('unsaved text blocks item switching until explicit discard or successful save', async () => {
+  const h = harness(); await loadedReview(h)
+  h.review.updateText('  新标题  ', '  新说明  ')
+  assert.equal(h.review.hasUnsavedText(), true)
+  assert.equal(h.review.selectItem(1), false)
+  assert.equal(h.state.selectedIndex, 0)
+  const save = h.review.editText(0)
+  assert.deepEqual(h.writes[0]?.body, { title: '新标题', description: '新说明', expected_revision: '1' })
+  h.writes[0]!.resolve({ ...draftItem(0), draft: { ...draftItem(0).draft, title: '新标题', description: '新说明', revision: '2' } }); await save
+  assert.equal(h.review.hasUnsavedText(), false)
+  assert.equal(h.review.selectItem(1), true)
+  h.review.updateText('草稿', '')
+  assert.equal(h.review.selectItem(0, true), true)
+  assert.equal(h.state.textInput?.title, '新标题')
+  h.review.dispose()
+})
+
+test('409 keeps local text, rereads only the conflicted item, and uses its new revision on next save', async () => {
+  const h = harness(); await loadedReview(h)
+  h.review.updateText('我的修改', '')
+  const save = h.review.editText(0)
+  h.writes[0]!.reject(new ApiError(409, 'revision conflict'))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(h.items.length, 1)
+  h.items[0]!.resolve({ ...draftItem(0), draft: { ...draftItem(0).draft, revision: '3', title: '他人修改' } }); await save
+  assert.equal(h.state.textInput?.title, '我的修改')
+  assert.equal(h.state.collection?.items[0]?.draft.title, '他人修改')
+  assert.equal(h.state.collection?.items[1]?.draft.revision, '1')
+  assert.match(h.state.writeError, /重新核对/)
+  const again = h.review.editText(0)
+  assert.deepEqual(h.writes[1]?.body, { title: '我的修改', description: '', expected_revision: '3' })
+  h.writes[1]!.resolve({ ...draftItem(0), draft: { ...draftItem(0).draft, title: '我的修改', revision: '4' } }); await again
+  assert.equal(h.review.hasUnsavedText(), false)
+  h.review.dispose()
+})
+
+test('assignee and deadline choices send current revision and replace only authoritative saved item', async () => {
+  const h = harness()
+  await loadedReview(h, [draftItem(0), draftItem(1)])
+  const assignee = h.review.selectAssignee(0, '0')
+  assert.deepEqual(h.writes[0]?.body, { assignee_id: '0', expected_revision: '1' })
+  h.writes[0]!.resolve({ ...draftItem(0), draft: { ...draftItem(0).draft, assignee_resolution: 'unassigned', revision: '2' } }); await assignee
+  const deadline = h.review.editDeadline(0, 0)
+  assert.deepEqual(h.writes[1]?.body, { due_at_unix_ms: 0, expected_revision: '2' })
+  h.writes[1]!.resolve({ ...draftItem(0), draft: { ...draftItem(0).draft, assignee_resolution: 'unassigned', deadline: { ...draftItem(0).draft.deadline, resolution: 'unset' }, revision: '3' } }); await deadline
+  assert.equal(h.state.collection?.items[0]?.draft.deadline.resolution, 'unset')
+  assert.equal(h.state.collection?.items[1]?.draft.revision, '1')
+  h.review.dispose()
+})
+
+test('uncertain edit rereads same item and old write result cannot cross account change', async () => {
+  const h = harness(); await loadedReview(h)
+  const pending = h.review.selectAssignee(0, '8')
+  h.writes[0]!.reject(new ApiError(504, 'timeout'))
+  await Promise.resolve(); await Promise.resolve()
+  h.items[0]!.resolve({ ...draftItem(0), draft: { ...draftItem(0).draft, revision: '2', assignee_id: '8', assignee_resolution: 'selected' } }); await pending
+  assert.equal(h.state.collection?.items[0]?.draft.assignee_id, '8')
+  const old = h.review.editDeadline(0, 0)
+  h.identity.setSession('two')
+  h.writes[1]!.resolve(draftItem(0)); await old
+  assert.equal(h.state.collection, null)
+  h.review.dispose()
+})
+
+test('collection refresh preserves the selected item and unsaved text for the same run', async () => {
+  const h = harness(); await loadedReview(h)
+  h.review.selectItem(1)
+  h.review.updateText('稍后保存', '')
+  const refresh = h.review.loadCollection()
+  h.collections[1]!.resolve(draftCollection([draftItem(0), draftItem(1)])); await refresh
+  assert.equal(h.state.selectedIndex, 1)
+  assert.equal(h.state.textInput?.title, '稍后保存')
+  assert.equal(h.review.hasUnsavedText(), true)
   h.review.dispose()
 })
