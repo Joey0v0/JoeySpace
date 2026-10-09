@@ -165,6 +165,7 @@ CREATE TABLE tasks (
     created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_tasks_team (team_id, id),
+    INDEX idx_tasks_assignee_team_status_due (assignee_id, team_id, status, due_at_unix_ms, id),
     UNIQUE KEY uk_tasks_creator_request (creator_id, request_key)
 ) ENGINE=InnoDB;
 

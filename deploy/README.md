@@ -8,7 +8,7 @@ F3 WS 来源限制：本机旧 `/demo/chat` 的 Gateway Origin（localhost/127.0
 
 F3 第二批本地代码新增跨会话未读及结构化提及。已有数据库在启动该版 IM 前必须先核对并执行 [036 提及关系表](mysql/migrations/036_im_group_message_mentions.sql)，因为未读总览即使查看“全部未读”也会联查该表；新空卷的 `init.sql` 已包含。普通提及的 Push→IM 校验还需显式叠加 [docker-compose.mentions.yaml](docker-compose.mentions.yaml)，且保留 [docker-compose.team-leave.yaml](docker-compose.team-leave.yaml) 的 Push→User 当前团队资格链。两个私有目录 `IM_MENTION_CERT_DIR`、`PUSH_IM_MENTION_CERT_DIR` 各含独立的 `cert.pem/key.pem/ca.pem`，使用同一受信 CA；IM 服务证书 DNS SAN 为 `im.go-im.internal`、服务端用途，Push 客户端证书 DNS SAN 为 `push.go-im.internal`、客户端用途。新证书未纳入首次安装的 `provision-mtls.sh`，需由自管 CA 在仓库外签发并验证；不要重跑首次脚本覆盖现有凭证。先迁移、准备证书并用 `docker compose ... -f docker-compose.team-leave.yaml -f docker-compose.mentions.yaml config --quiet` 核对，再启用覆盖文件。未叠加覆盖时，普通提及校验默认关闭，带提及的发送会拒绝落库。此批未在真实 MySQL、Docker 或云端执行上述步骤。
 
-1. **选择数据库路径。** 先确认使用全新空数据卷，还是沿用已有 MySQL 数据卷。已有部署先记录 Compose 项目名和卷名，备份数据库并核对已执行迁移；不要因换目录或项目名意外创建另一套空卷，也不要执行 `down -v`。全新空卷首次启动 MySQL 时会自动运行 [init.sql](mysql/init.sql)；已有卷不会自动升级，必须按实际结构依次执行[增量迁移](mysql/migrations)。迁移编号目前为 001—036；只运行缺失项，每项只执行一次。035 在消息表建索引，036 建提及关系表，按现有表大小安排维护窗口。迁移前提及顺序见[阶段 7 启动核对](../docs/stage7-acceptance.md#3-最终启动前核对全部待执行)。
+1. **选择数据库路径。** 先确认使用全新空数据卷，还是沿用已有 MySQL 数据卷。已有部署先记录 Compose 项目名和卷名，备份数据库并核对已执行迁移；不要因换目录或项目名意外创建另一套空卷，也不要执行 `down -v`。全新空卷首次启动 MySQL 时会自动运行 [init.sql](mysql/init.sql)；已有卷不会自动升级，必须按实际结构依次执行[增量迁移](mysql/migrations)。迁移编号目前为 001—037；只运行缺失项，每项只执行一次。035 在消息表建索引，036 建提及关系表，037 为个人任务分页增加复合索引，均须按现有表大小安排维护窗口。迁移前提及顺序见[阶段 7 启动核对](../docs/stage7-acceptance.md#3-最终启动前核对全部待执行)。
 
 2. **创建私有配置。** 在本目录执行下列命令，已有私有文件不会被覆盖；Windows PowerShell 的对应命令见[下方配置说明](#凭证与云端原文件的区别)。
 
@@ -33,7 +33,7 @@ F3 第二批本地代码新增跨会话未读及结构化提及。已有数据�
 
    在私有 `docker-config.local.yaml` 将 `kafka.agent_trigger_enabled`、`task_notifications.push.enabled`、`task_notifications.ws.enabled` 设为 `true`，并保持聊天、Agent 触发和任务通知三个 Topic 不同；Task 发布 Topic 要与 Push 通知 Topic 相同。通知证书目录仅被覆盖文件挂载，覆盖文件**不会**自动打开私有 YAML 中的开关。仅运行基础 Compose 可使用聊天、团队和任务的基础入口，但不会启动完整 Agent/机器人/通知/团队退出链。
 
-4. **完成数据库准备。** 全新空卷可按第 5 步启动，MySQL 会执行 `init.sql`。已有库应先单独启动或连接**已确认的同一 MySQL 实例**，逐项核对缺失迁移并执行。以下是 Linux shell 中执行**某一个已确认缺失**的迁移文件的示例；将文件名替换为实际缺失项，不能循环盲跑 001—036：
+4. **完成数据库准备。** 全新空卷可按第 5 步启动，MySQL 会执行 `init.sql`。已有库应先单独启动或连接**已确认的同一 MySQL 实例**，逐项核对缺失迁移并执行。以下是 Linux shell 中执行**某一个已确认缺失**的迁移文件的示例；将文件名替换为实际缺失项，不能循环盲跑 001—037：
 
    ```sh
    docker compose --env-file .env -f docker-compose.yaml exec -T mysql \
