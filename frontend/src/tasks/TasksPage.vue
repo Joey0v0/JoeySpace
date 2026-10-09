@@ -38,7 +38,7 @@ const routeTeam = () => typeof route.query.team_id === 'string' && isId(route.qu
 watch(() => [routeView(), routeTeam(), String(route.params.teamId || ''), String(route.params.taskId || ''), String(route.name || ''), notificationTab() ? 'notifications' : 'tasks'], async ([view, teamId, detailTeam, taskId, , tab]) => {
   mutation.reset()
   workspace.setView(view as TaskView); workspace.setTeam(teamId)
-  if (tab === 'notifications') { notifications.setTeam(teamId); if (!notificationState.loaded && !notificationState.loading) void notifications.load() }
+  if (tab === 'notifications') { notifications.setTeam(teamId); if (!notificationState.loaded && !notificationState.loading) void notifications.load(); else notifications.activate() }
   else if (!state.tasks.loaded && !state.tasks.loading) void workspace.loadTasks()
   await workspace.selectTask(detailTeam || undefined, taskId || undefined)
 }, { immediate: true })
@@ -79,7 +79,7 @@ const sourceInvalid = () => {
   const value = sourceParts(), any = !!(value.group || value.message)
   return any && !(isId(value.team) && isId(value.group) && isId(value.message))
 }
-const realtime = createRealtimeClient({ identity: session, onTaskNotification: hint => { taskSignal.set(); if (notificationTab()) notifications.hint(hint.notificationId) }, onRefresh: () => { taskSignal.set(); if (notificationTab()) notifications.hint() } })
+const realtime = createRealtimeClient({ identity: session, onTaskNotification: hint => { taskSignal.set(); if (notificationTab()) notifications.hint(hint.notificationId, hint.teamId) }, onRefresh: () => { taskSignal.set(); if (notificationTab()) notifications.hint() } })
 realtime.connect()
 function openNotification(item: TaskNotification, target: HTMLElement) { openTask(item.team_id, item.task_id, target) }
 onUnmounted(() => { realtime.dispose(); notifications.dispose(); mutation.dispose(); workspace.dispose() })

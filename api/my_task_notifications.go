@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 
 	taskpb "github.com/yjydist/go-im/rpc/task/pb"
 	userpb "github.com/yjydist/go-im/rpc/user/pb"
@@ -54,7 +54,7 @@ func parseMyTaskNotificationsQuery(raw string) (*taskpb.ListMyTaskNotificationsR
 	req := &taskpb.ListMyTaskNotificationsRequest{Limit: 20}
 	if values, ok := query["team_id"]; ok {
 		req.TeamId, err = taskReadDecimal(values[0])
-		if err != nil {
+		if err != nil || values[0] != fmt.Sprint(req.TeamId) {
 			return nil, bad
 		}
 	}
@@ -71,8 +71,8 @@ func parseMyTaskNotificationsQuery(raw string) (*taskpb.ListMyTaskNotificationsR
 		req.Cursor = value
 	}
 	if values, ok := query["limit"]; ok {
-		value, parseErr := strconv.ParseInt(values[0], 10, 32)
-		if parseErr != nil || value < 1 || value > 50 {
+		value, parseErr := taskReadDecimal(values[0])
+		if parseErr != nil || values[0] != fmt.Sprint(value) || value < 1 || value > 50 {
 			return nil, bad
 		}
 		req.Limit = int32(value)

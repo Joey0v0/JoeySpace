@@ -14,4 +14,3 @@ test('tracks only a pending hint and clears it when identity changes', () => {
   assert.equal(signal.pending(), false)
   stop(); signal.dispose()
 })
-
