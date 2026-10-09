@@ -65,6 +65,7 @@ message OfflineMessage {
   // 1: user, 2: IM bot; 0 means a legacy user message.
   int32 sender_type = 9;
   int64 initiator_id = 10;
+  repeated int64 mentioned_user_ids = 11; // 仅经核验的新群消息。
 }
 
 message ListOfflineMessagesResponse {

@@ -39,10 +39,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	mentionConfig, err := loadIMMentionConfig(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := validateIMTriggerStartup(triggerConfig, c.ListenOn, botConfig.ListenOn); err != nil {
 		log.Fatal(err)
 	}
 	if err := validateIMLeaveStartup(leaveConfig, c.ListenOn, botConfig.ListenOn, triggerConfig.ListenOn); err != nil {
+		log.Fatal(err)
+	}
+	if err := validateIMMentionStartup(mentionConfig, c.ListenOn, botConfig.ListenOn, triggerConfig.ListenOn, leaveConfig.ListenOn); err != nil {
 		log.Fatal(err)
 	}
 	triggerTeamsConfig, err := loadIMTriggerTeamConfig(triggerConfig, os.Getenv)
@@ -85,6 +92,7 @@ func main() {
 	var triggerTeams *triggerTeamClient
 	var triggerRuntime *imTriggerRuntime
 	var leaveRuntime *imLeaveRuntime
+	var mentionRuntime *imMentionRuntime
 	var botRuntime *botReplyRuntime
 	// log.Fatal skips defers: close already prepared resources on startup errors.
 	failPreparedStartup := func(err error) {
@@ -93,6 +101,7 @@ func main() {
 		}
 		triggerRuntime.Stop()
 		leaveRuntime.Stop()
+		mentionRuntime.Stop()
 		_ = triggerTeams.Close()
 		if ordinaryUserConn != nil {
 			_ = ordinaryUserConn.Close()
@@ -116,12 +125,18 @@ func main() {
 			failPreparedStartup(err)
 		}
 	}
+	if !mentionConfig.disabled() {
+		mentionRuntime, err = newIMMentionRuntime(mentionConfig, db)
+		if err != nil {
+			failPreparedStartup(err)
+		}
+	}
 	ordinaryReady := make(chan *grpc.Server, 1)
-	triggerFailed := make(chan struct{}, 3)
+	triggerFailed := make(chan struct{}, 4)
 	c = rpcauth.WithoutRPCRequestContent(c, &impb.IM_ServiceDesc)
 	s, err := zrpc.NewServer(c, func(server *grpc.Server) {
 		registerOrdinaryIM(server, serverImpl)
-		if triggerRuntime != nil || leaveRuntime != nil {
+		if triggerRuntime != nil || leaveRuntime != nil || mentionRuntime != nil {
 			// go-zero calls register during Start, after binding the ordinary port.
 			ordinaryReady <- server
 			if triggerRuntime != nil {
@@ -134,6 +149,13 @@ func main() {
 			if leaveRuntime != nil {
 				go func() {
 					if err := leaveRuntime.server.Serve(leaveRuntime.listener); err != nil {
+						triggerFailed <- struct{}{}
+					}
+				}()
+			}
+			if mentionRuntime != nil {
+				go func() {
+					if err := mentionRuntime.server.Serve(mentionRuntime.listener); err != nil {
 						triggerFailed <- struct{}{}
 					}
 				}()
@@ -154,6 +176,7 @@ func main() {
 	defer triggerTeams.Close()
 	defer triggerRuntime.Stop()
 	defer leaveRuntime.Stop()
+	defer mentionRuntime.Stop()
 	botRuntime, err = newBotReplyRuntime(botConfig, serverImpl)
 	if err != nil {
 		failPreparedStartup(err)
@@ -161,7 +184,7 @@ func main() {
 	if botRuntime != nil {
 		defer botRuntime.Stop()
 	}
-	if triggerRuntime != nil || leaveRuntime != nil {
+	if triggerRuntime != nil || leaveRuntime != nil || mentionRuntime != nil {
 		if waitIMTriggerServers(s.Start, ordinaryReady, triggerFailed) {
 			log.Print("IM service listener stopped unexpectedly; stopping IM RPC")
 		}

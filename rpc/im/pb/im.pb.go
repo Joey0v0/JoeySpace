@@ -149,10 +149,11 @@ type OfflineMessage struct {
 	Content     string                 `protobuf:"bytes,7,opt,name=content,proto3" json:"content,omitempty"`
 	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// 1: user, 2: IM bot; 0 means a legacy user message.
-	SenderType    int32 `protobuf:"varint,9,opt,name=sender_type,json=senderType,proto3" json:"sender_type,omitempty"`
-	InitiatorId   int64 `protobuf:"varint,10,opt,name=initiator_id,json=initiatorId,proto3" json:"initiator_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SenderType       int32   `protobuf:"varint,9,opt,name=sender_type,json=senderType,proto3" json:"sender_type,omitempty"`
+	InitiatorId      int64   `protobuf:"varint,10,opt,name=initiator_id,json=initiatorId,proto3" json:"initiator_id,omitempty"`
+	MentionedUserIds []int64 `protobuf:"varint,11,rep,packed,name=mentioned_user_ids,json=mentionedUserIds,proto3" json:"mentioned_user_ids,omitempty"` // 仅经核验的新群消息。
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *OfflineMessage) Reset() {
@@ -253,6 +254,13 @@ func (x *OfflineMessage) GetInitiatorId() int64 {
 		return x.InitiatorId
 	}
 	return 0
+}
+
+func (x *OfflineMessage) GetMentionedUserIds() []int64 {
+	if x != nil {
+		return x.MentionedUserIds
+	}
+	return nil
 }
 
 type ListOfflineMessagesResponse struct {
@@ -2417,7 +2425,7 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\vmessage_ids\x18\x01 \x03(\x03R\n" +
 	"messageIds\"\x1c\n" +
 	"\x1aAckOfflineMessagesResponse\"\x1c\n" +
-	"\x1aListOfflineMessagesRequest\"\xbe\x02\n" +
+	"\x1aListOfflineMessagesRequest\"\xec\x02\n" +
 	"\x0eOfflineMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x15\n" +
 	"\x06msg_id\x18\x02 \x01(\tR\x05msgId\x12\x17\n" +
@@ -2431,7 +2439,8 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\vsender_type\x18\t \x01(\x05R\n" +
 	"senderType\x12!\n" +
 	"\finitiator_id\x18\n" +
-	" \x01(\x03R\vinitiatorId\"M\n" +
+	" \x01(\x03R\vinitiatorId\x12,\n" +
+	"\x12mentioned_user_ids\x18\v \x03(\x03R\x10mentionedUserIds\"M\n" +
 	"\x1bListOfflineMessagesResponse\x12.\n" +
 	"\bmessages\x18\x01 \x03(\v2\x12.im.OfflineMessageR\bmessages\"\x94\x01\n" +
 	"\x1cListTeamGroupMessagesRequest\x12\x17\n" +
