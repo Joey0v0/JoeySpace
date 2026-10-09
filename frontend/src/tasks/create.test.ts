@@ -44,6 +44,25 @@ test('uncertain create replays the frozen key and body, then detail failure only
   creator.dispose()
 })
 
+test('503 after a committed create keeps the original key and body for recovery', async () => {
+  const identity = createSession(); identity.setSession('a')
+  const calls: { key: string; body: string }[] = []
+  const creator = createTaskCreator(async (path, options) => {
+    if (options?.method === 'POST') {
+      calls.push({ key: new Headers(options.headers).get('Idempotency-Key')!, body: String(options.body) })
+      if (calls.length === 1) throw new ApiError(503, 'temporarily unavailable after commit')
+      return { task_id: '9' }
+    }
+    assert.equal(path, '/teams/2/tasks/9')
+    return { task: { task_id: '9', team_id: '2', team_name: '研发', title: '标题', description: '', creator_id: '3', creator_name: '甲', assignee_id: '0', assignee_name: '', status: 0, source_group_id: '0', source_message_id: '0', due_at_unix_ms: '0' }, can_update_status: true }
+  }, identity, initialCreateState(), () => 'fixed_key')
+  await creator.submit({ teamId: '2', title: '标题', description: '', assigneeId: '0', sourceGroupId: '0', sourceMessageId: '0', dueLocal: '' })
+  assert.equal(creator.state.phase, 'uncertain'); assert.equal(creator.state.frozen, true)
+  await creator.retry()
+  assert.equal(creator.state.phase, 'success'); assert.deepEqual(calls, [calls[0], calls[0]])
+  creator.dispose()
+})
+
 test('definite create failure unlocks and uses task-specific conflict text; stale responses are ignored', async () => {
   const identity = createSession(); identity.setSession('a')
   const state = initialCreateState(); let reject!: (e: unknown) => void

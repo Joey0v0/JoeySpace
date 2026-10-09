@@ -594,3 +594,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 用户已确认 F12—F16 并要求继续。主 agent 在 D:/zy/GoLang/JoeySpace/.worktrees/frontend-f4-tasks、分支 codex/frontend-f4-tasks 统一维护协议、生成代码、迁移和共同文档；执行 agent 每次只取得一个任务 brief、明确允许文件且不得派生子 agent、合并 main、推送或部署。基线为全仓 Go 通过、前端 59/59 测试通过、TypeScript 与 Vite 构建通过。
 
 细化计划基线提交为 8d1fe53。F4-1 由主 agent 固定 Task 本人任务/详情/通知、状态预期值、IM 来源上下文与 User 当前页补名协议。由于本机 Docker 引擎、MySQL/MariaDB 均不可用，真实 MySQL 8.0 EXPLAIN 与 037 从协议步骤移到最终查询 SQL 成形后的 Task 查询步骤；没有实测前不宣称索引已确定。后续每个实现任务完成后必须生成独立 diff 包并通过规格与质量审查，才进入下一任务。
+
+## 55. 前端 F4 本地集成与审查（2026-10-09）
+
+主 agent 在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f4-tasks` 统一负责 F4-9 HTTP→TCP gRPC 组合测试、全仓 Go/前端回归、037 静态一致性、共同文档及 Git 保存。只读浏览器检查 agent 在同一目录的忽略 `.superpowers/sdd/2026-10-09-frontend-f4-tasks/` 下运行本地 Chrome/API 替身并保存证据；独立只读审查 agent 检查整分支，发现的两项 Important 由主 agent 补失败测试、修复并经只读复核。执行 agent 没有修改共同协议、迁移、依赖、共同文档，未合 main、推送或部署。九步结果及所有实际文件见[F4 审查](frontend-f4-review.md)。

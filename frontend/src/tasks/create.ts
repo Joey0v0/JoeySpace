@@ -84,7 +84,7 @@ export function createTaskCreator(request: Request, identity: ReturnType<typeof 
   let attempt: { key: string; normalized: NormalizedCreate; bodyText: string } | null = null
   const reset = () => { scope++; attempt = null; Object.assign(state, initialCreateState()) }
   const unsubscribe = identity.subscribe(reset)
-  const definite = (error: unknown) => error instanceof ApiError && [400, 401, 403, 404, 409, 503].includes(error.status)
+  const definite = (error: unknown) => error instanceof ApiError && [400, 401, 403, 404, 409].includes(error.status)
   async function readDetail(ticket: number) {
     if (!attempt || !state.taskId) return
     state.phase = 'submitting'; state.status = '正在核对已创建任务…'; state.error = ''

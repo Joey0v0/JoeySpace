@@ -31,6 +31,12 @@ export function createTaskWorkspace(client: Client, identity: ReturnType<typeof 
       current.cursor = result.next_cursor; current.loaded = true; state.taskRetry = null
     } catch (error) {
       if (ticket !== scope || error instanceof StaleRequestError) return
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+        resetTasks()
+        state.tasks.error = errorText(error)
+        state.taskRetry = 'initial'
+        return
+      }
       current.error = errorText(error); state.taskRetry = operation
     } finally { if (ticket === scope) current.loading = false }
   }

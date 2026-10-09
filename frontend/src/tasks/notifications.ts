@@ -60,6 +60,12 @@ export function createTaskNotifications(list: (options: ListOptions) => Promise<
       if (BigInt(result.unread_count) > 0n) taskSignal.set(); else if (state.teamId === '0') taskSignal.clear()
     } catch (error) {
       if (disposed || ticket !== scope || error instanceof StaleRequestError) return
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+        const teamId = state.teamId
+        scope++; refreshVersion++
+        Object.assign(state, initialNotificationState(), { teamId, error: errorText(error) })
+        return
+      }
       state.items = original.items; state.cursor = original.cursor; state.unreadCount = original.unreadCount
       state.error = errorText(error); taskSignal.set()
     } finally {

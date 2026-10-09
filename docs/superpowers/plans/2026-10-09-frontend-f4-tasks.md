@@ -174,8 +174,8 @@
 
 **Interfaces:** Produces review evidence and explicit real-environment gaps; no product feature.
 
-- [ ] Run actual HTTP→TCP gRPC compositions for list/detail/status/context/notifications with large IDs, metadata and failures.
-- [ ] Run go test ./... -count=1, npm test, npm run build, migration consistency and any available MySQL 8.0 EXPLAIN.
-- [ ] Exercise login → messages → task → status → source → notification/read with browser substitutes at 1280, 1440 and 1920 widths and keyboard focus.
-- [ ] Complete per-task and whole-branch review; fix all Critical/Important findings.
-- [ ] Record files, call chains, results and unverified MySQL/Kafka/mTLS/browser/deployment items; update only verified progress, then commit.
+- [x] Run actual HTTP→TCP gRPC compositions for list/detail/status/context/notifications with large IDs, metadata and failures.
+- [x] Run go test ./... -count=1, npm test, npm run build, migration consistency and any available MySQL 8.0 EXPLAIN.
+- [x] Exercise login → messages → task → status → source → notification/read with browser substitutes at 1280, 1440 and 1920 widths and keyboard focus.
+- [x] Complete per-task and whole-branch review; fix all Critical/Important findings.
+- [x] Record files, call chains, results and unverified MySQL/Kafka/mTLS/browser/deployment items; update only verified progress, then commit.

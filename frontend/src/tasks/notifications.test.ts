@@ -98,6 +98,18 @@ test('preserves a loaded page on refresh and continuation failures and deduplica
   store.dispose()
 })
 
+test('denied notification refresh clears private rows and keeps the team filter', async () => {
+  const identity = createSession({ getItem: () => null, setItem() {}, removeItem() {} }); identity.setSession('token')
+  let denied = false
+  const state = initialNotificationState(), store = createTaskNotifications(async () => denied ? Promise.reject(new ApiError(403, 'denied')) : ({ notifications: [item('9')], next_cursor: 'next', unread_count: '1' }), async () => ({ notification_id: '9', read_at_unix_ms: '1790874000999' }), identity, state)
+  store.setTeam('11'); await new Promise(done => setTimeout(done, 0))
+  assert.equal(state.items.length, 1)
+  denied = true; await store.refresh()
+  assert.deepEqual(state.items, []); assert.equal(state.cursor, ''); assert.equal(state.unreadCount, '0')
+  assert.equal(state.loaded, false); assert.equal(state.teamId, '11'); assert.match(state.error, /denied/)
+  store.dispose()
+})
+
 test('queues only one authoritative refresh and read always refreshes from the first page', async () => {
   const identity = createSession({ getItem: () => null, setItem() {}, removeItem() {} }); identity.setSession('token')
   const cursors: string[] = []

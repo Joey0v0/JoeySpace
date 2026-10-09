@@ -44,6 +44,17 @@ test('refresh failure retains same-filter rows while filter switch clears them',
   workspace.dispose()
 })
 
+test('denied task refresh clears prior private rows, cursor and detail', async () => {
+  let denied = false
+  const api = { listMyTasks: async () => denied ? Promise.reject(new ApiError(403, '无权访问')) : ({ tasks: [task('1')], next_cursor: 'next' }), getTask: async () => ({ task: task('1'), can_update_status: true }), request: async () => ({}) }
+  const state = initialTaskWorkspaceState(), workspace = createTaskWorkspace(api, createSession(), state)
+  workspace.setTeam('2'); await workspace.loadTasks(); await workspace.selectTask('2', '1')
+  denied = true; await workspace.refreshTasks()
+  assert.deepEqual(state.tasks.items, []); assert.equal(state.tasks.cursor, ''); assert.equal(state.detail, null)
+  assert.equal(state.tasks.loaded, false); assert.match(state.tasks.error, /无权/)
+  workspace.dispose()
+})
+
 test('failed initial task page retries from the empty cursor', async () => {
   const cursors: string[] = []
   const api = { listMyTasks: async (options: { cursor?: string }) => { cursors.push(options.cursor ?? ''); if (cursors.length === 1) throw new ApiError(503, '失败'); return { tasks: [task('1')], next_cursor: '' } }, getTask: async () => ({ task: task('1'), can_update_status: true }), request: async () => ({}) }
