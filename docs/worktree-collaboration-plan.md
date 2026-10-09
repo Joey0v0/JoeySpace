@@ -31,6 +31,8 @@ Vue agent 先完成计划步骤 2—3；主 agent 已实现步骤 1、4 的后�
 
 F11 的实际写入链经用户选择保留 Push，详见[第二批契约](frontend-f3-overview-contract.md)。三个执行 agent 不改 F11；主 agent 在 F10 集成后再逐步实现 F11。
 
+F10 三个执行分支已提交并集成。F11 Push 执行 agent 从主分支 F10 整合提交 `bc6d395` 建立 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-mention-push`（`codex/frontend-f3-mention-push`），只改 `internal/push/`、`internal/repository/message_repo.go` 及其测试、`cmd/push/`。主 agent 持有 WS、IM 受控入口、查询、Vue、迁移与部署文档，审查后集成；不并行修改 Push agent 所辖文件。
+
 ## 前端 F2 执行记录（2026-10-09）
 
 用户审查[完整方案](frontend-f2-navigation-design.md)后回复“没啥问题，继续”。主 agent 从 F1 `e75c322` 建 `codex/frontend-f2-navigation`，提交共同协议与[接口契约](frontend-f2-api-contract.md) `df8fc09`，从同一提交建立三个干净 worktree；协议、生成代码、Gateway、依赖、共同文档和集成仅由主 agent 负责。各执行 agent 不自行合并 main、推送、部署或更改迁移。
