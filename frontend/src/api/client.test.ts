@@ -111,3 +111,32 @@ test('task reads turn malformed successful data into safe 502 errors', async () 
   const client = createApiClient(createSession(), async () => reply({ tasks: [{ task_id: 1 }], next_cursor: '0' }))
   await assert.rejects(client.listMyTasks({ view: 'open' }), (error: unknown) => error instanceof ApiError && error.status === 502 && !error.message.includes('task_id'))
 })
+
+test('request default and overrides abort at their own deadlines and clear timers', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  for (const timeout of [15000, 18000, 22000, 23000, 25000]) {
+    let signal!: AbortSignal
+    const client = createApiClient(createSession(), async (_url, options) => {
+      signal = options!.signal as AbortSignal
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('aborted'))))
+    })
+    const pending = timeout === 15000 ? client.request('/teams') : client.request('/teams', {}, true, true, timeout)
+    const rejected = assert.rejects(pending, (error: unknown) => error instanceof ApiError && error.status === 0 && error.message.includes('超时'))
+    t.mock.timers.tick(timeout - 1)
+    assert.equal(signal.aborted, false)
+    t.mock.timers.tick(1)
+    await rejected
+    assert.equal(signal.aborted, true)
+  }
+  let signal!: AbortSignal
+  const success = createApiClient(createSession(), async (_url, options) => { signal = options!.signal as AbortSignal; return reply({}) })
+  await success.request('/teams', {}, true, true, 18000)
+  t.mock.timers.tick(25000)
+  assert.equal(signal.aborted, false)
+})
+test('invalid timeout overrides reject before transport', async () => {
+  let count = 0
+  const client = createApiClient(createSession(), async () => { count++; return reply({}) })
+  for (const timeout of [0, -1, 1.5, NaN, Infinity, 2147483648]) await assert.rejects(client.request('/teams', {}, true, true, timeout), (error: unknown) => error instanceof ApiError && error.status === 400)
+  assert.equal(count, 0)
+})

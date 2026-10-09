@@ -24,11 +24,12 @@ function statusMessage(status: number) {
   return '请求失败，请重试'
 }
 export function createApiClient(identity: ReturnType<typeof createSession>, transport: typeof fetch = globalThis.fetch) {
-  async function request<T>(path: string, options: RequestInit = {}, authenticated = true, expectData = true): Promise<T> {
+  async function request<T>(path: string, options: RequestInit = {}, authenticated = true, expectData = true, timeoutMs = 15000): Promise<T> {
+    if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2147483647) throw new ApiError(400, '请求超时设置无效')
     const epoch = identity.version()
     const token = identity.token()
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
     const headers = new Headers(options.headers)
     if (authenticated && token) headers.set('Authorization', 'Bearer ' + token)
     if (options.body) headers.set('Content-Type', 'application/json')
