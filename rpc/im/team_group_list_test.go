@@ -100,3 +100,31 @@ func TestListTeamGroupsJoinedAndFinalRevocation(t *testing.T) {
 		})
 	}
 }
+
+func TestListTeamGroupsRejectsWholePageAfterGenerationChange(t *testing.T) {
+	s, mock := testIMServer(t)
+	calls := 0
+	s.teamClient = directoryTeamClient{generation: func() int64 {
+		calls++
+		if calls == 1 {
+			return 1
+		}
+		// The member left and rejoined while this page was being assembled.
+		return 2
+	}}
+	mock.ExpectQuery("SELECT id, name, owner_id FROM").
+		WithArgs(int64(200), int64(0), 3).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "owner_id"}).
+			AddRow(100, "Planning", 42).AddRow(101, "Delivery", 43).AddRow(102, "Next page", 44))
+	mock.ExpectQuery(regexp.QuoteMeta(teamGroupReadFenceSQL)).
+		WithArgs(int64(100), int64(42), int64(200)).
+		WillReturnRows(sqlmock.NewRows([]string{"group_id", "closed_through_generation"}).AddRow(100, 0))
+	// Another membership has already disappeared during the same directory read.
+	mock.ExpectQuery(regexp.QuoteMeta(teamGroupReadFenceSQL)).
+		WithArgs(int64(101), int64(42), int64(200)).
+		WillReturnRows(sqlmock.NewRows([]string{"group_id", "closed_through_generation"}))
+	result, err := s.ListTeamGroups(teamGroupListContext(t), &pb.ListTeamGroupsRequest{TeamId: 200, Limit: 2})
+	if calls != 2 || result != nil || status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("changed generation must discard groups and next cursor: calls=%d result=%v err=%v", calls, result, err)
+	}
+}
