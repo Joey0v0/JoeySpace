@@ -94,3 +94,20 @@ test('directory reads still reject success envelopes missing data', async () => 
   const client = createApiClient(createSession(), async () => new Response(JSON.stringify({ code: 0, msg: 'success' })))
   await assert.rejects(client.request('/teams'), (error: unknown) => error instanceof ApiError && error.status === 502)
 })
+
+test('task reads encode list query and detail path while preserving string IDs', async () => {
+  const urls: string[] = []
+  const client = createApiClient(createSession(), async url => {
+    urls.push(String(url))
+    if (String(url).includes('/tasks?')) return reply({ tasks: [{ task_id: '9007199254740993', team_id: '2', team_name: '研发', title: '标题', description: '', creator_id: '3', creator_name: '甲', assignee_id: '4', assignee_name: '乙', status: 0, source_group_id: '0', source_message_id: '0', due_at_unix_ms: '0' }], next_cursor: 'eyJ2ZXJzaW9uIjoxfQ' })
+    return reply({ task: { task_id: '9', team_id: '2', team_name: '研发', title: '标题', description: '', creator_id: '3', creator_name: '甲', assignee_id: '4', assignee_name: '乙', status: 1, source_group_id: '7', source_message_id: '8', due_at_unix_ms: '1700000000000' }, can_update_status: true })
+  })
+  assert.equal((await client.listMyTasks({ view: 'open', teamId: '2', cursor: 'eyJ2ZXJzaW9uIjoxfQ', limit: 20 })).next_cursor, 'eyJ2ZXJzaW9uIjoxfQ')
+  assert.equal((await client.getTask('2', '9')).task.task_id, '9')
+  assert.deepEqual(urls, ['/api/v1/tasks?view=open&team_id=2&cursor=eyJ2ZXJzaW9uIjoxfQ&limit=20', '/api/v1/teams/2/tasks/9'])
+})
+
+test('task reads turn malformed successful data into safe 502 errors', async () => {
+  const client = createApiClient(createSession(), async () => reply({ tasks: [{ task_id: 1 }], next_cursor: '0' }))
+  await assert.rejects(client.listMyTasks({ view: 'open' }), (error: unknown) => error instanceof ApiError && error.status === 502 && !error.message.includes('task_id'))
+})

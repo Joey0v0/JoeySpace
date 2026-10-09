@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory, RouterView } from 'vue-router'
 import MessagesPage from './messages/MessagesPage.vue'
-import TaskPreview from './TaskPreview.vue'
+import TasksPage from './tasks/TasksPage.vue'
 import LoginPage from './auth/LoginPage.vue'
 import { session, restoreSession } from './auth/session.ts'
 import { verification } from './auth/verification.ts'
@@ -18,7 +18,8 @@ export const router = createRouter({
         { path: 'teams/:teamId/groups/:groupId', name: 'group', component: MessagesPage },
       ],
     },
-    { path: '/tasks', component: TaskPreview },
+    { path: '/tasks', name: 'tasks', component: TasksPage },
+    { path: '/tasks/teams/:teamId/:taskId', name: 'task-detail', component: TasksPage },
     { path: '/:pathMatch(.*)*', redirect: '/messages' },
   ],
 })

@@ -1,5 +1,6 @@
 import { session } from '../auth/session.ts'
 import type { createSession } from '../auth/session.ts'
+import { decodeTaskDetail, decodeTaskPage, type TaskDetail, type TaskPage, type TaskView } from '../tasks/model.ts'
 
 export interface Profile { id: string; username: string; nickname: string }
 export class ApiError extends Error {
@@ -17,7 +18,7 @@ function statusMessage(status: number) {
   if (status === 403) return '当前账号无权访问此资源'
   if (status === 409) return '用户名已存在，请换一个用户名'
   if (status === 400) return '输入信息不符合要求，请检查后重试'
-  if (status === 404) return '会话不存在或当前账号无法访问'
+  if (status === 404) return '资源不存在或当前账号无法访问'
   if (status === 503) return '服务暂时不可用，请稍后重试'
   if (status === 504) return '服务响应超时，请重试'
   return '请求失败，请重试'
@@ -71,7 +72,24 @@ export function createApiClient(identity: ReturnType<typeof createSession>, tran
     }
     await request<void>('/user/register', { method: 'POST', body: JSON.stringify({ username, password, nickname }) }, false, false)
   }
-  return { request, getMyInfo, login, register }
+  async function listMyTasks(options: { view: TaskView; teamId?: string; cursor?: string; limit?: number }): Promise<TaskPage> {
+    if ((options.view !== 'open' && options.view !== 'completed') || (options.teamId && options.teamId !== '0' && !isId(options.teamId)) || (options.cursor && (options.cursor.length > 2048 || !/^[A-Za-z0-9_-]+$/.test(options.cursor))) || (options.limit !== undefined && (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 50))) throw new ApiError(400, '任务筛选无效')
+    const query = new URLSearchParams({ view: options.view })
+    if (options.teamId && options.teamId !== '0') query.set('team_id', options.teamId)
+    if (options.cursor) query.set('cursor', options.cursor)
+    query.set('limit', String(options.limit ?? 20))
+    const data = await request<unknown>('/tasks?' + query)
+    const result = decodeTaskPage(data)
+    if (!result) throw new ApiError(502, '任务数据无效，请重试')
+    return result
+  }
+  async function getTask(teamId: string, taskId: string): Promise<TaskDetail> {
+    if (!isId(teamId) || !isId(taskId)) throw new ApiError(400, '任务地址无效')
+    const result = decodeTaskDetail(await request<unknown>('/teams/' + teamId + '/tasks/' + taskId))
+    if (!result) throw new ApiError(502, '任务数据无效，请重试')
+    return result
+  }
+  return { request, getMyInfo, login, register, listMyTasks, getTask }
 }
 export const api = createApiClient(session)
 let verifiedEpoch = -1
