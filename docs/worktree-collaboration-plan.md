@@ -638,3 +638,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 64. 前端 F5 任务 8 本地组合验收（2026-10-10）
 
 主 agent 在同一隔离 worktree 将四组 Agent 测试加入 `frontend/package.json` 的统一脚本，新增 `docs/frontend-f5-review.md` 并维护项目进度和本节；本地 HTTP/WS 替身脚本及 PNG/JSON 证据留在忽略目录 `.superpowers/sdd/2026-10-10-frontend-f5-ai-draft/`，未增加项目依赖。Chrome 从群聊 Ask 进入五项草稿，覆盖 409 重读后保存、确认、跳过、负责人和期限补正、已创建项的回帖状态重读与显式重试；第二账号的他人指令入口隐藏和 403 深链清理、未入群入口隐藏及切离群后旧回包失效均通过。900/1280/1440/1920 桌面宽度无横向溢出。前端 `npm test` 132/132、类型检查与生产构建通过；真实服务和云端验收留待 F6。主 agent 独占共同文档和 Git 保存；未修改 Go、协议、迁移、依赖，未合 main、推送或部署。
+
+## 65. 前端 F6 方案与隔离基线（2026-10-10）
+
+用户确认轻量 Nginx 静态托管和同源 API/WS 转发方向后，主 agent 从 F5 `cdb878a` 建立 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-acceptance`、分支 `codex/frontend-f6-acceptance`。本步由主 agent 独自只读核对前端阶段审查、现有 Compose、Vite 开发代理及云端旧演示页脚本，并独占修改 `docs/frontend-f6-acceptance-design.md`、`docs/architecture-decisions.md`、`docs/project-plan.md` 和本节；无执行 agent、无产品代码或配置变更。隔离工作区以 `npm ci --offline --ignore-scripts` 恢复锁定依赖，前端 132/132、类型检查和生产构建通过。F6 设计待用户审查后再写实施计划、分派执行边界；未合 main、推送或部署。
