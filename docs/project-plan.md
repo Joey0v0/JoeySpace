@@ -11,7 +11,7 @@
 云端完整验收续测（2026-10-08）：45 秒版本曾成功生成单项草稿并创建任务，但 IM 未受理回帖；只读数据库查询确认新库未配置 `task-assistant` 机器人资料。用户已插入启用的机器人资料，随后新一轮 `--full` 在更早的草稿阶段两次耗尽预算；新安全日志均为 `model_generate` / `DeadlineExceeded`，确认该轮命中 45 秒模型请求上限，而非 Kafka 或权限失败。本地将草稿专用默认上限设为 90 秒并允许 `.env` 以 `ARK_DRAFT_TIMEOUT_SECONDS` 在 15—180 秒内调节，脚本按该上限等待两次尝试；直接问答仍保留 15 秒。此改动尚需同步、重建 Agent 并云端复验，机器人回帖仍不能标记通过。
 用途：后续需求、架构、开发与验收的共同依据。
 
-前端 F3 方案待审查（2026-10-09）：从已验证 F2 `37c72cd` 建立隔离 `codex/frontend-f3-chat`；只读核对现有 IM/Gateway 历史、逐消息已读、离线与 WS 发送，形成[真实聊天设计](frontend-f3-chat-design.md)及[分两批实施计划](superpowers/plans/2026-10-09-frontend-f3-chat.md)。推荐 F09 一次性 WS 票据与 Origin 限制、F10 由 IM 持有权威跨会话未读摘要、F11 普通成员结构化提及；三项均待用户确认，产品代码、协议和迁移尚未实施。F2/main 保持原状，不把 F3 方案记成能力完成。
+前端 F3 方案用户已确认（2026-10-09）：从已验证 F2 `37c72cd` 建立隔离 `codex/frontend-f3-chat`；只读核对现有 IM/Gateway 历史、逐消息已读、离线与 WS 发送，形成[真实聊天设计](frontend-f3-chat-design.md)及[分两批实施计划](superpowers/plans/2026-10-09-frontend-f3-chat.md)。用户回复“审查通过，继续进行下一步”，确认 F09 一次性 WS 票据与 Origin 限制、F10 由 IM 持有权威跨会话未读摘要、F11 普通成员结构化提及。实施从 F3 第一批开始；F2/main 保持原状，不把方案记成能力完成。
 
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 
