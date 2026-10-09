@@ -16,7 +16,7 @@ func (s *taskServer) SetTaskStatus(ctx context.Context, req *pb.SetTaskStatusReq
 	if s.db == nil || s.teamClient == nil {
 		return nil, status.Error(codes.Unavailable, "task status update is not enabled")
 	}
-	if req.GetTeamId() <= 0 || req.GetTaskId() <= 0 || req.GetStatus() < 0 || req.GetStatus() > 2 {
+	if req.GetTeamId() <= 0 || req.GetTaskId() <= 0 || req.GetStatus() < 0 || req.GetStatus() > 2 || req.ExpectedStatus == nil || req.GetExpectedStatus() < 0 || req.GetExpectedStatus() > 2 {
 		return nil, status.Error(codes.InvalidArgument, "invalid task status request")
 	}
 	teamCtx, err := taskTeamContext(ctx)
@@ -50,6 +50,9 @@ func (s *taskServer) SetTaskStatus(ctx context.Context, req *pb.SetTaskStatusReq
 		newStatus := int8(req.GetStatus())
 		if task.Status == newStatus {
 			return nil
+		}
+		if task.Status != int8(req.GetExpectedStatus()) {
+			return status.Error(codes.Aborted, "task status changed")
 		}
 		if err := tx.Table("tasks").Where("id = ? AND team_id = ?", req.GetTaskId(), req.GetTeamId()).Update("status", newStatus).Error; err != nil {
 			return err

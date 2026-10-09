@@ -128,6 +128,9 @@ func TestCreateTaskHTTPRejectsBadInputBeforeRPC(t *testing.T) {
 	}
 	for _, mutate := range []func(http.Header){
 		func(h http.Header) { h.Del("Idempotency-Key") },
+		func(h http.Header) { h.Set("Idempotency-Key", "") },
+		func(h http.Header) { h.Set("Idempotency-Key", strings.Repeat("a", 65)) },
+		func(h http.Header) { h.Set("Idempotency-Key", "request-123,other") },
 		func(h http.Header) { h.Set("Idempotency-Key", "has space") },
 		func(h http.Header) { h.Add("Idempotency-Key", "another-request") },
 	} {
@@ -170,5 +173,33 @@ func TestCreateTaskHTTPMapsRPCErrors(t *testing.T) {
 				t.Fatalf("RPC %v: got %d %s", tc.code, w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestCreateTaskHTTPIdenticalRetryForwardsOneUnchangedKey(t *testing.T) {
+	calls := 0
+	key := "Retry_Aa-09."
+	client := taskCreatorFunc(func(ctx context.Context, req *pb.CreateTaskRequest) (*pb.CreateTaskResponse, error) {
+		calls++
+		md, _ := metadata.FromOutgoingContext(ctx)
+		if got := md.Get("idempotency-key"); len(got) != 1 || got[0] != key {
+			t.Fatalf("request key: %v", got)
+		}
+		if req.GetTeamId() != 100 || req.GetTitle() != "Task" || req.GetDescription() != "Same body" {
+			t.Fatalf("retry body: %v", req)
+		}
+		return &pb.CreateTaskResponse{TaskId: 123}, nil
+	})
+	for i := 0; i < 2; i++ {
+		r := taskHTTPRequest("100", `{"title":"Task","description":"Same body"}`, "Bearer token")
+		r.Header.Set("Idempotency-Key", key)
+		w := httptest.NewRecorder()
+		createTaskHandler(client)(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("identical retry: %d %s", w.Code, w.Body.String())
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("RPC calls = %d", calls)
 	}
 }

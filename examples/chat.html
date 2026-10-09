@@ -1521,6 +1521,7 @@ async function setTaskStatus(task, select, meta, teamID) {
   const token = document.getElementById('token').value;
   if (!token || !validID(teamID) || document.getElementById('teamId').value.trim() !== teamID ||
       !validID(task.task_id)) throw new Error('enter a token and refresh tasks for this team');
+  const expectedStatus = task.status;
   const nextStatus = Number(select.value);
   if (!Number.isInteger(nextStatus) || nextStatus < 0 || nextStatus > 2) throw new Error('invalid task status');
   if (nextStatus === task.status || updatingTasks.has(task.task_id)) return;
@@ -1529,7 +1530,7 @@ async function setTaskStatus(task, select, meta, teamID) {
     const resp = await fetch('/api/v1/teams/' + teamID + '/tasks/' + task.task_id + '/status', {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: nextStatus })
+      body: JSON.stringify({ status: nextStatus, expected_status: expectedStatus })
     });
     if (!resp.ok) throw new Error('task status HTTP ' + resp.status);
     const result = await resp.json();

@@ -67,8 +67,12 @@ func expectTaskStatusChange(mock sqlmock.Sqlmock, actorID int64, oldStatus, newS
 	mock.ExpectCommit()
 }
 
-func statusRequest(newStatus int32) *pb.SetTaskStatusRequest {
-	return &pb.SetTaskStatusRequest{TeamId: 200, TaskId: 500, Status: newStatus}
+func statusRequest(newStatus int32, expected ...int32) *pb.SetTaskStatusRequest {
+	oldStatus := int32(0)
+	if len(expected) != 0 {
+		oldStatus = expected[0]
+	}
+	return &pb.SetTaskStatusRequest{TeamId: 200, TaskId: 500, Status: newStatus, ExpectedStatus: &oldStatus}
 }
 
 func TestSetTaskStatusOverRPCWritesOperation(t *testing.T) {
@@ -127,7 +131,7 @@ func TestSetTaskStatusAllowsAssigneeAndOwnerButNotOtherMember(t *testing.T) {
 
 func TestSetTaskStatusRejectsInvalidScopeAndMissingLogin(t *testing.T) {
 	s, mock := statusTaskServer(t, 42, 0)
-	for _, req := range []*pb.SetTaskStatusRequest{nil, {TeamId: 0, TaskId: 500}, {TeamId: 200, TaskId: 0}, {TeamId: 200, TaskId: 500, Status: -1}, {TeamId: 200, TaskId: 500, Status: 3}} {
+	for _, req := range []*pb.SetTaskStatusRequest{nil, {TeamId: 0, TaskId: 500}, {TeamId: 200, TaskId: 0}, statusRequest(-1), statusRequest(3)} {
 		result, err := s.SetTaskStatus(taskListContext(), req)
 		if result != nil || status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("invalid request: %v, %v", result, err)
@@ -157,7 +161,7 @@ func TestSetTaskStatusNoopAndOperationFailure(t *testing.T) {
 	}
 	expectTaskStatusRow(mock, 42, nil, 1)
 	expectTaskStatusChange(mock, 42, 1, 2, errors.New("operation insert failed"), nil)
-	result, err = s.SetTaskStatus(taskListContext(), statusRequest(2))
+	result, err = s.SetTaskStatus(taskListContext(), statusRequest(2, 1))
 	if result != nil || status.Code(err) != codes.Unavailable || status.Convert(err).Message() == "operation insert failed" {
 		t.Fatalf("operation failure: %v, %v", result, err)
 	}
@@ -239,5 +243,53 @@ func TestSetTaskStatusInvalidNotificationIDPreventsOutboxAndRollsBack(t *testing
 		if result != nil || status.Code(err) != codes.Unavailable {
 			t.Fatalf("invalid notice ID %d: result=%v error=%v", id, result, err)
 		}
+	}
+}
+
+func TestSetTaskStatusRequiresValidExpectedStatusBeforeAuthorization(t *testing.T) {
+	for _, expected := range []*int32{nil, statusRequest(1, -1).ExpectedStatus, statusRequest(1, 3).ExpectedStatus} {
+		s, _ := statusTaskServer(t, 42, 0)
+		s.teamClient = teamCheckerFake{checkMember: func(context.Context, int64) (*userpb.CheckTeamMemberResponse, error) {
+			t.Fatal("invalid expected status reached User RPC")
+			return nil, nil
+		}}
+		req := statusRequest(1)
+		req.ExpectedStatus = expected
+		result, err := s.SetTaskStatus(taskListContext(), req)
+		if result != nil || status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("expected status %v: result=%v error=%v", expected, result, err)
+		}
+	}
+}
+
+func TestSetTaskStatusExpectedStatusAfterLockAndPermission(t *testing.T) {
+	for _, tc := range []struct {
+		name                      string
+		actor                     int64
+		current, expected, target int32
+		want                      codes.Code
+	}{
+		{"matching transition", 42, 1, 1, 2, codes.OK},
+		{"same target stale replay", 42, 2, 0, 2, codes.OK},
+		{"conflict no writes", 42, 1, 0, 2, codes.Aborted},
+		{"permission before conflict", 88, 1, 0, 2, codes.PermissionDenied},
+		{"permission before replay", 88, 2, 0, 2, codes.PermissionDenied},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, mock := statusTaskServer(t, tc.actor, 0)
+			expectTaskStatusRow(mock, 42, int64(77), int8(tc.current))
+			if tc.want != codes.OK {
+				// No UPDATE or operation, notification or outbox INSERT is allowed.
+				mock.ExpectRollback()
+			} else if tc.current == tc.target {
+				mock.ExpectCommit()
+			} else {
+				expectTaskStatusChange(mock, tc.actor, int8(tc.current), int8(tc.target), nil, nil, 42, 77)
+			}
+			result, err := s.SetTaskStatus(taskListContext(), statusRequest(tc.target, tc.expected))
+			if status.Code(err) != tc.want || (result != nil) != (tc.want == codes.OK) {
+				t.Fatalf("status precondition: result=%v error=%v", result, err)
+			}
+		})
 	}
 }

@@ -46,22 +46,14 @@ func setTaskStatusHandler(client taskStatusSetter) http.HandlerFunc {
 			httpx.WriteJson(w, http.StatusBadRequest, taskStatusResponse{Code: errcode.ErrBadRequest, Msg: "invalid team or task ID"})
 			return
 		}
-		var body struct {
-			Status *int32 `json:"status"`
-		}
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&body); err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, taskStatusResponse{Code: errcode.ErrBadRequest, Msg: "invalid task status request"})
-			return
-		}
-		var extra any
-		if err := decoder.Decode(&extra); err != io.EOF || body.Status == nil || *body.Status < 0 || *body.Status > 2 {
+		body, valid := decodeTaskStatusBody(decoder)
+		if !valid {
 			httpx.WriteJson(w, http.StatusBadRequest, taskStatusResponse{Code: errcode.ErrBadRequest, Msg: "invalid task status request"})
 			return
 		}
 		ctx := metadata.NewOutgoingContext(r.Context(), metadata.Pairs("authorization", "Bearer "+parts[1]))
-		_, err := client.SetTaskStatus(ctx, &pb.SetTaskStatusRequest{TeamId: teamID, TaskId: taskID, Status: *body.Status})
+		_, err := client.SetTaskStatus(ctx, &pb.SetTaskStatusRequest{TeamId: teamID, TaskId: taskID, Status: *body.Status, ExpectedStatus: body.ExpectedStatus})
 		if err != nil {
 			httpStatus, code, message := http.StatusBadGateway, errcode.ErrInternal, "task service error"
 			switch status.Code(err) {
@@ -71,6 +63,8 @@ func setTaskStatusHandler(client taskStatusSetter) http.HandlerFunc {
 				httpStatus, code, message = http.StatusUnauthorized, errcode.ErrUnAuth, "invalid or expired login token"
 			case codes.PermissionDenied:
 				httpStatus, code, message = http.StatusForbidden, errcode.ErrForbidden, "task status update not allowed"
+			case codes.Aborted:
+				httpStatus, code, message = http.StatusConflict, errcode.ErrBadRequest, "task status changed; reload and confirm before retrying"
 			case codes.NotFound:
 				httpStatus, code, message = http.StatusNotFound, errcode.ErrNotFound, "task not found"
 			case codes.Unavailable:
@@ -83,4 +77,46 @@ func setTaskStatusHandler(client taskStatusSetter) http.HandlerFunc {
 		}
 		httpx.WriteJson(w, http.StatusOK, taskStatusResponse{Code: errcode.Success, Msg: "success"})
 	}
+}
+
+type taskStatusBody struct {
+	Status         *int32
+	ExpectedStatus *int32
+}
+
+// Read each field once so duplicate keys cannot override the caller's precondition.
+func decodeTaskStatusBody(decoder *json.Decoder) (taskStatusBody, bool) {
+	var body taskStatusBody
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return body, false
+	}
+	seen := make(map[string]bool, 2)
+	for decoder.More() {
+		token, err := decoder.Token()
+		key, ok := token.(string)
+		if err != nil || !ok || seen[key] {
+			return body, false
+		}
+		seen[key] = true
+		switch key {
+		case "status":
+			err = decoder.Decode(&body.Status)
+		case "expected_status":
+			err = decoder.Decode(&body.ExpectedStatus)
+		default:
+			return body, false
+		}
+		if err != nil {
+			return body, false
+		}
+	}
+	if token, err = decoder.Token(); err != nil || token != json.Delim('}') {
+		return body, false
+	}
+	var extra any
+	if decoder.Decode(&extra) != io.EOF || body.Status == nil || body.ExpectedStatus == nil {
+		return body, false
+	}
+	return body, *body.Status >= 0 && *body.Status <= 2 && *body.ExpectedStatus >= 0 && *body.ExpectedStatus <= 2
 }

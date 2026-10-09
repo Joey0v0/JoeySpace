@@ -587,9 +587,11 @@ test('invalid local due time is rejected before creating a request key', async (
 });
 
 test('uncertain task creation keeps the request key for a retry', async () => {
-  const keys = [];
+  const keys = [], bodies = [];
   const { context, fields } = page(async (url, options) => {
+    if (options.method !== 'POST') return reply({ code: 0, data: { tasks: [], next_after_task_id: '0' } });
     keys.push(options.headers['Idempotency-Key']);
+    bodies.push(options.body);
     if (keys.length === 1) return { ok: false, status: 503 };
     return reply({ code: 0, data: { task_id: '123' } });
   });
@@ -598,7 +600,9 @@ test('uncertain task creation keeps the request key for a retry', async () => {
   await assert.rejects(context.createTask(), /task create HTTP 503/);
   assert.match(fields.taskRequestKey.value, /^task-/);
   await context.createTask();
+  assert.equal(keys.length, 2);
   assert.equal(keys[0], keys[1]);
+  assert.equal(bodies[0], bodies[1]);
 });
 
 test('task card updates status only after the server accepts it', async () => {
@@ -618,7 +622,7 @@ test('task card updates status only after the server accepts it', async () => {
   await card.children[4].onclick();
   assert.equal(calls[1].url, '/api/v1/teams/200/tasks/9007199254740993/status');
   assert.equal(calls[1].options.method, 'PUT');
-  assert.deepEqual(JSON.parse(calls[1].options.body), { status: 2 });
+  assert.deepEqual(JSON.parse(calls[1].options.body), { status: 2, expected_status: 0 });
   assert.equal(card.children[2].textContent, oldMeta.replace('To do', 'Done'));
 });
 
@@ -637,6 +641,28 @@ test('denied status update restores the displayed status', async () => {
   assert.equal(card.children[3].value, '0');
   assert.equal(card.children[2].textContent, 'To do · Assignee: unassigned · Due: none');
   assert.ok(logs.some(line => line.includes('Task status failed: task status HTTP 403')));
+});
+
+test('conflicting status update preserves local status for a later retry', async () => {
+  const bodies = [];
+  const { context, fields, logs } = page(async (url, options) => {
+    if (options.method === 'PUT') { bodies.push(JSON.parse(options.body)); return { ok: false, status: 409 }; }
+    return reply({ code: 0, data: { tasks: [
+      { task_id: '123', title: 'Review', description: '', assignee_id: '0', status: 0, source_group_id: '0', source_message_id: '0', due_at_unix_ms: 0 }
+    ], next_after_task_id: '0' } });
+  });
+  fields.teamId.value = '200';
+  await context.loadTasks(true);
+  const card = fields.taskList.children[0];
+  card.children[3].value = '2';
+  await card.children[4].onclick();
+  assert.equal(card.children[3].value, '0');
+  assert.equal(card.children[2].textContent, 'To do · Assignee: unassigned · Due: none');
+  card.children[3].value = '1';
+  await card.children[4].onclick();
+  assert.deepEqual(bodies, [{ status: 2, expected_status: 0 }, { status: 1, expected_status: 0 }]);
+  assert.equal(card.children[3].value, '0');
+  assert.ok(logs.some(line => line.includes('Task status failed: task status HTTP 409')));
 });
 
 test('source button reads exactly the referenced message through IM history', async () => {
