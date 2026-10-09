@@ -1,0 +1,34 @@
+# Opt-in F11 structured team mentions. Apply only after migration 036 and
+# docker-compose.team-leave.yaml (Push's current User eligibility listener).
+# Dedicated Push/IM TLS certificates stay outside the repository; no host port.
+services:
+  im-rpc:
+    environment:
+      IM_MENTION_LISTEN_ON: "0.0.0.0:9010"
+      IM_MENTION_TLS_CERT_FILE: "/app/certs/im-mention/cert.pem"
+      IM_MENTION_TLS_KEY_FILE: "/app/certs/im-mention/key.pem"
+      IM_MENTION_TLS_CA_FILE: "/app/certs/im-mention/ca.pem"
+    volumes:
+      - type: bind
+        source: "${IM_MENTION_CERT_DIR:?Set private IM_MENTION_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/im-mention
+        read_only: true
+        bind:
+          create_host_path: false
+
+  im-push:
+    environment:
+      PUSH_IM_MENTION_RPC_ADDR: "im-rpc:9010"
+      PUSH_IM_MENTION_TLS_CERT_FILE: "/app/certs/push-im-mention/cert.pem"
+      PUSH_IM_MENTION_TLS_KEY_FILE: "/app/certs/push-im-mention/key.pem"
+      PUSH_IM_MENTION_TLS_CA_FILE: "/app/certs/push-im-mention/ca.pem"
+    volumes:
+      - type: bind
+        source: "${PUSH_IM_MENTION_CERT_DIR:?Set private PUSH_IM_MENTION_CERT_DIR with cert.pem, key.pem and ca.pem}"
+        target: /app/certs/push-im-mention
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      im-rpc:
+        condition: service_started

@@ -320,6 +320,15 @@ CREATE TABLE im_direct_message_reads (
     PRIMARY KEY (user_id, peer_id, message_id)
 ) ENGINE=InnoDB;
 
+-- Verified ordinary team-group mentions; old messages intentionally have no rows.
+CREATE TABLE im_group_message_mentions (
+    message_id BIGINT NOT NULL,
+    group_id BIGINT NOT NULL,
+    mentioned_user_id BIGINT NOT NULL,
+    PRIMARY KEY (message_id, mentioned_user_id),
+    KEY idx_mentioned_group_message (mentioned_user_id, group_id, message_id)
+) ENGINE=InnoDB;
+
 -- Permanent IM closure boundary, shared by future team joins and exit cleanup.
 CREATE TABLE IF NOT EXISTS im_team_group_fences (
     team_id BIGINT NOT NULL,
