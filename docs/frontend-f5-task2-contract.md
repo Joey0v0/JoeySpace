@@ -22,7 +22,7 @@
 - Ask：`POST /teams/{teamId}/groups/{groupId}/ask`，JSON `{question}`，修剪空白后为 1—2000 个 Unicode 码点；成功数据仅 `{answer}` 且非空。不写聊天、任务或本地历史。
 - Trigger：`GET /teams/{teamId}/groups/{groupId}/agent-triggers/{messageId}`。集合：`GET /agent/runs/{runId}/drafts`。单项：`GET /agent/runs/{runId}/drafts/{index}`。
 - 文字 PUT 单项路径，体 `{title,description,expected_revision}`；负责人 PUT `/assignee`，体 `{assignee_id,expected_revision}`；期限 PUT `/deadline`，体 `{due_at_unix_ms,expected_revision}`。确认 POST `/confirm` 携带 `expected_title/description/revision/assignee_id/due_at_unix_ms/deadline_resolution`；跳过 POST `/skip` 携带 `{expected_revision}`；回帖 POST `/reply/retry` 无 body、无 query。ID/版本必须是十进制字符串；期限毫秒为 JSON 数字。
-- 本步不自动重试任何写请求，也不根据 HTTP 结果推断任务已创建；任务 6 负责结果不明后同一项重读。若缺少身份或路径参数无效，在本地拒绝，不发请求。
+- 本步不自动重试任何写请求，也不根据 HTTP 结果推断任务已创建；任务 6 负责结果不明后同一项重读。无效路径参数在 Agent 包装层本地拒绝，不发请求；缺少身份仍沿用现有路由守卫和 Gateway 401，不改变通用 `client.request` 的既有认证行为。
 
 ## 验证
 
