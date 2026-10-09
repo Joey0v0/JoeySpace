@@ -208,6 +208,11 @@ func main() {
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
+		Path:    "/api/v1/teams/:team_id/groups/:group_id/messages/:message_id/context",
+		Handler: getTeamGroupMessageContextHandler(impb.NewIMClient(imRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
 		Path:    "/api/v1/teams/:team_id/groups/:group_id/unread",
 		Handler: getTeamGroupUnreadHandler(impb.NewIMClient(imRPCClient.Conn())),
 	})
