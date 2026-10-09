@@ -127,3 +127,18 @@ test('old response cannot reappear after conversation or account changes', async
   assert.equal(history.state.loaded, false)
   history.dispose()
 })
+
+test('realtime text arriving before the first history page keeps the older cursor', async () => {
+  let finish!: (value: unknown) => void
+  const page = new Promise<unknown>(resolve => { finish = resolve })
+  const history = createHistory(path => path.endsWith('/unread')
+    ? Promise.resolve({ peer_id: '9007199254740995', unread_count: '1' }) : page, createSession(), '9007199254740993')
+  history.select(direct)
+  assert.equal(history.applyRealtime({ id: '4', msgId: 'new', fromId: '9007199254740995', toId: '9007199254740993', senderType: 1, initiatorId: '0', chatType: 1, content: '新消息', createdAt: '2026-10-09T12:00:00Z' }), true)
+  finish({ messages: [received('3')], next_before_message_id: '3' })
+  await tick()
+  assert.deepEqual(history.state.messages.map(item => item.id), ['3', '4'])
+  assert.equal(history.state.cursor, '3')
+  assert.equal(history.applyRealtime({ id: '5', msgId: 'other', fromId: '8', toId: '9', senderType: 1, initiatorId: '0', chatType: 1, content: '无关消息', createdAt: '2026-10-09T12:00:00Z' }), false)
+  history.dispose()
+})

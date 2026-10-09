@@ -5,7 +5,7 @@
     </header>
     <div class="overview-content">
       <div class="section-heading"><div><p class="eyebrow">NEXT</p><h3>选择一个讨论</h3></div><span class="section-rule" /></div>
-      <div class="overview-empty"><div class="empty-symbol" aria-hidden="true">◌</div><h3>真实会话导航已接入</h3><p>消息阅读、未读信息与 @我 将在聊天接线后显示。<br />未加入的团队群需要本人明确加入。</p><RouterLink class="primary-link" to="/tasks">前往我的任务</RouterLink></div>
+      <div class="overview-empty"><div class="empty-symbol" aria-hidden="true">◌</div><h3>从左侧进入讨论</h3><p>群聊和私聊已可阅读、发送并显式确认已加载的消息。<br />跨会话未读总览与 @我 仍在接入中；未加入的群需要本人明确加入。</p><RouterLink class="primary-link" to="/tasks">前往我的任务</RouterLink></div>
     </div>
   </section>
 </template>

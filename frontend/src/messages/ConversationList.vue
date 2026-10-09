@@ -54,6 +54,6 @@ function toggle(teamId: string) { expanded.value[teamId] = !expanded.value[teamI
         <button v-if="state.directs.loaded && state.directs.cursor !== '0'" class="directory-more" type="button" :disabled="state.directs.loading" @click="$emit('directs')">更多私聊</button>
       </section>
     </div>
-    <div class="directory-footer">未读信息将在聊天接线后显示</div>
+    <div class="directory-footer">打开会话查看未读；跨会话总览待接入</div>
   </aside>
 </template>

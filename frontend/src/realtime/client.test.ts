@@ -97,6 +97,14 @@ test('one in-flight send, ACK is only accepted, and server error is uncertain', 
   f.client.dispose()
 })
 
+test('oversized UTF-8 frame is rejected before socket send', async () => {
+  const f = fixture()
+  f.client.connect(); await tick(); f.sockets[0].open()
+  assert.equal(f.client.send({ msgId: 'm-large', toId: '1', chatType: 1, content: '中'.repeat(2000) }), false)
+  assert.equal(f.sockets[0].sent.length, 0)
+  f.client.dispose()
+})
+
 test('rejects malformed and non-text chat frames and deduplicates by msg_id', async () => {
   const f = fixture()
   f.client.connect(); await tick(); f.sockets[0].open()

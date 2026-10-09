@@ -68,3 +68,19 @@ button:disabled { cursor:wait; opacity:.6 }
 .overview-empty { margin-top:28px }
 .chat-scroll > .unavailable-state { margin:65px auto }
 .unavailable-state button.primary-link { border:0; margin-right:8px }
+.chat-connection { color:#8b9bad; font-size:11px; white-space:nowrap }
+.chat-connection.connected { color:#31805a }
+.chat-connection.disconnected { color:#ad6b37 }
+.composer-surface:focus-within { border-color:#81a3df; box-shadow:0 0 0 3px #e8f0ff }
+.composer-surface textarea { color:#26364a; font-size:14px; line-height:1.5; min-height:82px }
+.composer-actions > div { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px }
+.composer-actions button { cursor:pointer }
+.composer-actions button:last-child { background:#3568ce; color:white }
+.composer-actions button:disabled { background:#dbe6f6; color:#7a96c0 }
+.send-result { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+.send-preview { max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#43546a }
+.send-result button, .composer-footnote button { border:0; background:transparent; color:#3568ce; text-decoration:underline; cursor:pointer; font-size:inherit }
+.new-message-jump { align-self:center; margin-top:-43px; z-index:1; border:1px solid #c8dafa; border-radius:30px; padding:7px 13px; color:#315fb8; background:white; box-shadow:0 4px 15px #395c9222; cursor:pointer }
+.message-content p { font-size:15px; line-height:1.6; }
+.message-byline, .message-byline strong, .chat-unread, .chat-connection { font-size:12px }
+.composer-actions, .composer-actions button, .composer-footnote { font-size:12px }

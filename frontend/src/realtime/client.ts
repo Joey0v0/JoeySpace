@@ -226,13 +226,15 @@ export function createRealtimeClient(options: RealtimeOptions) {
         !msgIdValid(input.msgId) || !decimalId(input.toId) ||
         (input.chatType !== 1 && input.chatType !== 2) ||
         typeof input.content !== 'string' || !input.content.trim()) return false
+    const frame = JSON.stringify({ type: 'chat', data: {
+      msg_id: input.msgId, to_id: input.toId, chat_type: input.chatType,
+      content_type: 1, content: input.content,
+    } })
+    if (new TextEncoder().encode(frame).length > 4096) return false
     pending = input.msgId
     options.onSendStatus?.({ msgId: input.msgId, status: 'sending' })
     try {
-      socket.send(JSON.stringify({ type: 'chat', data: {
-        msg_id: input.msgId, to_id: input.toId, chat_type: input.chatType,
-        content_type: 1, content: input.content,
-      } }))
+      socket.send(frame)
       ackTimer = setTimeout(() => uncertain('等待服务受理超时，发送结果待核对'), 10000)
       return true
     } catch {
