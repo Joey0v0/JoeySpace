@@ -82,6 +82,22 @@ func (p *Pusher) HandleMessage(ctx context.Context, chatMsg *ws.KafkaChatMsg) er
 		}
 		msgModel.MentionedUserIDs = append([]int64(nil), chatMsg.MentionedUserIDs...)
 		persistErr = p.messageRepo.CreateWithMentions(ctx, msgModel, chatMsg.ToID, chatMsg.MentionedUserIDs)
+	} else if senderType == model.MessageSenderUser && chatMsg.ChatType == 2 {
+		group, err := p.groupRepo.GetByID(ctx, chatMsg.ToID)
+		if err != nil {
+			return fmt.Errorf("get group persistence scope failed: %w", err)
+		}
+		if group == nil || group.ID != chatMsg.ToID {
+			return errors.New("invalid group persistence scope")
+		}
+		if group.TeamID != nil {
+			if *group.TeamID <= 0 {
+				return errors.New("invalid team group persistence scope")
+			}
+			persistErr = p.messageRepo.CreateWithMentions(ctx, msgModel, chatMsg.ToID, nil)
+		} else {
+			persistErr = p.messageRepo.Create(ctx, msgModel)
+		}
 	} else {
 		persistErr = p.messageRepo.Create(ctx, msgModel)
 	}

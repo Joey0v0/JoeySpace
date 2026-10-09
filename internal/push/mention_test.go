@@ -107,3 +107,21 @@ func TestMentionClientRequiresIndependentCompleteConfiguration(t *testing.T) {
 		t.Fatal("missing validator accepted")
 	}
 }
+
+func TestTeamGroupWithoutMentionsStillUsesRelationAwarePersistence(t *testing.T) {
+	if err := snowflake.Init(1); err != nil {
+		t.Fatal(err)
+	}
+	team := int64(100)
+	groups := &groupDeliveryGroupStub{teamID: &team}
+	store := &mentionMessageStore{}
+	p := NewPusher(store, groups, &groupDeliveryRedisStub{}, zap.NewNop())
+	p.SetTeamEligibility(&mentionEligibility{})
+	event := &ws.KafkaChatMsg{MsgID: "plain-team", FromID: 1, ToID: 300, ChatType: 2, ContentType: 1, Content: "hello"}
+	if err := p.HandleMessage(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	if store.calls != 1 || store.created == nil || len(store.ids) != 0 || groups.calls != 1 {
+		t.Fatalf("plain team route lost relation-aware persistence: store=%+v groupCalls=%d", store, groups.calls)
+	}
+}

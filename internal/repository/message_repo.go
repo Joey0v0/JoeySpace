@@ -37,7 +37,7 @@ func (r *agentTriggerMessageRepository) CreateWithMentions(ctx context.Context, 
 }
 
 func (r *messageRepository) createWithMentions(ctx context.Context, msg *model.Message, groupID int64, userIDs []int64, create func(*gorm.DB) error) error {
-	if msg == nil || groupID <= 0 || msg.ToID != groupID || msg.ChatType != 2 || msg.ContentType != 1 || msg.SenderType != model.MessageSenderUser || len(userIDs) < 1 || len(userIDs) > 10 {
+	if msg == nil || groupID <= 0 || msg.ToID != groupID || msg.ChatType != 2 || msg.ContentType <= 0 || msg.ContentType == model.MessageContentTaskCard || msg.SenderType != model.MessageSenderUser || len(userIDs) > 10 || (len(userIDs) > 0 && msg.ContentType != 1) {
 		return errors.New("invalid group mention message")
 	}
 	seen := make(map[int64]struct{}, len(userIDs))
@@ -77,8 +77,10 @@ func (r *messageRepository) createWithMentions(ctx context.Context, msg *model.M
 		for _, id := range userIDs {
 			rows = append(rows, model.GroupMessageMention{MessageID: msg.ID, GroupID: groupID, MentionedUserID: id})
 		}
-		if err := tx.Create(&rows).Error; err != nil {
-			return fmt.Errorf("create message mentions failed: %w", err)
+		if len(rows) > 0 {
+			if err := tx.Create(&rows).Error; err != nil {
+				return fmt.Errorf("create message mentions failed: %w", err)
+			}
 		}
 		return nil
 	})
