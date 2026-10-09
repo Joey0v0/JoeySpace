@@ -39,7 +39,7 @@
 
 前端 F5 八步本地实现与替身验收完成（2026-10-10）：`codex/frontend-f5-ai-draft` 已接通当前群 Ask、本人持久原指令状态、1—5 项草稿逐项编辑/确认/跳过、回帖重试和不确定结果重读。Agent 用例纳入统一前端测试，`npm test` 132/132、类型检查与生产构建通过；本地 Chrome 配合 HTTP/WS 替身完成五项部分成功、409 后重读、负责人和期限补正、双账号拒绝、切群旧回包以及 900/1280/1440/1920 布局检查。全部八步、实际文件和限制见[F5 本地审查](frontend-f5-review.md)。真实 Agent/Gateway/Task/IM、数据与消息中间件、两账号生产浏览器链和模型稳定性仍待 F6 环境验收；本地完成不等于部署完成，main 未合并、推送或部署。
 
-前端 F6 方案启动（2026-10-10）：用户确认使用轻量 Nginx 托管 Vue 构建产物，并对 Gateway API、IM WS 票据与升级连接做同源转发；不改聊天、任务、AI 的后端业务归属。主 agent 从 F5 本地提交 `cdb878a` 建立隔离 `codex/frontend-f6-acceptance`，以本地锁定缓存恢复依赖，`npm test` 132/132、类型检查与生产构建通过。已写[F6 统一验收设计](frontend-f6-acceptance-design.md)和[正式入口架构记录](architecture-decisions.md#前端-f6-正式页面入口用户已确认方向2026-10-10)，等待用户审查；本步仅修改文档，Nginx 配置、云端同步和真实服务验收尚未开始。
+前端 F6 方案与计划（2026-10-10）：用户确认使用轻量 Nginx 托管 Vue 构建产物，并对 Gateway API、IM WS 票据与升级连接做同源转发；不改聊天、任务、AI 的后端业务归属。主 agent 从 F5 本地提交 `cdb878a` 建立隔离 `codex/frontend-f6-acceptance`，以本地锁定缓存恢复依赖，`npm test` 132/132、类型检查与生产构建通过。用户已审查[F6 统一验收设计](frontend-f6-acceptance-design.md)，主 agent 据此形成[两批十二任务实施计划](superpowers/plans/2026-10-10-frontend-f6-acceptance.md)，等待计划审查；选择依据见[正式入口架构记录](architecture-decisions.md#前端-f6-正式页面入口用户已确认方向2026-10-10)。本轮仍仅修改文档，Nginx 配置、云端同步和真实服务验收尚未开始。
 
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 

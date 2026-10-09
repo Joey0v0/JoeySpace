@@ -642,3 +642,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 65. 前端 F6 方案与隔离基线（2026-10-10）
 
 用户确认轻量 Nginx 静态托管和同源 API/WS 转发方向后，主 agent 从 F5 `cdb878a` 建立 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-acceptance`、分支 `codex/frontend-f6-acceptance`。本步由主 agent 独自只读核对前端阶段审查、现有 Compose、Vite 开发代理及云端旧演示页脚本，并独占修改 `docs/frontend-f6-acceptance-design.md`、`docs/architecture-decisions.md`、`docs/project-plan.md` 和本节；无执行 agent、无产品代码或配置变更。隔离工作区以 `npm ci --offline --ignore-scripts` 恢复锁定依赖，前端 132/132、类型检查和生产构建通过。F6 设计待用户审查后再写实施计划、分派执行边界；未合 main、推送或部署。
+
+## 66. 前端 F6 两批实施计划（2026-10-10）
+
+用户审查 F6 设计后，主 agent 在同一隔离 worktree 写[十二任务实施计划](superpowers/plans/2026-10-10-frontend-f6-acceptance.md)：任务 1—5 为可本地复核的入口、Compose、检查器、Vue 浏览器工具与部署前审计；任务 6—12 为经具体部署差异审查后的真实环境路由、聊天、任务、AI、权限恢复、桌面体验及最终报告。每批不超过九步，主 agent 保留 Compose、文档、依赖、迁移和 Git 集成；如调度执行 agent，Nginx 镜像与 Vue 浏览器脚本分别使用独立 worktree 和严格允许文件。本轮只修改设计状态、实施计划与共同记录，未实施配置或云端操作；计划待用户审查。
