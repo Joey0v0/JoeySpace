@@ -21,6 +21,8 @@ service IM {
   rpc JoinTeamGroup(JoinTeamGroupRequest) returns (JoinTeamGroupResponse);
   // 团队群成员按消息 ID 倒序读取历史消息。
   rpc ListTeamGroupMessages(ListTeamGroupMessagesRequest) returns (ListTeamGroupMessagesResponse);
+  // 按权限读取目标消息及目标前 20 条、后 20 条，按消息 ID 升序返回。
+  rpc GetTeamGroupMessageContext(GetTeamGroupMessageContextRequest) returns (GetTeamGroupMessageContextResponse);
   // 本人当前团队群未读数；读取不标已读。
   rpc GetTeamGroupUnread(GetTeamGroupUnreadRequest) returns (GetTeamGroupUnreadResponse);
   // 明确确认已加载的具体消息；不使用消息ID高水位。
@@ -95,6 +97,16 @@ message TeamGroupMessage {
 message ListTeamGroupMessagesResponse {
   repeated TeamGroupMessage messages = 1;
   int64 next_before_message_id = 2;
+}
+message GetTeamGroupMessageContextRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+  int64 message_id = 3;
+}
+
+message GetTeamGroupMessageContextResponse {
+  repeated TeamGroupMessage messages = 1; // 最多 41 条，按消息 ID 升序。
+  int64 target_message_id = 2;
 }
 
 message CheckTeamGroupMessageRequest {

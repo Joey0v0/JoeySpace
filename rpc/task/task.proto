@@ -15,6 +15,12 @@ service Task {
   rpc ListTaskNotifications(ListTaskNotificationsRequest) returns (ListTaskNotificationsResponse);
   // 本人显式确认；只更新当前团队中自己的通知，重复确认保留首次时间。
   rpc MarkTaskNotificationRead(MarkTaskNotificationReadRequest) returns (MarkTaskNotificationReadResponse);
+  // 本人跨当前活动团队读取分配给自己的任务；不接受客户端 user_id。
+  rpc ListMyTasks(ListMyTasksRequest) returns (ListMyTasksResponse);
+  // 当前团队成员按团队与任务 ID 恢复详情，并返回服务端计算的状态更新资格。
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  // 本人跨当前活动团队读取持久任务通知与权威未读总数。
+  rpc ListMyTaskNotifications(ListMyTaskNotificationsRequest) returns (ListMyTaskNotificationsResponse);
 }
 
 message CreateTaskRequest {
@@ -47,6 +53,7 @@ message TaskItem {
   int64 source_group_id = 7; // 0 表示没有来源。
   int64 source_message_id = 8;
   int64 due_at_unix_ms = 9; // UTC Unix 毫秒；0 表示未设置。
+  int64 team_id = 10; // 跨团队本人读模型中的归属团队。
 }
 
 message ListTeamTasksResponse {
@@ -58,6 +65,7 @@ message SetTaskStatusRequest {
   int64 team_id = 1;
   int64 task_id = 2;
   int32 status = 3; // 0 待办、1 进行中、2 完成。
+  optional int32 expected_status = 4; // 必填 presence；合法值同 status。
 }
 
 message SetTaskStatusResponse {}
@@ -76,6 +84,9 @@ message TaskNotificationItem {
   int32 to_status = 5;
   int64 created_at_unix_ms = 6; // UTC Unix 毫秒。
   int64 read_at_unix_ms = 7; // 0 为未读；正数为首次确认的 UTC Unix 毫秒。
+  int64 team_id = 8;
+  string task_title = 9;
+  int32 current_status = 10;
 }
 
 message ListTaskNotificationsResponse {
@@ -91,4 +102,37 @@ message MarkTaskNotificationReadRequest {
 message MarkTaskNotificationReadResponse {
   int64 notification_id = 1;
   int64 read_at_unix_ms = 2;
+}
+message ListMyTasksRequest {
+  int32 view = 1; // 0：待处理（待办/进行中）；1：已完成。
+  int64 team_id = 2; // 0 表示全部当前活动团队；正数表示单团队筛选。
+  string cursor = 3; // 首次为空；后续原样回传服务端不透明游标。
+  int32 limit = 4; // 0 使用默认 20，最大 50。
+}
+
+message ListMyTasksResponse {
+  repeated TaskItem tasks = 1;
+  string next_cursor = 2; // 空表示没有下一页。
+}
+
+message GetTaskRequest {
+  int64 team_id = 1;
+  int64 task_id = 2;
+}
+
+message GetTaskResponse {
+  TaskItem task = 1;
+  bool can_update_status = 2;
+}
+
+message ListMyTaskNotificationsRequest {
+  int64 team_id = 1; // 0 表示全部当前活动团队；正数表示单团队筛选。
+  string cursor = 2; // 首次为空；后续原样回传未读分区不透明游标。
+  int32 limit = 3; // 0 使用默认 20，最大 50。
+}
+
+message ListMyTaskNotificationsResponse {
+  repeated TaskNotificationItem notifications = 1;
+  string next_cursor = 2; // 空表示没有下一页。
+  int64 unread_count = 3; // 当前筛选下的权威未读总数。
 }

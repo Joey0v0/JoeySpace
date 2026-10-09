@@ -325,6 +325,294 @@ func (x *BatchGetConversationDisplayNamesResponse) GetUsers() []*ConversationDis
 	return nil
 }
 
+type BatchGetTeamMemberDisplayNamesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	UserIds       []int64                `protobuf:"varint,2,rep,packed,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"` // 去重后最多 100 个正 ID。
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchGetTeamMemberDisplayNamesRequest) Reset() {
+	*x = BatchGetTeamMemberDisplayNamesRequest{}
+	mi := &file_user_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchGetTeamMemberDisplayNamesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchGetTeamMemberDisplayNamesRequest) ProtoMessage() {}
+
+func (x *BatchGetTeamMemberDisplayNamesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchGetTeamMemberDisplayNamesRequest.ProtoReflect.Descriptor instead.
+func (*BatchGetTeamMemberDisplayNamesRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BatchGetTeamMemberDisplayNamesRequest) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *BatchGetTeamMemberDisplayNamesRequest) GetUserIds() []int64 {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+type TeamMemberDisplayName struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // 昵称优先、用户名兜底。
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TeamMemberDisplayName) Reset() {
+	*x = TeamMemberDisplayName{}
+	mi := &file_user_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TeamMemberDisplayName) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TeamMemberDisplayName) ProtoMessage() {}
+
+func (x *TeamMemberDisplayName) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TeamMemberDisplayName.ProtoReflect.Descriptor instead.
+func (*TeamMemberDisplayName) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *TeamMemberDisplayName) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *TeamMemberDisplayName) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+type BatchGetTeamMemberDisplayNamesResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Users         []*TeamMemberDisplayName `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchGetTeamMemberDisplayNamesResponse) Reset() {
+	*x = BatchGetTeamMemberDisplayNamesResponse{}
+	mi := &file_user_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchGetTeamMemberDisplayNamesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchGetTeamMemberDisplayNamesResponse) ProtoMessage() {}
+
+func (x *BatchGetTeamMemberDisplayNamesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchGetTeamMemberDisplayNamesResponse.ProtoReflect.Descriptor instead.
+func (*BatchGetTeamMemberDisplayNamesResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *BatchGetTeamMemberDisplayNamesResponse) GetUsers() []*TeamMemberDisplayName {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type BatchGetMyTeamNamesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamIds       []int64                `protobuf:"varint,1,rep,packed,name=team_ids,json=teamIds,proto3" json:"team_ids,omitempty"` // 去重后最多 100 个正 ID。
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchGetMyTeamNamesRequest) Reset() {
+	*x = BatchGetMyTeamNamesRequest{}
+	mi := &file_user_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchGetMyTeamNamesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchGetMyTeamNamesRequest) ProtoMessage() {}
+
+func (x *BatchGetMyTeamNamesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchGetMyTeamNamesRequest.ProtoReflect.Descriptor instead.
+func (*BatchGetMyTeamNamesRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *BatchGetMyTeamNamesRequest) GetTeamIds() []int64 {
+	if x != nil {
+		return x.TeamIds
+	}
+	return nil
+}
+
+type MyTeamName struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MyTeamName) Reset() {
+	*x = MyTeamName{}
+	mi := &file_user_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MyTeamName) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MyTeamName) ProtoMessage() {}
+
+func (x *MyTeamName) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MyTeamName.ProtoReflect.Descriptor instead.
+func (*MyTeamName) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *MyTeamName) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *MyTeamName) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type BatchGetMyTeamNamesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Teams         []*MyTeamName          `protobuf:"bytes,1,rep,name=teams,proto3" json:"teams,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchGetMyTeamNamesResponse) Reset() {
+	*x = BatchGetMyTeamNamesResponse{}
+	mi := &file_user_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchGetMyTeamNamesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchGetMyTeamNamesResponse) ProtoMessage() {}
+
+func (x *BatchGetMyTeamNamesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchGetMyTeamNamesResponse.ProtoReflect.Descriptor instead.
+func (*BatchGetMyTeamNamesResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *BatchGetMyTeamNamesResponse) GetTeams() []*MyTeamName {
+	if x != nil {
+		return x.Teams
+	}
+	return nil
+}
+
 type LeaveTeamRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
@@ -335,7 +623,7 @@ type LeaveTeamRequest struct {
 
 func (x *LeaveTeamRequest) Reset() {
 	*x = LeaveTeamRequest{}
-	mi := &file_user_proto_msgTypes[6]
+	mi := &file_user_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -347,7 +635,7 @@ func (x *LeaveTeamRequest) String() string {
 func (*LeaveTeamRequest) ProtoMessage() {}
 
 func (x *LeaveTeamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[6]
+	mi := &file_user_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -360,7 +648,7 @@ func (x *LeaveTeamRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LeaveTeamRequest.ProtoReflect.Descriptor instead.
 func (*LeaveTeamRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{6}
+	return file_user_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *LeaveTeamRequest) GetTeamId() int64 {
@@ -387,7 +675,7 @@ type GetTeamLeaveOperationRequest struct {
 
 func (x *GetTeamLeaveOperationRequest) Reset() {
 	*x = GetTeamLeaveOperationRequest{}
-	mi := &file_user_proto_msgTypes[7]
+	mi := &file_user_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -399,7 +687,7 @@ func (x *GetTeamLeaveOperationRequest) String() string {
 func (*GetTeamLeaveOperationRequest) ProtoMessage() {}
 
 func (x *GetTeamLeaveOperationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[7]
+	mi := &file_user_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -412,7 +700,7 @@ func (x *GetTeamLeaveOperationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTeamLeaveOperationRequest.ProtoReflect.Descriptor instead.
 func (*GetTeamLeaveOperationRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{7}
+	return file_user_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetTeamLeaveOperationRequest) GetTeamId() int64 {
@@ -441,7 +729,7 @@ type TeamLeaveOperationResponse struct {
 
 func (x *TeamLeaveOperationResponse) Reset() {
 	*x = TeamLeaveOperationResponse{}
-	mi := &file_user_proto_msgTypes[8]
+	mi := &file_user_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -453,7 +741,7 @@ func (x *TeamLeaveOperationResponse) String() string {
 func (*TeamLeaveOperationResponse) ProtoMessage() {}
 
 func (x *TeamLeaveOperationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[8]
+	mi := &file_user_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -466,7 +754,7 @@ func (x *TeamLeaveOperationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TeamLeaveOperationResponse.ProtoReflect.Descriptor instead.
 func (*TeamLeaveOperationResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{8}
+	return file_user_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *TeamLeaveOperationResponse) GetOperationId() int64 {
@@ -508,7 +796,7 @@ type ResolveTeamMemberRequest struct {
 
 func (x *ResolveTeamMemberRequest) Reset() {
 	*x = ResolveTeamMemberRequest{}
-	mi := &file_user_proto_msgTypes[9]
+	mi := &file_user_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -520,7 +808,7 @@ func (x *ResolveTeamMemberRequest) String() string {
 func (*ResolveTeamMemberRequest) ProtoMessage() {}
 
 func (x *ResolveTeamMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[9]
+	mi := &file_user_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -533,7 +821,7 @@ func (x *ResolveTeamMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveTeamMemberRequest.ProtoReflect.Descriptor instead.
 func (*ResolveTeamMemberRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{9}
+	return file_user_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ResolveTeamMemberRequest) GetTeamId() int64 {
@@ -562,7 +850,7 @@ type ResolveTeamMemberResponse struct {
 
 func (x *ResolveTeamMemberResponse) Reset() {
 	*x = ResolveTeamMemberResponse{}
-	mi := &file_user_proto_msgTypes[10]
+	mi := &file_user_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -574,7 +862,7 @@ func (x *ResolveTeamMemberResponse) String() string {
 func (*ResolveTeamMemberResponse) ProtoMessage() {}
 
 func (x *ResolveTeamMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[10]
+	mi := &file_user_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -587,7 +875,7 @@ func (x *ResolveTeamMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveTeamMemberResponse.ProtoReflect.Descriptor instead.
 func (*ResolveTeamMemberResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{10}
+	return file_user_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ResolveTeamMemberResponse) GetCandidates() []*TeamMember {
@@ -613,7 +901,7 @@ type CheckTeamMemberRequest struct {
 
 func (x *CheckTeamMemberRequest) Reset() {
 	*x = CheckTeamMemberRequest{}
-	mi := &file_user_proto_msgTypes[11]
+	mi := &file_user_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -625,7 +913,7 @@ func (x *CheckTeamMemberRequest) String() string {
 func (*CheckTeamMemberRequest) ProtoMessage() {}
 
 func (x *CheckTeamMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[11]
+	mi := &file_user_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -638,7 +926,7 @@ func (x *CheckTeamMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamMemberRequest.ProtoReflect.Descriptor instead.
 func (*CheckTeamMemberRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{11}
+	return file_user_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CheckTeamMemberRequest) GetTeamId() int64 {
@@ -660,7 +948,7 @@ type CheckTeamMemberResponse struct {
 
 func (x *CheckTeamMemberResponse) Reset() {
 	*x = CheckTeamMemberResponse{}
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -672,7 +960,7 @@ func (x *CheckTeamMemberResponse) String() string {
 func (*CheckTeamMemberResponse) ProtoMessage() {}
 
 func (x *CheckTeamMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -685,7 +973,7 @@ func (x *CheckTeamMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamMemberResponse.ProtoReflect.Descriptor instead.
 func (*CheckTeamMemberResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{12}
+	return file_user_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CheckTeamMemberResponse) GetUserId() int64 {
@@ -719,7 +1007,7 @@ type CheckTeamMemberByIDRequest struct {
 
 func (x *CheckTeamMemberByIDRequest) Reset() {
 	*x = CheckTeamMemberByIDRequest{}
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -731,7 +1019,7 @@ func (x *CheckTeamMemberByIDRequest) String() string {
 func (*CheckTeamMemberByIDRequest) ProtoMessage() {}
 
 func (x *CheckTeamMemberByIDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -744,7 +1032,7 @@ func (x *CheckTeamMemberByIDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamMemberByIDRequest.ProtoReflect.Descriptor instead.
 func (*CheckTeamMemberByIDRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{13}
+	return file_user_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CheckTeamMemberByIDRequest) GetTeamId() int64 {
@@ -769,7 +1057,7 @@ type CheckTeamMemberByIDResponse struct {
 
 func (x *CheckTeamMemberByIDResponse) Reset() {
 	*x = CheckTeamMemberByIDResponse{}
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -781,7 +1069,7 @@ func (x *CheckTeamMemberByIDResponse) String() string {
 func (*CheckTeamMemberByIDResponse) ProtoMessage() {}
 
 func (x *CheckTeamMemberByIDResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -794,7 +1082,7 @@ func (x *CheckTeamMemberByIDResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamMemberByIDResponse.ProtoReflect.Descriptor instead.
 func (*CheckTeamMemberByIDResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{14}
+	return file_user_proto_rawDescGZIP(), []int{20}
 }
 
 type AuthorizeTeamGroupCreationRequest struct {
@@ -806,7 +1094,7 @@ type AuthorizeTeamGroupCreationRequest struct {
 
 func (x *AuthorizeTeamGroupCreationRequest) Reset() {
 	*x = AuthorizeTeamGroupCreationRequest{}
-	mi := &file_user_proto_msgTypes[15]
+	mi := &file_user_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -818,7 +1106,7 @@ func (x *AuthorizeTeamGroupCreationRequest) String() string {
 func (*AuthorizeTeamGroupCreationRequest) ProtoMessage() {}
 
 func (x *AuthorizeTeamGroupCreationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[15]
+	mi := &file_user_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +1119,7 @@ func (x *AuthorizeTeamGroupCreationRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use AuthorizeTeamGroupCreationRequest.ProtoReflect.Descriptor instead.
 func (*AuthorizeTeamGroupCreationRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{15}
+	return file_user_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AuthorizeTeamGroupCreationRequest) GetTeamId() int64 {
@@ -851,7 +1139,7 @@ type AuthorizeTeamGroupCreationResponse struct {
 
 func (x *AuthorizeTeamGroupCreationResponse) Reset() {
 	*x = AuthorizeTeamGroupCreationResponse{}
-	mi := &file_user_proto_msgTypes[16]
+	mi := &file_user_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -863,7 +1151,7 @@ func (x *AuthorizeTeamGroupCreationResponse) String() string {
 func (*AuthorizeTeamGroupCreationResponse) ProtoMessage() {}
 
 func (x *AuthorizeTeamGroupCreationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[16]
+	mi := &file_user_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -876,7 +1164,7 @@ func (x *AuthorizeTeamGroupCreationResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use AuthorizeTeamGroupCreationResponse.ProtoReflect.Descriptor instead.
 func (*AuthorizeTeamGroupCreationResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{16}
+	return file_user_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *AuthorizeTeamGroupCreationResponse) GetUserId() int64 {
@@ -904,7 +1192,7 @@ type SetTeamMemberRoleRequest struct {
 
 func (x *SetTeamMemberRoleRequest) Reset() {
 	*x = SetTeamMemberRoleRequest{}
-	mi := &file_user_proto_msgTypes[17]
+	mi := &file_user_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -916,7 +1204,7 @@ func (x *SetTeamMemberRoleRequest) String() string {
 func (*SetTeamMemberRoleRequest) ProtoMessage() {}
 
 func (x *SetTeamMemberRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[17]
+	mi := &file_user_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -929,7 +1217,7 @@ func (x *SetTeamMemberRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTeamMemberRoleRequest.ProtoReflect.Descriptor instead.
 func (*SetTeamMemberRoleRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{17}
+	return file_user_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SetTeamMemberRoleRequest) GetTeamId() int64 {
@@ -961,7 +1249,7 @@ type SetTeamMemberRoleResponse struct {
 
 func (x *SetTeamMemberRoleResponse) Reset() {
 	*x = SetTeamMemberRoleResponse{}
-	mi := &file_user_proto_msgTypes[18]
+	mi := &file_user_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -973,7 +1261,7 @@ func (x *SetTeamMemberRoleResponse) String() string {
 func (*SetTeamMemberRoleResponse) ProtoMessage() {}
 
 func (x *SetTeamMemberRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[18]
+	mi := &file_user_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -986,7 +1274,7 @@ func (x *SetTeamMemberRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTeamMemberRoleResponse.ProtoReflect.Descriptor instead.
 func (*SetTeamMemberRoleResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{18}
+	return file_user_proto_rawDescGZIP(), []int{24}
 }
 
 type ListTeamMembersRequest struct {
@@ -1000,7 +1288,7 @@ type ListTeamMembersRequest struct {
 
 func (x *ListTeamMembersRequest) Reset() {
 	*x = ListTeamMembersRequest{}
-	mi := &file_user_proto_msgTypes[19]
+	mi := &file_user_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1012,7 +1300,7 @@ func (x *ListTeamMembersRequest) String() string {
 func (*ListTeamMembersRequest) ProtoMessage() {}
 
 func (x *ListTeamMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[19]
+	mi := &file_user_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1025,7 +1313,7 @@ func (x *ListTeamMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamMembersRequest.ProtoReflect.Descriptor instead.
 func (*ListTeamMembersRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{19}
+	return file_user_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListTeamMembersRequest) GetTeamId() int64 {
@@ -1061,7 +1349,7 @@ type TeamMember struct {
 
 func (x *TeamMember) Reset() {
 	*x = TeamMember{}
-	mi := &file_user_proto_msgTypes[20]
+	mi := &file_user_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1073,7 +1361,7 @@ func (x *TeamMember) String() string {
 func (*TeamMember) ProtoMessage() {}
 
 func (x *TeamMember) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[20]
+	mi := &file_user_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1086,7 +1374,7 @@ func (x *TeamMember) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TeamMember.ProtoReflect.Descriptor instead.
 func (*TeamMember) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{20}
+	return file_user_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *TeamMember) GetUserId() int64 {
@@ -1127,7 +1415,7 @@ type ListTeamMembersResponse struct {
 
 func (x *ListTeamMembersResponse) Reset() {
 	*x = ListTeamMembersResponse{}
-	mi := &file_user_proto_msgTypes[21]
+	mi := &file_user_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1139,7 +1427,7 @@ func (x *ListTeamMembersResponse) String() string {
 func (*ListTeamMembersResponse) ProtoMessage() {}
 
 func (x *ListTeamMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[21]
+	mi := &file_user_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1152,7 +1440,7 @@ func (x *ListTeamMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamMembersResponse.ProtoReflect.Descriptor instead.
 func (*ListTeamMembersResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{21}
+	return file_user_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListTeamMembersResponse) GetMembers() []*TeamMember {
@@ -1179,7 +1467,7 @@ type AddTeamMemberRequest struct {
 
 func (x *AddTeamMemberRequest) Reset() {
 	*x = AddTeamMemberRequest{}
-	mi := &file_user_proto_msgTypes[22]
+	mi := &file_user_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1191,7 +1479,7 @@ func (x *AddTeamMemberRequest) String() string {
 func (*AddTeamMemberRequest) ProtoMessage() {}
 
 func (x *AddTeamMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[22]
+	mi := &file_user_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1204,7 +1492,7 @@ func (x *AddTeamMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTeamMemberRequest.ProtoReflect.Descriptor instead.
 func (*AddTeamMemberRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{22}
+	return file_user_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *AddTeamMemberRequest) GetTeamId() int64 {
@@ -1229,7 +1517,7 @@ type AddTeamMemberResponse struct {
 
 func (x *AddTeamMemberResponse) Reset() {
 	*x = AddTeamMemberResponse{}
-	mi := &file_user_proto_msgTypes[23]
+	mi := &file_user_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1241,7 +1529,7 @@ func (x *AddTeamMemberResponse) String() string {
 func (*AddTeamMemberResponse) ProtoMessage() {}
 
 func (x *AddTeamMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[23]
+	mi := &file_user_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1254,7 +1542,7 @@ func (x *AddTeamMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddTeamMemberResponse.ProtoReflect.Descriptor instead.
 func (*AddTeamMemberResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{23}
+	return file_user_proto_rawDescGZIP(), []int{29}
 }
 
 type CreateTeamRequest struct {
@@ -1266,7 +1554,7 @@ type CreateTeamRequest struct {
 
 func (x *CreateTeamRequest) Reset() {
 	*x = CreateTeamRequest{}
-	mi := &file_user_proto_msgTypes[24]
+	mi := &file_user_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1278,7 +1566,7 @@ func (x *CreateTeamRequest) String() string {
 func (*CreateTeamRequest) ProtoMessage() {}
 
 func (x *CreateTeamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[24]
+	mi := &file_user_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1291,7 +1579,7 @@ func (x *CreateTeamRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTeamRequest.ProtoReflect.Descriptor instead.
 func (*CreateTeamRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{24}
+	return file_user_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CreateTeamRequest) GetName() string {
@@ -1310,7 +1598,7 @@ type CreateTeamResponse struct {
 
 func (x *CreateTeamResponse) Reset() {
 	*x = CreateTeamResponse{}
-	mi := &file_user_proto_msgTypes[25]
+	mi := &file_user_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1322,7 +1610,7 @@ func (x *CreateTeamResponse) String() string {
 func (*CreateTeamResponse) ProtoMessage() {}
 
 func (x *CreateTeamResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[25]
+	mi := &file_user_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1335,7 +1623,7 @@ func (x *CreateTeamResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTeamResponse.ProtoReflect.Descriptor instead.
 func (*CreateTeamResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{25}
+	return file_user_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CreateTeamResponse) GetTeamId() int64 {
@@ -1353,7 +1641,7 @@ type GetMyInfoRequest struct {
 
 func (x *GetMyInfoRequest) Reset() {
 	*x = GetMyInfoRequest{}
-	mi := &file_user_proto_msgTypes[26]
+	mi := &file_user_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1365,7 +1653,7 @@ func (x *GetMyInfoRequest) String() string {
 func (*GetMyInfoRequest) ProtoMessage() {}
 
 func (x *GetMyInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[26]
+	mi := &file_user_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1378,7 +1666,7 @@ func (x *GetMyInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetMyInfoRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{26}
+	return file_user_proto_rawDescGZIP(), []int{32}
 }
 
 type LoginRequest struct {
@@ -1391,7 +1679,7 @@ type LoginRequest struct {
 
 func (x *LoginRequest) Reset() {
 	*x = LoginRequest{}
-	mi := &file_user_proto_msgTypes[27]
+	mi := &file_user_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1403,7 +1691,7 @@ func (x *LoginRequest) String() string {
 func (*LoginRequest) ProtoMessage() {}
 
 func (x *LoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[27]
+	mi := &file_user_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1416,7 +1704,7 @@ func (x *LoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginRequest.ProtoReflect.Descriptor instead.
 func (*LoginRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{27}
+	return file_user_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *LoginRequest) GetUsername() string {
@@ -1442,7 +1730,7 @@ type LoginResponse struct {
 
 func (x *LoginResponse) Reset() {
 	*x = LoginResponse{}
-	mi := &file_user_proto_msgTypes[28]
+	mi := &file_user_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1454,7 +1742,7 @@ func (x *LoginResponse) String() string {
 func (*LoginResponse) ProtoMessage() {}
 
 func (x *LoginResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[28]
+	mi := &file_user_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1467,7 +1755,7 @@ func (x *LoginResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginResponse.ProtoReflect.Descriptor instead.
 func (*LoginResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{28}
+	return file_user_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *LoginResponse) GetToken() string {
@@ -1488,7 +1776,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_user_proto_msgTypes[29]
+	mi := &file_user_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1500,7 +1788,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[29]
+	mi := &file_user_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1513,7 +1801,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{29}
+	return file_user_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *RegisterRequest) GetUsername() string {
@@ -1545,7 +1833,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_user_proto_msgTypes[30]
+	mi := &file_user_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1557,7 +1845,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[30]
+	mi := &file_user_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1570,7 +1858,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{30}
+	return file_user_proto_rawDescGZIP(), []int{36}
 }
 
 type GetUserInfoRequest struct {
@@ -1583,7 +1871,7 @@ type GetUserInfoRequest struct {
 
 func (x *GetUserInfoRequest) Reset() {
 	*x = GetUserInfoRequest{}
-	mi := &file_user_proto_msgTypes[31]
+	mi := &file_user_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1595,7 +1883,7 @@ func (x *GetUserInfoRequest) String() string {
 func (*GetUserInfoRequest) ProtoMessage() {}
 
 func (x *GetUserInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[31]
+	mi := &file_user_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1608,7 +1896,7 @@ func (x *GetUserInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetUserInfoRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{31}
+	return file_user_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetUserInfoRequest) GetUserId() int64 {
@@ -1629,7 +1917,7 @@ type GetUserInfoResponse struct {
 
 func (x *GetUserInfoResponse) Reset() {
 	*x = GetUserInfoResponse{}
-	mi := &file_user_proto_msgTypes[32]
+	mi := &file_user_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1641,7 +1929,7 @@ func (x *GetUserInfoResponse) String() string {
 func (*GetUserInfoResponse) ProtoMessage() {}
 
 func (x *GetUserInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[32]
+	mi := &file_user_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1654,7 +1942,7 @@ func (x *GetUserInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetUserInfoResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{32}
+	return file_user_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetUserInfoResponse) GetId() int64 {
@@ -1700,7 +1988,23 @@ const file_user_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\"_\n" +
 	"(BatchGetConversationDisplayNamesResponse\x123\n" +
-	"\x05users\x18\x01 \x03(\v2\x1d.user.ConversationDisplayNameR\x05users\"L\n" +
+	"\x05users\x18\x01 \x03(\v2\x1d.user.ConversationDisplayNameR\x05users\"[\n" +
+	"%BatchGetTeamMemberDisplayNamesRequest\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
+	"\buser_ids\x18\x02 \x03(\x03R\auserIds\"S\n" +
+	"\x15TeamMemberDisplayName\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\"[\n" +
+	"&BatchGetTeamMemberDisplayNamesResponse\x121\n" +
+	"\x05users\x18\x01 \x03(\v2\x1b.user.TeamMemberDisplayNameR\x05users\"7\n" +
+	"\x1aBatchGetMyTeamNamesRequest\x12\x19\n" +
+	"\bteam_ids\x18\x01 \x03(\x03R\ateamIds\"9\n" +
+	"\n" +
+	"MyTeamName\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"E\n" +
+	"\x1bBatchGetMyTeamNamesResponse\x12&\n" +
+	"\x05teams\x18\x01 \x03(\v2\x10.user.MyTeamNameR\x05teams\"L\n" +
 	"\x10LeaveTeamRequest\x12\x17\n" +
 	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x1f\n" +
 	"\vrequest_key\x18\x02 \x01(\tR\n" +
@@ -1785,8 +2089,7 @@ const file_user_proto_rawDesc = "" +
 	"\x13GetUserInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
-	"\bnickname\x18\x03 \x01(\tR\bnickname2\x89\n" +
-	"\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname2\xe2\v\n" +
 	"\x04User\x12B\n" +
 	"\vGetUserInfo\x12\x18.user.GetUserInfoRequest\x1a\x19.user.GetUserInfoResponse\x12>\n" +
 	"\tGetMyInfo\x12\x16.user.GetMyInfoRequest\x1a\x19.user.GetUserInfoResponse\x120\n" +
@@ -1804,7 +2107,9 @@ const file_user_proto_rawDesc = "" +
 	"\tLeaveTeam\x12\x16.user.LeaveTeamRequest\x1a .user.TeamLeaveOperationResponse\x12]\n" +
 	"\x15GetTeamLeaveOperation\x12\".user.GetTeamLeaveOperationRequest\x1a .user.TeamLeaveOperationResponse\x12B\n" +
 	"\vListMyTeams\x12\x18.user.ListMyTeamsRequest\x1a\x19.user.ListMyTeamsResponse\x12\x81\x01\n" +
-	" BatchGetConversationDisplayNames\x12-.user.BatchGetConversationDisplayNamesRequest\x1a..user.BatchGetConversationDisplayNamesResponseB&Z$github.com/yjydist/go-im/rpc/user/pbb\x06proto3"
+	" BatchGetConversationDisplayNames\x12-.user.BatchGetConversationDisplayNamesRequest\x1a..user.BatchGetConversationDisplayNamesResponse\x12{\n" +
+	"\x1eBatchGetTeamMemberDisplayNames\x12+.user.BatchGetTeamMemberDisplayNamesRequest\x1a,.user.BatchGetTeamMemberDisplayNamesResponse\x12Z\n" +
+	"\x13BatchGetMyTeamNames\x12 .user.BatchGetMyTeamNamesRequest\x1a!.user.BatchGetMyTeamNamesResponseB&Z$github.com/yjydist/go-im/rpc/user/pbb\x06proto3"
 
 var (
 	file_user_proto_rawDescOnce sync.Once
@@ -1818,7 +2123,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_user_proto_goTypes = []any{
 	(*ListMyTeamsRequest)(nil),                       // 0: user.ListMyTeamsRequest
 	(*MyTeam)(nil),                                   // 1: user.MyTeam
@@ -1826,76 +2131,88 @@ var file_user_proto_goTypes = []any{
 	(*BatchGetConversationDisplayNamesRequest)(nil),  // 3: user.BatchGetConversationDisplayNamesRequest
 	(*ConversationDisplayName)(nil),                  // 4: user.ConversationDisplayName
 	(*BatchGetConversationDisplayNamesResponse)(nil), // 5: user.BatchGetConversationDisplayNamesResponse
-	(*LeaveTeamRequest)(nil),                         // 6: user.LeaveTeamRequest
-	(*GetTeamLeaveOperationRequest)(nil),             // 7: user.GetTeamLeaveOperationRequest
-	(*TeamLeaveOperationResponse)(nil),               // 8: user.TeamLeaveOperationResponse
-	(*ResolveTeamMemberRequest)(nil),                 // 9: user.ResolveTeamMemberRequest
-	(*ResolveTeamMemberResponse)(nil),                // 10: user.ResolveTeamMemberResponse
-	(*CheckTeamMemberRequest)(nil),                   // 11: user.CheckTeamMemberRequest
-	(*CheckTeamMemberResponse)(nil),                  // 12: user.CheckTeamMemberResponse
-	(*CheckTeamMemberByIDRequest)(nil),               // 13: user.CheckTeamMemberByIDRequest
-	(*CheckTeamMemberByIDResponse)(nil),              // 14: user.CheckTeamMemberByIDResponse
-	(*AuthorizeTeamGroupCreationRequest)(nil),        // 15: user.AuthorizeTeamGroupCreationRequest
-	(*AuthorizeTeamGroupCreationResponse)(nil),       // 16: user.AuthorizeTeamGroupCreationResponse
-	(*SetTeamMemberRoleRequest)(nil),                 // 17: user.SetTeamMemberRoleRequest
-	(*SetTeamMemberRoleResponse)(nil),                // 18: user.SetTeamMemberRoleResponse
-	(*ListTeamMembersRequest)(nil),                   // 19: user.ListTeamMembersRequest
-	(*TeamMember)(nil),                               // 20: user.TeamMember
-	(*ListTeamMembersResponse)(nil),                  // 21: user.ListTeamMembersResponse
-	(*AddTeamMemberRequest)(nil),                     // 22: user.AddTeamMemberRequest
-	(*AddTeamMemberResponse)(nil),                    // 23: user.AddTeamMemberResponse
-	(*CreateTeamRequest)(nil),                        // 24: user.CreateTeamRequest
-	(*CreateTeamResponse)(nil),                       // 25: user.CreateTeamResponse
-	(*GetMyInfoRequest)(nil),                         // 26: user.GetMyInfoRequest
-	(*LoginRequest)(nil),                             // 27: user.LoginRequest
-	(*LoginResponse)(nil),                            // 28: user.LoginResponse
-	(*RegisterRequest)(nil),                          // 29: user.RegisterRequest
-	(*RegisterResponse)(nil),                         // 30: user.RegisterResponse
-	(*GetUserInfoRequest)(nil),                       // 31: user.GetUserInfoRequest
-	(*GetUserInfoResponse)(nil),                      // 32: user.GetUserInfoResponse
+	(*BatchGetTeamMemberDisplayNamesRequest)(nil),    // 6: user.BatchGetTeamMemberDisplayNamesRequest
+	(*TeamMemberDisplayName)(nil),                    // 7: user.TeamMemberDisplayName
+	(*BatchGetTeamMemberDisplayNamesResponse)(nil),   // 8: user.BatchGetTeamMemberDisplayNamesResponse
+	(*BatchGetMyTeamNamesRequest)(nil),               // 9: user.BatchGetMyTeamNamesRequest
+	(*MyTeamName)(nil),                               // 10: user.MyTeamName
+	(*BatchGetMyTeamNamesResponse)(nil),              // 11: user.BatchGetMyTeamNamesResponse
+	(*LeaveTeamRequest)(nil),                         // 12: user.LeaveTeamRequest
+	(*GetTeamLeaveOperationRequest)(nil),             // 13: user.GetTeamLeaveOperationRequest
+	(*TeamLeaveOperationResponse)(nil),               // 14: user.TeamLeaveOperationResponse
+	(*ResolveTeamMemberRequest)(nil),                 // 15: user.ResolveTeamMemberRequest
+	(*ResolveTeamMemberResponse)(nil),                // 16: user.ResolveTeamMemberResponse
+	(*CheckTeamMemberRequest)(nil),                   // 17: user.CheckTeamMemberRequest
+	(*CheckTeamMemberResponse)(nil),                  // 18: user.CheckTeamMemberResponse
+	(*CheckTeamMemberByIDRequest)(nil),               // 19: user.CheckTeamMemberByIDRequest
+	(*CheckTeamMemberByIDResponse)(nil),              // 20: user.CheckTeamMemberByIDResponse
+	(*AuthorizeTeamGroupCreationRequest)(nil),        // 21: user.AuthorizeTeamGroupCreationRequest
+	(*AuthorizeTeamGroupCreationResponse)(nil),       // 22: user.AuthorizeTeamGroupCreationResponse
+	(*SetTeamMemberRoleRequest)(nil),                 // 23: user.SetTeamMemberRoleRequest
+	(*SetTeamMemberRoleResponse)(nil),                // 24: user.SetTeamMemberRoleResponse
+	(*ListTeamMembersRequest)(nil),                   // 25: user.ListTeamMembersRequest
+	(*TeamMember)(nil),                               // 26: user.TeamMember
+	(*ListTeamMembersResponse)(nil),                  // 27: user.ListTeamMembersResponse
+	(*AddTeamMemberRequest)(nil),                     // 28: user.AddTeamMemberRequest
+	(*AddTeamMemberResponse)(nil),                    // 29: user.AddTeamMemberResponse
+	(*CreateTeamRequest)(nil),                        // 30: user.CreateTeamRequest
+	(*CreateTeamResponse)(nil),                       // 31: user.CreateTeamResponse
+	(*GetMyInfoRequest)(nil),                         // 32: user.GetMyInfoRequest
+	(*LoginRequest)(nil),                             // 33: user.LoginRequest
+	(*LoginResponse)(nil),                            // 34: user.LoginResponse
+	(*RegisterRequest)(nil),                          // 35: user.RegisterRequest
+	(*RegisterResponse)(nil),                         // 36: user.RegisterResponse
+	(*GetUserInfoRequest)(nil),                       // 37: user.GetUserInfoRequest
+	(*GetUserInfoResponse)(nil),                      // 38: user.GetUserInfoResponse
 }
 var file_user_proto_depIdxs = []int32{
 	1,  // 0: user.ListMyTeamsResponse.teams:type_name -> user.MyTeam
 	4,  // 1: user.BatchGetConversationDisplayNamesResponse.users:type_name -> user.ConversationDisplayName
-	20, // 2: user.ResolveTeamMemberResponse.candidates:type_name -> user.TeamMember
-	20, // 3: user.ListTeamMembersResponse.members:type_name -> user.TeamMember
-	31, // 4: user.User.GetUserInfo:input_type -> user.GetUserInfoRequest
-	26, // 5: user.User.GetMyInfo:input_type -> user.GetMyInfoRequest
-	27, // 6: user.User.Login:input_type -> user.LoginRequest
-	29, // 7: user.User.Register:input_type -> user.RegisterRequest
-	24, // 8: user.User.CreateTeam:input_type -> user.CreateTeamRequest
-	22, // 9: user.User.AddTeamMember:input_type -> user.AddTeamMemberRequest
-	19, // 10: user.User.ListTeamMembers:input_type -> user.ListTeamMembersRequest
-	17, // 11: user.User.SetTeamMemberRole:input_type -> user.SetTeamMemberRoleRequest
-	15, // 12: user.User.AuthorizeTeamGroupCreation:input_type -> user.AuthorizeTeamGroupCreationRequest
-	11, // 13: user.User.CheckTeamMember:input_type -> user.CheckTeamMemberRequest
-	13, // 14: user.User.CheckTeamMemberByID:input_type -> user.CheckTeamMemberByIDRequest
-	9,  // 15: user.User.ResolveTeamMember:input_type -> user.ResolveTeamMemberRequest
-	6,  // 16: user.User.LeaveTeam:input_type -> user.LeaveTeamRequest
-	7,  // 17: user.User.GetTeamLeaveOperation:input_type -> user.GetTeamLeaveOperationRequest
-	0,  // 18: user.User.ListMyTeams:input_type -> user.ListMyTeamsRequest
-	3,  // 19: user.User.BatchGetConversationDisplayNames:input_type -> user.BatchGetConversationDisplayNamesRequest
-	32, // 20: user.User.GetUserInfo:output_type -> user.GetUserInfoResponse
-	32, // 21: user.User.GetMyInfo:output_type -> user.GetUserInfoResponse
-	28, // 22: user.User.Login:output_type -> user.LoginResponse
-	30, // 23: user.User.Register:output_type -> user.RegisterResponse
-	25, // 24: user.User.CreateTeam:output_type -> user.CreateTeamResponse
-	23, // 25: user.User.AddTeamMember:output_type -> user.AddTeamMemberResponse
-	21, // 26: user.User.ListTeamMembers:output_type -> user.ListTeamMembersResponse
-	18, // 27: user.User.SetTeamMemberRole:output_type -> user.SetTeamMemberRoleResponse
-	16, // 28: user.User.AuthorizeTeamGroupCreation:output_type -> user.AuthorizeTeamGroupCreationResponse
-	12, // 29: user.User.CheckTeamMember:output_type -> user.CheckTeamMemberResponse
-	14, // 30: user.User.CheckTeamMemberByID:output_type -> user.CheckTeamMemberByIDResponse
-	10, // 31: user.User.ResolveTeamMember:output_type -> user.ResolveTeamMemberResponse
-	8,  // 32: user.User.LeaveTeam:output_type -> user.TeamLeaveOperationResponse
-	8,  // 33: user.User.GetTeamLeaveOperation:output_type -> user.TeamLeaveOperationResponse
-	2,  // 34: user.User.ListMyTeams:output_type -> user.ListMyTeamsResponse
-	5,  // 35: user.User.BatchGetConversationDisplayNames:output_type -> user.BatchGetConversationDisplayNamesResponse
-	20, // [20:36] is the sub-list for method output_type
-	4,  // [4:20] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	7,  // 2: user.BatchGetTeamMemberDisplayNamesResponse.users:type_name -> user.TeamMemberDisplayName
+	10, // 3: user.BatchGetMyTeamNamesResponse.teams:type_name -> user.MyTeamName
+	26, // 4: user.ResolveTeamMemberResponse.candidates:type_name -> user.TeamMember
+	26, // 5: user.ListTeamMembersResponse.members:type_name -> user.TeamMember
+	37, // 6: user.User.GetUserInfo:input_type -> user.GetUserInfoRequest
+	32, // 7: user.User.GetMyInfo:input_type -> user.GetMyInfoRequest
+	33, // 8: user.User.Login:input_type -> user.LoginRequest
+	35, // 9: user.User.Register:input_type -> user.RegisterRequest
+	30, // 10: user.User.CreateTeam:input_type -> user.CreateTeamRequest
+	28, // 11: user.User.AddTeamMember:input_type -> user.AddTeamMemberRequest
+	25, // 12: user.User.ListTeamMembers:input_type -> user.ListTeamMembersRequest
+	23, // 13: user.User.SetTeamMemberRole:input_type -> user.SetTeamMemberRoleRequest
+	21, // 14: user.User.AuthorizeTeamGroupCreation:input_type -> user.AuthorizeTeamGroupCreationRequest
+	17, // 15: user.User.CheckTeamMember:input_type -> user.CheckTeamMemberRequest
+	19, // 16: user.User.CheckTeamMemberByID:input_type -> user.CheckTeamMemberByIDRequest
+	15, // 17: user.User.ResolveTeamMember:input_type -> user.ResolveTeamMemberRequest
+	12, // 18: user.User.LeaveTeam:input_type -> user.LeaveTeamRequest
+	13, // 19: user.User.GetTeamLeaveOperation:input_type -> user.GetTeamLeaveOperationRequest
+	0,  // 20: user.User.ListMyTeams:input_type -> user.ListMyTeamsRequest
+	3,  // 21: user.User.BatchGetConversationDisplayNames:input_type -> user.BatchGetConversationDisplayNamesRequest
+	6,  // 22: user.User.BatchGetTeamMemberDisplayNames:input_type -> user.BatchGetTeamMemberDisplayNamesRequest
+	9,  // 23: user.User.BatchGetMyTeamNames:input_type -> user.BatchGetMyTeamNamesRequest
+	38, // 24: user.User.GetUserInfo:output_type -> user.GetUserInfoResponse
+	38, // 25: user.User.GetMyInfo:output_type -> user.GetUserInfoResponse
+	34, // 26: user.User.Login:output_type -> user.LoginResponse
+	36, // 27: user.User.Register:output_type -> user.RegisterResponse
+	31, // 28: user.User.CreateTeam:output_type -> user.CreateTeamResponse
+	29, // 29: user.User.AddTeamMember:output_type -> user.AddTeamMemberResponse
+	27, // 30: user.User.ListTeamMembers:output_type -> user.ListTeamMembersResponse
+	24, // 31: user.User.SetTeamMemberRole:output_type -> user.SetTeamMemberRoleResponse
+	22, // 32: user.User.AuthorizeTeamGroupCreation:output_type -> user.AuthorizeTeamGroupCreationResponse
+	18, // 33: user.User.CheckTeamMember:output_type -> user.CheckTeamMemberResponse
+	20, // 34: user.User.CheckTeamMemberByID:output_type -> user.CheckTeamMemberByIDResponse
+	16, // 35: user.User.ResolveTeamMember:output_type -> user.ResolveTeamMemberResponse
+	14, // 36: user.User.LeaveTeam:output_type -> user.TeamLeaveOperationResponse
+	14, // 37: user.User.GetTeamLeaveOperation:output_type -> user.TeamLeaveOperationResponse
+	2,  // 38: user.User.ListMyTeams:output_type -> user.ListMyTeamsResponse
+	5,  // 39: user.User.BatchGetConversationDisplayNames:output_type -> user.BatchGetConversationDisplayNamesResponse
+	8,  // 40: user.User.BatchGetTeamMemberDisplayNames:output_type -> user.BatchGetTeamMemberDisplayNamesResponse
+	11, // 41: user.User.BatchGetMyTeamNames:output_type -> user.BatchGetMyTeamNamesResponse
+	24, // [24:42] is the sub-list for method output_type
+	6,  // [6:24] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -1909,7 +2226,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   33,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

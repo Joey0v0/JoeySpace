@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/yjydist/go-im/rpc/user/pb"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,7 +27,11 @@ type userInfo struct {
 	Nickname string `json:"nickname"`
 }
 
-func getUserInfoHandler(client pb.UserClient) http.HandlerFunc {
+type userInfoGetter interface {
+	GetUserInfo(context.Context, *pb.GetUserInfoRequest, ...grpc.CallOption) (*pb.GetUserInfoResponse, error)
+}
+
+func getUserInfoHandler(client userInfoGetter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// 这里只校验请求格式。查询哪个用户、用户是否存在，由 RPC 处理。
 		query, err := url.ParseQuery(r.URL.RawQuery)

@@ -589,3 +589,8 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 53. 前端 F4 方案只读审查（2026-10-09）
 
 主 agent 从 F3 `69bb016` 建立 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f4-tasks`、分支 `codex/frontend-f4-tasks`。三个执行 agent 只读 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-chat`：分别核对 Task 接口/权限/索引、持久通知与实时链、Vue 路由/布局/复用点；没有编辑、测试、构建或 Git 写操作。主 agent 统一写[F4 设计](frontend-f4-tasks-design.md)、[九步计划](superpowers/plans/2026-10-09-frontend-f4-tasks.md)、架构待确认项和项目进度。F12—F16 确认前不启动业务代码；后续执行 worktree、共同提交和允许文件须在实施开始前另行固定。
+## 54. 前端 F4 执行启动（2026-10-09）
+
+用户已确认 F12—F16 并要求继续。主 agent 在 D:/zy/GoLang/JoeySpace/.worktrees/frontend-f4-tasks、分支 codex/frontend-f4-tasks 统一维护协议、生成代码、迁移和共同文档；执行 agent 每次只取得一个任务 brief、明确允许文件且不得派生子 agent、合并 main、推送或部署。基线为全仓 Go 通过、前端 59/59 测试通过、TypeScript 与 Vite 构建通过。
+
+细化计划基线提交为 8d1fe53。F4-1 由主 agent 固定 Task 本人任务/详情/通知、状态预期值、IM 来源上下文与 User 当前页补名协议。由于本机 Docker 引擎、MySQL/MariaDB 均不可用，真实 MySQL 8.0 EXPLAIN 与 037 从协议步骤移到最终查询 SQL 成形后的 Task 查询步骤；没有实测前不宣称索引已确定。后续每个实现任务完成后必须生成独立 diff 包并通过规格与质量审查，才进入下一任务。

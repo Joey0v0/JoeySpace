@@ -37,6 +37,10 @@ service User {
   rpc ListMyTeams(ListMyTeamsRequest) returns (ListMyTeamsResponse);
   // 仅供 Gateway 对 IM 已核实的私聊对象补有限显示名；不开放任意 HTTP 查询。
   rpc BatchGetConversationDisplayNames(BatchGetConversationDisplayNamesRequest) returns (BatchGetConversationDisplayNamesResponse);
+  // 当前团队成员为 Task 已返回的当前页成员补有限显示名。
+  rpc BatchGetTeamMemberDisplayNames(BatchGetTeamMemberDisplayNamesRequest) returns (BatchGetTeamMemberDisplayNamesResponse);
+  // 登录本人为 Task 已返回的当前页团队补名称；仅返回仍活动的本人团队。
+  rpc BatchGetMyTeamNames(BatchGetMyTeamNamesRequest) returns (BatchGetMyTeamNamesResponse);
 }
 
 message ListMyTeamsRequest {
@@ -66,6 +70,32 @@ message ConversationDisplayName {
 
 message BatchGetConversationDisplayNamesResponse {
   repeated ConversationDisplayName users = 1;
+}
+message BatchGetTeamMemberDisplayNamesRequest {
+  int64 team_id = 1;
+  repeated int64 user_ids = 2; // 去重后最多 100 个正 ID。
+}
+
+message TeamMemberDisplayName {
+  int64 user_id = 1;
+  string display_name = 2; // 昵称优先、用户名兜底。
+}
+
+message BatchGetTeamMemberDisplayNamesResponse {
+  repeated TeamMemberDisplayName users = 1;
+}
+
+message BatchGetMyTeamNamesRequest {
+  repeated int64 team_ids = 1; // 去重后最多 100 个正 ID。
+}
+
+message MyTeamName {
+  int64 team_id = 1;
+  string name = 2;
+}
+
+message BatchGetMyTeamNamesResponse {
+  repeated MyTeamName teams = 1;
 }
 
 message LeaveTeamRequest {

@@ -40,7 +40,8 @@
 - Modify: rpc/user/user.proto, rpc/user/pb/user.pb.go, rpc/user/pb/user_grpc.pb.go
 - Create: rpc/task/f4_contract_test.go, rpc/im/source_context_contract_test.go, rpc/user/task_display_names_contract_test.go
 - Create: docs/frontend-f4-api-contract.md
-- Modify: docs/architecture-decisions.md, docs/project-plan.md, docs/worktree-collaboration-plan.md
+- Modify: api/handler.go
+- Modify: docs/frontend-f4-tasks-design.md, docs/architecture-decisions.md, docs/project-plan.md, docs/worktree-collaboration-plan.md
 
 **Interfaces:**
 - Produces: Task.ListMyTasks, Task.GetTask, Task.ListMyTaskNotifications, TaskItem.team_id, optional SetTaskStatusRequest.expected_status, IM.GetTeamGroupMessageContext, User.BatchGetTeamMemberDisplayNames, User.BatchGetMyTeamNames.

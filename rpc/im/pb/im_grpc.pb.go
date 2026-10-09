@@ -19,24 +19,25 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IM_CheckGroupMember_FullMethodName          = "/im.IM/CheckGroupMember"
-	IM_CheckTeamGroupAccess_FullMethodName      = "/im.IM/CheckTeamGroupAccess"
-	IM_CreateTeamGroup_FullMethodName           = "/im.IM/CreateTeamGroup"
-	IM_ListTeamGroups_FullMethodName            = "/im.IM/ListTeamGroups"
-	IM_GetTeamGroup_FullMethodName              = "/im.IM/GetTeamGroup"
-	IM_JoinTeamGroup_FullMethodName             = "/im.IM/JoinTeamGroup"
-	IM_ListTeamGroupMessages_FullMethodName     = "/im.IM/ListTeamGroupMessages"
-	IM_GetTeamGroupUnread_FullMethodName        = "/im.IM/GetTeamGroupUnread"
-	IM_MarkTeamGroupMessagesRead_FullMethodName = "/im.IM/MarkTeamGroupMessagesRead"
-	IM_ListDirectMessages_FullMethodName        = "/im.IM/ListDirectMessages"
-	IM_ListMyDirectConversations_FullMethodName = "/im.IM/ListMyDirectConversations"
-	IM_GetMyDirectConversation_FullMethodName   = "/im.IM/GetMyDirectConversation"
-	IM_GetDirectUnread_FullMethodName           = "/im.IM/GetDirectUnread"
-	IM_MarkDirectMessagesRead_FullMethodName    = "/im.IM/MarkDirectMessagesRead"
-	IM_ListMyUnreadConversations_FullMethodName = "/im.IM/ListMyUnreadConversations"
-	IM_CheckTeamGroupMessage_FullMethodName     = "/im.IM/CheckTeamGroupMessage"
-	IM_ListOfflineMessages_FullMethodName       = "/im.IM/ListOfflineMessages"
-	IM_AckOfflineMessages_FullMethodName        = "/im.IM/AckOfflineMessages"
+	IM_CheckGroupMember_FullMethodName           = "/im.IM/CheckGroupMember"
+	IM_CheckTeamGroupAccess_FullMethodName       = "/im.IM/CheckTeamGroupAccess"
+	IM_CreateTeamGroup_FullMethodName            = "/im.IM/CreateTeamGroup"
+	IM_ListTeamGroups_FullMethodName             = "/im.IM/ListTeamGroups"
+	IM_GetTeamGroup_FullMethodName               = "/im.IM/GetTeamGroup"
+	IM_JoinTeamGroup_FullMethodName              = "/im.IM/JoinTeamGroup"
+	IM_ListTeamGroupMessages_FullMethodName      = "/im.IM/ListTeamGroupMessages"
+	IM_GetTeamGroupMessageContext_FullMethodName = "/im.IM/GetTeamGroupMessageContext"
+	IM_GetTeamGroupUnread_FullMethodName         = "/im.IM/GetTeamGroupUnread"
+	IM_MarkTeamGroupMessagesRead_FullMethodName  = "/im.IM/MarkTeamGroupMessagesRead"
+	IM_ListDirectMessages_FullMethodName         = "/im.IM/ListDirectMessages"
+	IM_ListMyDirectConversations_FullMethodName  = "/im.IM/ListMyDirectConversations"
+	IM_GetMyDirectConversation_FullMethodName    = "/im.IM/GetMyDirectConversation"
+	IM_GetDirectUnread_FullMethodName            = "/im.IM/GetDirectUnread"
+	IM_MarkDirectMessagesRead_FullMethodName     = "/im.IM/MarkDirectMessagesRead"
+	IM_ListMyUnreadConversations_FullMethodName  = "/im.IM/ListMyUnreadConversations"
+	IM_CheckTeamGroupMessage_FullMethodName      = "/im.IM/CheckTeamGroupMessage"
+	IM_ListOfflineMessages_FullMethodName        = "/im.IM/ListOfflineMessages"
+	IM_AckOfflineMessages_FullMethodName         = "/im.IM/AckOfflineMessages"
 )
 
 // IMClient is the client API for IM service.
@@ -57,6 +58,8 @@ type IMClient interface {
 	JoinTeamGroup(ctx context.Context, in *JoinTeamGroupRequest, opts ...grpc.CallOption) (*JoinTeamGroupResponse, error)
 	// 团队群成员按消息 ID 倒序读取历史消息。
 	ListTeamGroupMessages(ctx context.Context, in *ListTeamGroupMessagesRequest, opts ...grpc.CallOption) (*ListTeamGroupMessagesResponse, error)
+	// 按权限读取目标消息及目标前 20 条、后 20 条，按消息 ID 升序返回。
+	GetTeamGroupMessageContext(ctx context.Context, in *GetTeamGroupMessageContextRequest, opts ...grpc.CallOption) (*GetTeamGroupMessageContextResponse, error)
 	// 本人当前团队群未读数；读取不标已读。
 	GetTeamGroupUnread(ctx context.Context, in *GetTeamGroupUnreadRequest, opts ...grpc.CallOption) (*GetTeamGroupUnreadResponse, error)
 	// 明确确认已加载的具体消息；不使用消息ID高水位。
@@ -153,6 +156,16 @@ func (c *iMClient) ListTeamGroupMessages(ctx context.Context, in *ListTeamGroupM
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListTeamGroupMessagesResponse)
 	err := c.cc.Invoke(ctx, IM_ListTeamGroupMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iMClient) GetTeamGroupMessageContext(ctx context.Context, in *GetTeamGroupMessageContextRequest, opts ...grpc.CallOption) (*GetTeamGroupMessageContextResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTeamGroupMessageContextResponse)
+	err := c.cc.Invoke(ctx, IM_GetTeamGroupMessageContext_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -287,6 +300,8 @@ type IMServer interface {
 	JoinTeamGroup(context.Context, *JoinTeamGroupRequest) (*JoinTeamGroupResponse, error)
 	// 团队群成员按消息 ID 倒序读取历史消息。
 	ListTeamGroupMessages(context.Context, *ListTeamGroupMessagesRequest) (*ListTeamGroupMessagesResponse, error)
+	// 按权限读取目标消息及目标前 20 条、后 20 条，按消息 ID 升序返回。
+	GetTeamGroupMessageContext(context.Context, *GetTeamGroupMessageContextRequest) (*GetTeamGroupMessageContextResponse, error)
 	// 本人当前团队群未读数；读取不标已读。
 	GetTeamGroupUnread(context.Context, *GetTeamGroupUnreadRequest) (*GetTeamGroupUnreadResponse, error)
 	// 明确确认已加载的具体消息；不使用消息ID高水位。
@@ -339,6 +354,9 @@ func (UnimplementedIMServer) JoinTeamGroup(context.Context, *JoinTeamGroupReques
 }
 func (UnimplementedIMServer) ListTeamGroupMessages(context.Context, *ListTeamGroupMessagesRequest) (*ListTeamGroupMessagesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTeamGroupMessages not implemented")
+}
+func (UnimplementedIMServer) GetTeamGroupMessageContext(context.Context, *GetTeamGroupMessageContextRequest) (*GetTeamGroupMessageContextResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTeamGroupMessageContext not implemented")
 }
 func (UnimplementedIMServer) GetTeamGroupUnread(context.Context, *GetTeamGroupUnreadRequest) (*GetTeamGroupUnreadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTeamGroupUnread not implemented")
@@ -516,6 +534,24 @@ func _IM_ListTeamGroupMessages_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(IMServer).ListTeamGroupMessages(ctx, req.(*ListTeamGroupMessagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IM_GetTeamGroupMessageContext_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTeamGroupMessageContextRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMServer).GetTeamGroupMessageContext(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IM_GetTeamGroupMessageContext_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMServer).GetTeamGroupMessageContext(ctx, req.(*GetTeamGroupMessageContextRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -752,6 +788,10 @@ var IM_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTeamGroupMessages",
 			Handler:    _IM_ListTeamGroupMessages_Handler,
+		},
+		{
+			MethodName: "GetTeamGroupMessageContext",
+			Handler:    _IM_GetTeamGroupMessageContext_Handler,
 		},
 		{
 			MethodName: "GetTeamGroupUnread",

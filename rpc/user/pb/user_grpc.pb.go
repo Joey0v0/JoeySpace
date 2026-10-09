@@ -35,6 +35,8 @@ const (
 	User_GetTeamLeaveOperation_FullMethodName            = "/user.User/GetTeamLeaveOperation"
 	User_ListMyTeams_FullMethodName                      = "/user.User/ListMyTeams"
 	User_BatchGetConversationDisplayNames_FullMethodName = "/user.User/BatchGetConversationDisplayNames"
+	User_BatchGetTeamMemberDisplayNames_FullMethodName   = "/user.User/BatchGetTeamMemberDisplayNames"
+	User_BatchGetMyTeamNames_FullMethodName              = "/user.User/BatchGetMyTeamNames"
 )
 
 // UserClient is the client API for User service.
@@ -73,6 +75,10 @@ type UserClient interface {
 	ListMyTeams(ctx context.Context, in *ListMyTeamsRequest, opts ...grpc.CallOption) (*ListMyTeamsResponse, error)
 	// 仅供 Gateway 对 IM 已核实的私聊对象补有限显示名；不开放任意 HTTP 查询。
 	BatchGetConversationDisplayNames(ctx context.Context, in *BatchGetConversationDisplayNamesRequest, opts ...grpc.CallOption) (*BatchGetConversationDisplayNamesResponse, error)
+	// 当前团队成员为 Task 已返回的当前页成员补有限显示名。
+	BatchGetTeamMemberDisplayNames(ctx context.Context, in *BatchGetTeamMemberDisplayNamesRequest, opts ...grpc.CallOption) (*BatchGetTeamMemberDisplayNamesResponse, error)
+	// 登录本人为 Task 已返回的当前页团队补名称；仅返回仍活动的本人团队。
+	BatchGetMyTeamNames(ctx context.Context, in *BatchGetMyTeamNamesRequest, opts ...grpc.CallOption) (*BatchGetMyTeamNamesResponse, error)
 }
 
 type userClient struct {
@@ -243,6 +249,26 @@ func (c *userClient) BatchGetConversationDisplayNames(ctx context.Context, in *B
 	return out, nil
 }
 
+func (c *userClient) BatchGetTeamMemberDisplayNames(ctx context.Context, in *BatchGetTeamMemberDisplayNamesRequest, opts ...grpc.CallOption) (*BatchGetTeamMemberDisplayNamesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchGetTeamMemberDisplayNamesResponse)
+	err := c.cc.Invoke(ctx, User_BatchGetTeamMemberDisplayNames_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) BatchGetMyTeamNames(ctx context.Context, in *BatchGetMyTeamNamesRequest, opts ...grpc.CallOption) (*BatchGetMyTeamNamesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchGetMyTeamNamesResponse)
+	err := c.cc.Invoke(ctx, User_BatchGetMyTeamNames_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServer is the server API for User service.
 // All implementations must embed UnimplementedUserServer
 // for forward compatibility.
@@ -279,6 +305,10 @@ type UserServer interface {
 	ListMyTeams(context.Context, *ListMyTeamsRequest) (*ListMyTeamsResponse, error)
 	// 仅供 Gateway 对 IM 已核实的私聊对象补有限显示名；不开放任意 HTTP 查询。
 	BatchGetConversationDisplayNames(context.Context, *BatchGetConversationDisplayNamesRequest) (*BatchGetConversationDisplayNamesResponse, error)
+	// 当前团队成员为 Task 已返回的当前页成员补有限显示名。
+	BatchGetTeamMemberDisplayNames(context.Context, *BatchGetTeamMemberDisplayNamesRequest) (*BatchGetTeamMemberDisplayNamesResponse, error)
+	// 登录本人为 Task 已返回的当前页团队补名称；仅返回仍活动的本人团队。
+	BatchGetMyTeamNames(context.Context, *BatchGetMyTeamNamesRequest) (*BatchGetMyTeamNamesResponse, error)
 	mustEmbedUnimplementedUserServer()
 }
 
@@ -336,6 +366,12 @@ func (UnimplementedUserServer) ListMyTeams(context.Context, *ListMyTeamsRequest)
 }
 func (UnimplementedUserServer) BatchGetConversationDisplayNames(context.Context, *BatchGetConversationDisplayNamesRequest) (*BatchGetConversationDisplayNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BatchGetConversationDisplayNames not implemented")
+}
+func (UnimplementedUserServer) BatchGetTeamMemberDisplayNames(context.Context, *BatchGetTeamMemberDisplayNamesRequest) (*BatchGetTeamMemberDisplayNamesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BatchGetTeamMemberDisplayNames not implemented")
+}
+func (UnimplementedUserServer) BatchGetMyTeamNames(context.Context, *BatchGetMyTeamNamesRequest) (*BatchGetMyTeamNamesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BatchGetMyTeamNames not implemented")
 }
 func (UnimplementedUserServer) mustEmbedUnimplementedUserServer() {}
 func (UnimplementedUserServer) testEmbeddedByValue()              {}
@@ -646,6 +682,42 @@ func _User_BatchGetConversationDisplayNames_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_BatchGetTeamMemberDisplayNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchGetTeamMemberDisplayNamesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).BatchGetTeamMemberDisplayNames(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_BatchGetTeamMemberDisplayNames_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).BatchGetTeamMemberDisplayNames(ctx, req.(*BatchGetTeamMemberDisplayNamesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_BatchGetMyTeamNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchGetMyTeamNamesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).BatchGetMyTeamNames(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_BatchGetMyTeamNames_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).BatchGetMyTeamNames(ctx, req.(*BatchGetMyTeamNamesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // User_ServiceDesc is the grpc.ServiceDesc for User service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -716,6 +788,14 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BatchGetConversationDisplayNames",
 			Handler:    _User_BatchGetConversationDisplayNames_Handler,
+		},
+		{
+			MethodName: "BatchGetTeamMemberDisplayNames",
+			Handler:    _User_BatchGetTeamMemberDisplayNames_Handler,
+		},
+		{
+			MethodName: "BatchGetMyTeamNames",
+			Handler:    _User_BatchGetMyTeamNames_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

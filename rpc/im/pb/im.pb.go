@@ -536,6 +536,118 @@ func (x *ListTeamGroupMessagesResponse) GetNextBeforeMessageId() int64 {
 	return 0
 }
 
+type GetTeamGroupMessageContextRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
+	GroupId       int64                  `protobuf:"varint,2,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	MessageId     int64                  `protobuf:"varint,3,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTeamGroupMessageContextRequest) Reset() {
+	*x = GetTeamGroupMessageContextRequest{}
+	mi := &file_rpc_im_im_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTeamGroupMessageContextRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTeamGroupMessageContextRequest) ProtoMessage() {}
+
+func (x *GetTeamGroupMessageContextRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTeamGroupMessageContextRequest.ProtoReflect.Descriptor instead.
+func (*GetTeamGroupMessageContextRequest) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetTeamGroupMessageContextRequest) GetTeamId() int64 {
+	if x != nil {
+		return x.TeamId
+	}
+	return 0
+}
+
+func (x *GetTeamGroupMessageContextRequest) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
+func (x *GetTeamGroupMessageContextRequest) GetMessageId() int64 {
+	if x != nil {
+		return x.MessageId
+	}
+	return 0
+}
+
+type GetTeamGroupMessageContextResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Messages        []*TeamGroupMessage    `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"` // 最多 41 条，按消息 ID 升序。
+	TargetMessageId int64                  `protobuf:"varint,2,opt,name=target_message_id,json=targetMessageId,proto3" json:"target_message_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetTeamGroupMessageContextResponse) Reset() {
+	*x = GetTeamGroupMessageContextResponse{}
+	mi := &file_rpc_im_im_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTeamGroupMessageContextResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTeamGroupMessageContextResponse) ProtoMessage() {}
+
+func (x *GetTeamGroupMessageContextResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_im_im_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTeamGroupMessageContextResponse.ProtoReflect.Descriptor instead.
+func (*GetTeamGroupMessageContextResponse) Descriptor() ([]byte, []int) {
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetTeamGroupMessageContextResponse) GetMessages() []*TeamGroupMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+func (x *GetTeamGroupMessageContextResponse) GetTargetMessageId() int64 {
+	if x != nil {
+		return x.TargetMessageId
+	}
+	return 0
+}
+
 type CheckTeamGroupMessageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TeamId        int64                  `protobuf:"varint,1,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
@@ -547,7 +659,7 @@ type CheckTeamGroupMessageRequest struct {
 
 func (x *CheckTeamGroupMessageRequest) Reset() {
 	*x = CheckTeamGroupMessageRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[8]
+	mi := &file_rpc_im_im_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -559,7 +671,7 @@ func (x *CheckTeamGroupMessageRequest) String() string {
 func (*CheckTeamGroupMessageRequest) ProtoMessage() {}
 
 func (x *CheckTeamGroupMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[8]
+	mi := &file_rpc_im_im_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -572,7 +684,7 @@ func (x *CheckTeamGroupMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamGroupMessageRequest.ProtoReflect.Descriptor instead.
 func (*CheckTeamGroupMessageRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{8}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CheckTeamGroupMessageRequest) GetTeamId() int64 {
@@ -604,7 +716,7 @@ type CheckTeamGroupMessageResponse struct {
 
 func (x *CheckTeamGroupMessageResponse) Reset() {
 	*x = CheckTeamGroupMessageResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[9]
+	mi := &file_rpc_im_im_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -616,7 +728,7 @@ func (x *CheckTeamGroupMessageResponse) String() string {
 func (*CheckTeamGroupMessageResponse) ProtoMessage() {}
 
 func (x *CheckTeamGroupMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[9]
+	mi := &file_rpc_im_im_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -629,7 +741,7 @@ func (x *CheckTeamGroupMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamGroupMessageResponse.ProtoReflect.Descriptor instead.
 func (*CheckTeamGroupMessageResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{9}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{11}
 }
 
 type JoinTeamGroupRequest struct {
@@ -642,7 +754,7 @@ type JoinTeamGroupRequest struct {
 
 func (x *JoinTeamGroupRequest) Reset() {
 	*x = JoinTeamGroupRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[10]
+	mi := &file_rpc_im_im_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -654,7 +766,7 @@ func (x *JoinTeamGroupRequest) String() string {
 func (*JoinTeamGroupRequest) ProtoMessage() {}
 
 func (x *JoinTeamGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[10]
+	mi := &file_rpc_im_im_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -667,7 +779,7 @@ func (x *JoinTeamGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinTeamGroupRequest.ProtoReflect.Descriptor instead.
 func (*JoinTeamGroupRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{10}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *JoinTeamGroupRequest) GetTeamId() int64 {
@@ -692,7 +804,7 @@ type JoinTeamGroupResponse struct {
 
 func (x *JoinTeamGroupResponse) Reset() {
 	*x = JoinTeamGroupResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[11]
+	mi := &file_rpc_im_im_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -704,7 +816,7 @@ func (x *JoinTeamGroupResponse) String() string {
 func (*JoinTeamGroupResponse) ProtoMessage() {}
 
 func (x *JoinTeamGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[11]
+	mi := &file_rpc_im_im_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -717,7 +829,7 @@ func (x *JoinTeamGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinTeamGroupResponse.ProtoReflect.Descriptor instead.
 func (*JoinTeamGroupResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{11}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{13}
 }
 
 type ListTeamGroupsRequest struct {
@@ -731,7 +843,7 @@ type ListTeamGroupsRequest struct {
 
 func (x *ListTeamGroupsRequest) Reset() {
 	*x = ListTeamGroupsRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[12]
+	mi := &file_rpc_im_im_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -743,7 +855,7 @@ func (x *ListTeamGroupsRequest) String() string {
 func (*ListTeamGroupsRequest) ProtoMessage() {}
 
 func (x *ListTeamGroupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[12]
+	mi := &file_rpc_im_im_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -756,7 +868,7 @@ func (x *ListTeamGroupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamGroupsRequest.ProtoReflect.Descriptor instead.
 func (*ListTeamGroupsRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{12}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListTeamGroupsRequest) GetTeamId() int64 {
@@ -792,7 +904,7 @@ type TeamGroup struct {
 
 func (x *TeamGroup) Reset() {
 	*x = TeamGroup{}
-	mi := &file_rpc_im_im_proto_msgTypes[13]
+	mi := &file_rpc_im_im_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -804,7 +916,7 @@ func (x *TeamGroup) String() string {
 func (*TeamGroup) ProtoMessage() {}
 
 func (x *TeamGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[13]
+	mi := &file_rpc_im_im_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -817,7 +929,7 @@ func (x *TeamGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TeamGroup.ProtoReflect.Descriptor instead.
 func (*TeamGroup) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{13}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *TeamGroup) GetGroupId() int64 {
@@ -858,7 +970,7 @@ type ListTeamGroupsResponse struct {
 
 func (x *ListTeamGroupsResponse) Reset() {
 	*x = ListTeamGroupsResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[14]
+	mi := &file_rpc_im_im_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -870,7 +982,7 @@ func (x *ListTeamGroupsResponse) String() string {
 func (*ListTeamGroupsResponse) ProtoMessage() {}
 
 func (x *ListTeamGroupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[14]
+	mi := &file_rpc_im_im_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -883,7 +995,7 @@ func (x *ListTeamGroupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTeamGroupsResponse.ProtoReflect.Descriptor instead.
 func (*ListTeamGroupsResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{14}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListTeamGroupsResponse) GetGroups() []*TeamGroup {
@@ -910,7 +1022,7 @@ type GetTeamGroupRequest struct {
 
 func (x *GetTeamGroupRequest) Reset() {
 	*x = GetTeamGroupRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[15]
+	mi := &file_rpc_im_im_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -922,7 +1034,7 @@ func (x *GetTeamGroupRequest) String() string {
 func (*GetTeamGroupRequest) ProtoMessage() {}
 
 func (x *GetTeamGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[15]
+	mi := &file_rpc_im_im_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -935,7 +1047,7 @@ func (x *GetTeamGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTeamGroupRequest.ProtoReflect.Descriptor instead.
 func (*GetTeamGroupRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{15}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetTeamGroupRequest) GetTeamId() int64 {
@@ -961,7 +1073,7 @@ type GetTeamGroupResponse struct {
 
 func (x *GetTeamGroupResponse) Reset() {
 	*x = GetTeamGroupResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[16]
+	mi := &file_rpc_im_im_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -973,7 +1085,7 @@ func (x *GetTeamGroupResponse) String() string {
 func (*GetTeamGroupResponse) ProtoMessage() {}
 
 func (x *GetTeamGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[16]
+	mi := &file_rpc_im_im_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -986,7 +1098,7 @@ func (x *GetTeamGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTeamGroupResponse.ProtoReflect.Descriptor instead.
 func (*GetTeamGroupResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{16}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetTeamGroupResponse) GetGroup() *TeamGroup {
@@ -1006,7 +1118,7 @@ type CreateTeamGroupRequest struct {
 
 func (x *CreateTeamGroupRequest) Reset() {
 	*x = CreateTeamGroupRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[17]
+	mi := &file_rpc_im_im_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1018,7 +1130,7 @@ func (x *CreateTeamGroupRequest) String() string {
 func (*CreateTeamGroupRequest) ProtoMessage() {}
 
 func (x *CreateTeamGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[17]
+	mi := &file_rpc_im_im_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1031,7 +1143,7 @@ func (x *CreateTeamGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTeamGroupRequest.ProtoReflect.Descriptor instead.
 func (*CreateTeamGroupRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{17}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CreateTeamGroupRequest) GetTeamId() int64 {
@@ -1057,7 +1169,7 @@ type CreateTeamGroupResponse struct {
 
 func (x *CreateTeamGroupResponse) Reset() {
 	*x = CreateTeamGroupResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[18]
+	mi := &file_rpc_im_im_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1069,7 +1181,7 @@ func (x *CreateTeamGroupResponse) String() string {
 func (*CreateTeamGroupResponse) ProtoMessage() {}
 
 func (x *CreateTeamGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[18]
+	mi := &file_rpc_im_im_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1082,7 +1194,7 @@ func (x *CreateTeamGroupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTeamGroupResponse.ProtoReflect.Descriptor instead.
 func (*CreateTeamGroupResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{18}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateTeamGroupResponse) GetGroupId() int64 {
@@ -1101,7 +1213,7 @@ type CheckGroupMemberRequest struct {
 
 func (x *CheckGroupMemberRequest) Reset() {
 	*x = CheckGroupMemberRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[19]
+	mi := &file_rpc_im_im_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1113,7 +1225,7 @@ func (x *CheckGroupMemberRequest) String() string {
 func (*CheckGroupMemberRequest) ProtoMessage() {}
 
 func (x *CheckGroupMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[19]
+	mi := &file_rpc_im_im_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1126,7 +1238,7 @@ func (x *CheckGroupMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckGroupMemberRequest.ProtoReflect.Descriptor instead.
 func (*CheckGroupMemberRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{19}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CheckGroupMemberRequest) GetGroupId() int64 {
@@ -1144,7 +1256,7 @@ type CheckGroupMemberResponse struct {
 
 func (x *CheckGroupMemberResponse) Reset() {
 	*x = CheckGroupMemberResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[20]
+	mi := &file_rpc_im_im_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1156,7 +1268,7 @@ func (x *CheckGroupMemberResponse) String() string {
 func (*CheckGroupMemberResponse) ProtoMessage() {}
 
 func (x *CheckGroupMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[20]
+	mi := &file_rpc_im_im_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1169,7 +1281,7 @@ func (x *CheckGroupMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckGroupMemberResponse.ProtoReflect.Descriptor instead.
 func (*CheckGroupMemberResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{20}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{22}
 }
 
 type CheckTeamGroupAccessRequest struct {
@@ -1182,7 +1294,7 @@ type CheckTeamGroupAccessRequest struct {
 
 func (x *CheckTeamGroupAccessRequest) Reset() {
 	*x = CheckTeamGroupAccessRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[21]
+	mi := &file_rpc_im_im_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1194,7 +1306,7 @@ func (x *CheckTeamGroupAccessRequest) String() string {
 func (*CheckTeamGroupAccessRequest) ProtoMessage() {}
 
 func (x *CheckTeamGroupAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[21]
+	mi := &file_rpc_im_im_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1319,7 @@ func (x *CheckTeamGroupAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamGroupAccessRequest.ProtoReflect.Descriptor instead.
 func (*CheckTeamGroupAccessRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{21}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CheckTeamGroupAccessRequest) GetTeamId() int64 {
@@ -1232,7 +1344,7 @@ type CheckTeamGroupAccessResponse struct {
 
 func (x *CheckTeamGroupAccessResponse) Reset() {
 	*x = CheckTeamGroupAccessResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[22]
+	mi := &file_rpc_im_im_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1244,7 +1356,7 @@ func (x *CheckTeamGroupAccessResponse) String() string {
 func (*CheckTeamGroupAccessResponse) ProtoMessage() {}
 
 func (x *CheckTeamGroupAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[22]
+	mi := &file_rpc_im_im_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1257,7 +1369,7 @@ func (x *CheckTeamGroupAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckTeamGroupAccessResponse.ProtoReflect.Descriptor instead.
 func (*CheckTeamGroupAccessResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{22}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{24}
 }
 
 type GetTeamGroupUnreadRequest struct {
@@ -1270,7 +1382,7 @@ type GetTeamGroupUnreadRequest struct {
 
 func (x *GetTeamGroupUnreadRequest) Reset() {
 	*x = GetTeamGroupUnreadRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[23]
+	mi := &file_rpc_im_im_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1282,7 +1394,7 @@ func (x *GetTeamGroupUnreadRequest) String() string {
 func (*GetTeamGroupUnreadRequest) ProtoMessage() {}
 
 func (x *GetTeamGroupUnreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[23]
+	mi := &file_rpc_im_im_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1295,7 +1407,7 @@ func (x *GetTeamGroupUnreadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTeamGroupUnreadRequest.ProtoReflect.Descriptor instead.
 func (*GetTeamGroupUnreadRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{23}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetTeamGroupUnreadRequest) GetTeamId() int64 {
@@ -1323,7 +1435,7 @@ type GetTeamGroupUnreadResponse struct {
 
 func (x *GetTeamGroupUnreadResponse) Reset() {
 	*x = GetTeamGroupUnreadResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[24]
+	mi := &file_rpc_im_im_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1335,7 +1447,7 @@ func (x *GetTeamGroupUnreadResponse) String() string {
 func (*GetTeamGroupUnreadResponse) ProtoMessage() {}
 
 func (x *GetTeamGroupUnreadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[24]
+	mi := &file_rpc_im_im_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1348,7 +1460,7 @@ func (x *GetTeamGroupUnreadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTeamGroupUnreadResponse.ProtoReflect.Descriptor instead.
 func (*GetTeamGroupUnreadResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{24}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetTeamGroupUnreadResponse) GetTeamId() int64 {
@@ -1383,7 +1495,7 @@ type MarkTeamGroupMessagesReadRequest struct {
 
 func (x *MarkTeamGroupMessagesReadRequest) Reset() {
 	*x = MarkTeamGroupMessagesReadRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[25]
+	mi := &file_rpc_im_im_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1395,7 +1507,7 @@ func (x *MarkTeamGroupMessagesReadRequest) String() string {
 func (*MarkTeamGroupMessagesReadRequest) ProtoMessage() {}
 
 func (x *MarkTeamGroupMessagesReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[25]
+	mi := &file_rpc_im_im_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1408,7 +1520,7 @@ func (x *MarkTeamGroupMessagesReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkTeamGroupMessagesReadRequest.ProtoReflect.Descriptor instead.
 func (*MarkTeamGroupMessagesReadRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{25}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *MarkTeamGroupMessagesReadRequest) GetTeamId() int64 {
@@ -1444,7 +1556,7 @@ type MarkTeamGroupMessagesReadResponse struct {
 
 func (x *MarkTeamGroupMessagesReadResponse) Reset() {
 	*x = MarkTeamGroupMessagesReadResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[26]
+	mi := &file_rpc_im_im_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1456,7 +1568,7 @@ func (x *MarkTeamGroupMessagesReadResponse) String() string {
 func (*MarkTeamGroupMessagesReadResponse) ProtoMessage() {}
 
 func (x *MarkTeamGroupMessagesReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[26]
+	mi := &file_rpc_im_im_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1469,7 +1581,7 @@ func (x *MarkTeamGroupMessagesReadResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use MarkTeamGroupMessagesReadResponse.ProtoReflect.Descriptor instead.
 func (*MarkTeamGroupMessagesReadResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{26}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MarkTeamGroupMessagesReadResponse) GetTeamId() int64 {
@@ -1511,7 +1623,7 @@ type ListDirectMessagesRequest struct {
 
 func (x *ListDirectMessagesRequest) Reset() {
 	*x = ListDirectMessagesRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[27]
+	mi := &file_rpc_im_im_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1523,7 +1635,7 @@ func (x *ListDirectMessagesRequest) String() string {
 func (*ListDirectMessagesRequest) ProtoMessage() {}
 
 func (x *ListDirectMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[27]
+	mi := &file_rpc_im_im_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1536,7 +1648,7 @@ func (x *ListDirectMessagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDirectMessagesRequest.ProtoReflect.Descriptor instead.
 func (*ListDirectMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{27}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListDirectMessagesRequest) GetPeerId() int64 {
@@ -1575,7 +1687,7 @@ type DirectMessage struct {
 
 func (x *DirectMessage) Reset() {
 	*x = DirectMessage{}
-	mi := &file_rpc_im_im_proto_msgTypes[28]
+	mi := &file_rpc_im_im_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1587,7 +1699,7 @@ func (x *DirectMessage) String() string {
 func (*DirectMessage) ProtoMessage() {}
 
 func (x *DirectMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[28]
+	mi := &file_rpc_im_im_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1600,7 +1712,7 @@ func (x *DirectMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DirectMessage.ProtoReflect.Descriptor instead.
 func (*DirectMessage) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{28}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *DirectMessage) GetId() int64 {
@@ -1664,7 +1776,7 @@ type ListMyUnreadConversationsRequest struct {
 
 func (x *ListMyUnreadConversationsRequest) Reset() {
 	*x = ListMyUnreadConversationsRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[29]
+	mi := &file_rpc_im_im_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1676,7 +1788,7 @@ func (x *ListMyUnreadConversationsRequest) String() string {
 func (*ListMyUnreadConversationsRequest) ProtoMessage() {}
 
 func (x *ListMyUnreadConversationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[29]
+	mi := &file_rpc_im_im_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1689,7 +1801,7 @@ func (x *ListMyUnreadConversationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyUnreadConversationsRequest.ProtoReflect.Descriptor instead.
 func (*ListMyUnreadConversationsRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{29}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListMyUnreadConversationsRequest) GetSnapshotUpperMessageId() int64 {
@@ -1738,7 +1850,7 @@ type UnreadConversation struct {
 
 func (x *UnreadConversation) Reset() {
 	*x = UnreadConversation{}
-	mi := &file_rpc_im_im_proto_msgTypes[30]
+	mi := &file_rpc_im_im_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1750,7 +1862,7 @@ func (x *UnreadConversation) String() string {
 func (*UnreadConversation) ProtoMessage() {}
 
 func (x *UnreadConversation) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[30]
+	mi := &file_rpc_im_im_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1763,7 +1875,7 @@ func (x *UnreadConversation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnreadConversation.ProtoReflect.Descriptor instead.
 func (*UnreadConversation) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{30}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *UnreadConversation) GetChatType() int32 {
@@ -1847,7 +1959,7 @@ type ListMyUnreadConversationsResponse struct {
 
 func (x *ListMyUnreadConversationsResponse) Reset() {
 	*x = ListMyUnreadConversationsResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[31]
+	mi := &file_rpc_im_im_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1859,7 +1971,7 @@ func (x *ListMyUnreadConversationsResponse) String() string {
 func (*ListMyUnreadConversationsResponse) ProtoMessage() {}
 
 func (x *ListMyUnreadConversationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[31]
+	mi := &file_rpc_im_im_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1872,7 +1984,7 @@ func (x *ListMyUnreadConversationsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListMyUnreadConversationsResponse.ProtoReflect.Descriptor instead.
 func (*ListMyUnreadConversationsResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{31}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListMyUnreadConversationsResponse) GetConversations() []*UnreadConversation {
@@ -1906,7 +2018,7 @@ type ListDirectMessagesResponse struct {
 
 func (x *ListDirectMessagesResponse) Reset() {
 	*x = ListDirectMessagesResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[32]
+	mi := &file_rpc_im_im_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1918,7 +2030,7 @@ func (x *ListDirectMessagesResponse) String() string {
 func (*ListDirectMessagesResponse) ProtoMessage() {}
 
 func (x *ListDirectMessagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[32]
+	mi := &file_rpc_im_im_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1931,7 +2043,7 @@ func (x *ListDirectMessagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDirectMessagesResponse.ProtoReflect.Descriptor instead.
 func (*ListDirectMessagesResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{32}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListDirectMessagesResponse) GetMessages() []*DirectMessage {
@@ -1959,7 +2071,7 @@ type ListMyDirectConversationsRequest struct {
 
 func (x *ListMyDirectConversationsRequest) Reset() {
 	*x = ListMyDirectConversationsRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[33]
+	mi := &file_rpc_im_im_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1971,7 +2083,7 @@ func (x *ListMyDirectConversationsRequest) String() string {
 func (*ListMyDirectConversationsRequest) ProtoMessage() {}
 
 func (x *ListMyDirectConversationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[33]
+	mi := &file_rpc_im_im_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1984,7 +2096,7 @@ func (x *ListMyDirectConversationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyDirectConversationsRequest.ProtoReflect.Descriptor instead.
 func (*ListMyDirectConversationsRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{33}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListMyDirectConversationsRequest) GetSnapshotUpperMessageId() int64 {
@@ -2018,7 +2130,7 @@ type DirectConversation struct {
 
 func (x *DirectConversation) Reset() {
 	*x = DirectConversation{}
-	mi := &file_rpc_im_im_proto_msgTypes[34]
+	mi := &file_rpc_im_im_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2030,7 +2142,7 @@ func (x *DirectConversation) String() string {
 func (*DirectConversation) ProtoMessage() {}
 
 func (x *DirectConversation) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[34]
+	mi := &file_rpc_im_im_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2043,7 +2155,7 @@ func (x *DirectConversation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DirectConversation.ProtoReflect.Descriptor instead.
 func (*DirectConversation) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{34}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *DirectConversation) GetPeerId() int64 {
@@ -2071,7 +2183,7 @@ type ListMyDirectConversationsResponse struct {
 
 func (x *ListMyDirectConversationsResponse) Reset() {
 	*x = ListMyDirectConversationsResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[35]
+	mi := &file_rpc_im_im_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2083,7 +2195,7 @@ func (x *ListMyDirectConversationsResponse) String() string {
 func (*ListMyDirectConversationsResponse) ProtoMessage() {}
 
 func (x *ListMyDirectConversationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[35]
+	mi := &file_rpc_im_im_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2096,7 +2208,7 @@ func (x *ListMyDirectConversationsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListMyDirectConversationsResponse.ProtoReflect.Descriptor instead.
 func (*ListMyDirectConversationsResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{35}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListMyDirectConversationsResponse) GetConversations() []*DirectConversation {
@@ -2129,7 +2241,7 @@ type GetMyDirectConversationRequest struct {
 
 func (x *GetMyDirectConversationRequest) Reset() {
 	*x = GetMyDirectConversationRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[36]
+	mi := &file_rpc_im_im_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2141,7 +2253,7 @@ func (x *GetMyDirectConversationRequest) String() string {
 func (*GetMyDirectConversationRequest) ProtoMessage() {}
 
 func (x *GetMyDirectConversationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[36]
+	mi := &file_rpc_im_im_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2154,7 +2266,7 @@ func (x *GetMyDirectConversationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyDirectConversationRequest.ProtoReflect.Descriptor instead.
 func (*GetMyDirectConversationRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{36}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetMyDirectConversationRequest) GetPeerId() int64 {
@@ -2173,7 +2285,7 @@ type GetMyDirectConversationResponse struct {
 
 func (x *GetMyDirectConversationResponse) Reset() {
 	*x = GetMyDirectConversationResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[37]
+	mi := &file_rpc_im_im_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2185,7 +2297,7 @@ func (x *GetMyDirectConversationResponse) String() string {
 func (*GetMyDirectConversationResponse) ProtoMessage() {}
 
 func (x *GetMyDirectConversationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[37]
+	mi := &file_rpc_im_im_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2198,7 +2310,7 @@ func (x *GetMyDirectConversationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyDirectConversationResponse.ProtoReflect.Descriptor instead.
 func (*GetMyDirectConversationResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{37}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *GetMyDirectConversationResponse) GetConversation() *DirectConversation {
@@ -2217,7 +2329,7 @@ type GetDirectUnreadRequest struct {
 
 func (x *GetDirectUnreadRequest) Reset() {
 	*x = GetDirectUnreadRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[38]
+	mi := &file_rpc_im_im_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2229,7 +2341,7 @@ func (x *GetDirectUnreadRequest) String() string {
 func (*GetDirectUnreadRequest) ProtoMessage() {}
 
 func (x *GetDirectUnreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[38]
+	mi := &file_rpc_im_im_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2242,7 +2354,7 @@ func (x *GetDirectUnreadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDirectUnreadRequest.ProtoReflect.Descriptor instead.
 func (*GetDirectUnreadRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{38}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetDirectUnreadRequest) GetPeerId() int64 {
@@ -2262,7 +2374,7 @@ type GetDirectUnreadResponse struct {
 
 func (x *GetDirectUnreadResponse) Reset() {
 	*x = GetDirectUnreadResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[39]
+	mi := &file_rpc_im_im_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2274,7 +2386,7 @@ func (x *GetDirectUnreadResponse) String() string {
 func (*GetDirectUnreadResponse) ProtoMessage() {}
 
 func (x *GetDirectUnreadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[39]
+	mi := &file_rpc_im_im_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2287,7 +2399,7 @@ func (x *GetDirectUnreadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDirectUnreadResponse.ProtoReflect.Descriptor instead.
 func (*GetDirectUnreadResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{39}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GetDirectUnreadResponse) GetPeerId() int64 {
@@ -2314,7 +2426,7 @@ type MarkDirectMessagesReadRequest struct {
 
 func (x *MarkDirectMessagesReadRequest) Reset() {
 	*x = MarkDirectMessagesReadRequest{}
-	mi := &file_rpc_im_im_proto_msgTypes[40]
+	mi := &file_rpc_im_im_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2326,7 +2438,7 @@ func (x *MarkDirectMessagesReadRequest) String() string {
 func (*MarkDirectMessagesReadRequest) ProtoMessage() {}
 
 func (x *MarkDirectMessagesReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[40]
+	mi := &file_rpc_im_im_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2339,7 +2451,7 @@ func (x *MarkDirectMessagesReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkDirectMessagesReadRequest.ProtoReflect.Descriptor instead.
 func (*MarkDirectMessagesReadRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{40}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *MarkDirectMessagesReadRequest) GetPeerId() int64 {
@@ -2367,7 +2479,7 @@ type MarkDirectMessagesReadResponse struct {
 
 func (x *MarkDirectMessagesReadResponse) Reset() {
 	*x = MarkDirectMessagesReadResponse{}
-	mi := &file_rpc_im_im_proto_msgTypes[41]
+	mi := &file_rpc_im_im_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2379,7 +2491,7 @@ func (x *MarkDirectMessagesReadResponse) String() string {
 func (*MarkDirectMessagesReadResponse) ProtoMessage() {}
 
 func (x *MarkDirectMessagesReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_im_im_proto_msgTypes[41]
+	mi := &file_rpc_im_im_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2392,7 +2504,7 @@ func (x *MarkDirectMessagesReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkDirectMessagesReadResponse.ProtoReflect.Descriptor instead.
 func (*MarkDirectMessagesReadResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_im_im_proto_rawDescGZIP(), []int{41}
+	return file_rpc_im_im_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *MarkDirectMessagesReadResponse) GetPeerId() int64 {
@@ -2461,7 +2573,15 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\x12mentioned_user_ids\x18\t \x03(\x03R\x10mentionedUserIds\"\x86\x01\n" +
 	"\x1dListTeamGroupMessagesResponse\x120\n" +
 	"\bmessages\x18\x01 \x03(\v2\x14.im.TeamGroupMessageR\bmessages\x123\n" +
-	"\x16next_before_message_id\x18\x02 \x01(\x03R\x13nextBeforeMessageId\"q\n" +
+	"\x16next_before_message_id\x18\x02 \x01(\x03R\x13nextBeforeMessageId\"v\n" +
+	"!GetTeamGroupMessageContextRequest\x12\x17\n" +
+	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x03 \x01(\x03R\tmessageId\"\x82\x01\n" +
+	"\"GetTeamGroupMessageContextResponse\x120\n" +
+	"\bmessages\x18\x01 \x03(\v2\x14.im.TeamGroupMessageR\bmessages\x12*\n" +
+	"\x11target_message_id\x18\x02 \x01(\x03R\x0ftargetMessageId\"q\n" +
 	"\x1cCheckTeamGroupMessageRequest\x12\x17\n" +
 	"\ateam_id\x18\x01 \x01(\x03R\x06teamId\x12\x19\n" +
 	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\x12\x1d\n" +
@@ -2584,7 +2704,7 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\apeer_id\x18\x01 \x01(\x03R\x06peerId\x12\x1f\n" +
 	"\vmessage_ids\x18\x02 \x03(\x03R\n" +
 	"messageIds\x12!\n" +
-	"\funread_count\x18\x03 \x01(\x03R\vunreadCount2\xae\f\n" +
+	"\funread_count\x18\x03 \x01(\x03R\vunreadCount2\x9b\r\n" +
 	"\x02IM\x12M\n" +
 	"\x10CheckGroupMember\x12\x1b.im.CheckGroupMemberRequest\x1a\x1c.im.CheckGroupMemberResponse\x12Y\n" +
 	"\x14CheckTeamGroupAccess\x12\x1f.im.CheckTeamGroupAccessRequest\x1a .im.CheckTeamGroupAccessResponse\x12J\n" +
@@ -2592,7 +2712,8 @@ const file_rpc_im_im_proto_rawDesc = "" +
 	"\x0eListTeamGroups\x12\x19.im.ListTeamGroupsRequest\x1a\x1a.im.ListTeamGroupsResponse\x12A\n" +
 	"\fGetTeamGroup\x12\x17.im.GetTeamGroupRequest\x1a\x18.im.GetTeamGroupResponse\x12D\n" +
 	"\rJoinTeamGroup\x12\x18.im.JoinTeamGroupRequest\x1a\x19.im.JoinTeamGroupResponse\x12\\\n" +
-	"\x15ListTeamGroupMessages\x12 .im.ListTeamGroupMessagesRequest\x1a!.im.ListTeamGroupMessagesResponse\x12S\n" +
+	"\x15ListTeamGroupMessages\x12 .im.ListTeamGroupMessagesRequest\x1a!.im.ListTeamGroupMessagesResponse\x12k\n" +
+	"\x1aGetTeamGroupMessageContext\x12%.im.GetTeamGroupMessageContextRequest\x1a&.im.GetTeamGroupMessageContextResponse\x12S\n" +
 	"\x12GetTeamGroupUnread\x12\x1d.im.GetTeamGroupUnreadRequest\x1a\x1e.im.GetTeamGroupUnreadResponse\x12h\n" +
 	"\x19MarkTeamGroupMessagesRead\x12$.im.MarkTeamGroupMessagesReadRequest\x1a%.im.MarkTeamGroupMessagesReadResponse\x12S\n" +
 	"\x12ListDirectMessages\x12\x1d.im.ListDirectMessagesRequest\x1a\x1e.im.ListDirectMessagesResponse\x12h\n" +
@@ -2617,103 +2738,108 @@ func file_rpc_im_im_proto_rawDescGZIP() []byte {
 	return file_rpc_im_im_proto_rawDescData
 }
 
-var file_rpc_im_im_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_rpc_im_im_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_rpc_im_im_proto_goTypes = []any{
-	(*AckOfflineMessagesRequest)(nil),         // 0: im.AckOfflineMessagesRequest
-	(*AckOfflineMessagesResponse)(nil),        // 1: im.AckOfflineMessagesResponse
-	(*ListOfflineMessagesRequest)(nil),        // 2: im.ListOfflineMessagesRequest
-	(*OfflineMessage)(nil),                    // 3: im.OfflineMessage
-	(*ListOfflineMessagesResponse)(nil),       // 4: im.ListOfflineMessagesResponse
-	(*ListTeamGroupMessagesRequest)(nil),      // 5: im.ListTeamGroupMessagesRequest
-	(*TeamGroupMessage)(nil),                  // 6: im.TeamGroupMessage
-	(*ListTeamGroupMessagesResponse)(nil),     // 7: im.ListTeamGroupMessagesResponse
-	(*CheckTeamGroupMessageRequest)(nil),      // 8: im.CheckTeamGroupMessageRequest
-	(*CheckTeamGroupMessageResponse)(nil),     // 9: im.CheckTeamGroupMessageResponse
-	(*JoinTeamGroupRequest)(nil),              // 10: im.JoinTeamGroupRequest
-	(*JoinTeamGroupResponse)(nil),             // 11: im.JoinTeamGroupResponse
-	(*ListTeamGroupsRequest)(nil),             // 12: im.ListTeamGroupsRequest
-	(*TeamGroup)(nil),                         // 13: im.TeamGroup
-	(*ListTeamGroupsResponse)(nil),            // 14: im.ListTeamGroupsResponse
-	(*GetTeamGroupRequest)(nil),               // 15: im.GetTeamGroupRequest
-	(*GetTeamGroupResponse)(nil),              // 16: im.GetTeamGroupResponse
-	(*CreateTeamGroupRequest)(nil),            // 17: im.CreateTeamGroupRequest
-	(*CreateTeamGroupResponse)(nil),           // 18: im.CreateTeamGroupResponse
-	(*CheckGroupMemberRequest)(nil),           // 19: im.CheckGroupMemberRequest
-	(*CheckGroupMemberResponse)(nil),          // 20: im.CheckGroupMemberResponse
-	(*CheckTeamGroupAccessRequest)(nil),       // 21: im.CheckTeamGroupAccessRequest
-	(*CheckTeamGroupAccessResponse)(nil),      // 22: im.CheckTeamGroupAccessResponse
-	(*GetTeamGroupUnreadRequest)(nil),         // 23: im.GetTeamGroupUnreadRequest
-	(*GetTeamGroupUnreadResponse)(nil),        // 24: im.GetTeamGroupUnreadResponse
-	(*MarkTeamGroupMessagesReadRequest)(nil),  // 25: im.MarkTeamGroupMessagesReadRequest
-	(*MarkTeamGroupMessagesReadResponse)(nil), // 26: im.MarkTeamGroupMessagesReadResponse
-	(*ListDirectMessagesRequest)(nil),         // 27: im.ListDirectMessagesRequest
-	(*DirectMessage)(nil),                     // 28: im.DirectMessage
-	(*ListMyUnreadConversationsRequest)(nil),  // 29: im.ListMyUnreadConversationsRequest
-	(*UnreadConversation)(nil),                // 30: im.UnreadConversation
-	(*ListMyUnreadConversationsResponse)(nil), // 31: im.ListMyUnreadConversationsResponse
-	(*ListDirectMessagesResponse)(nil),        // 32: im.ListDirectMessagesResponse
-	(*ListMyDirectConversationsRequest)(nil),  // 33: im.ListMyDirectConversationsRequest
-	(*DirectConversation)(nil),                // 34: im.DirectConversation
-	(*ListMyDirectConversationsResponse)(nil), // 35: im.ListMyDirectConversationsResponse
-	(*GetMyDirectConversationRequest)(nil),    // 36: im.GetMyDirectConversationRequest
-	(*GetMyDirectConversationResponse)(nil),   // 37: im.GetMyDirectConversationResponse
-	(*GetDirectUnreadRequest)(nil),            // 38: im.GetDirectUnreadRequest
-	(*GetDirectUnreadResponse)(nil),           // 39: im.GetDirectUnreadResponse
-	(*MarkDirectMessagesReadRequest)(nil),     // 40: im.MarkDirectMessagesReadRequest
-	(*MarkDirectMessagesReadResponse)(nil),    // 41: im.MarkDirectMessagesReadResponse
-	(*timestamppb.Timestamp)(nil),             // 42: google.protobuf.Timestamp
+	(*AckOfflineMessagesRequest)(nil),          // 0: im.AckOfflineMessagesRequest
+	(*AckOfflineMessagesResponse)(nil),         // 1: im.AckOfflineMessagesResponse
+	(*ListOfflineMessagesRequest)(nil),         // 2: im.ListOfflineMessagesRequest
+	(*OfflineMessage)(nil),                     // 3: im.OfflineMessage
+	(*ListOfflineMessagesResponse)(nil),        // 4: im.ListOfflineMessagesResponse
+	(*ListTeamGroupMessagesRequest)(nil),       // 5: im.ListTeamGroupMessagesRequest
+	(*TeamGroupMessage)(nil),                   // 6: im.TeamGroupMessage
+	(*ListTeamGroupMessagesResponse)(nil),      // 7: im.ListTeamGroupMessagesResponse
+	(*GetTeamGroupMessageContextRequest)(nil),  // 8: im.GetTeamGroupMessageContextRequest
+	(*GetTeamGroupMessageContextResponse)(nil), // 9: im.GetTeamGroupMessageContextResponse
+	(*CheckTeamGroupMessageRequest)(nil),       // 10: im.CheckTeamGroupMessageRequest
+	(*CheckTeamGroupMessageResponse)(nil),      // 11: im.CheckTeamGroupMessageResponse
+	(*JoinTeamGroupRequest)(nil),               // 12: im.JoinTeamGroupRequest
+	(*JoinTeamGroupResponse)(nil),              // 13: im.JoinTeamGroupResponse
+	(*ListTeamGroupsRequest)(nil),              // 14: im.ListTeamGroupsRequest
+	(*TeamGroup)(nil),                          // 15: im.TeamGroup
+	(*ListTeamGroupsResponse)(nil),             // 16: im.ListTeamGroupsResponse
+	(*GetTeamGroupRequest)(nil),                // 17: im.GetTeamGroupRequest
+	(*GetTeamGroupResponse)(nil),               // 18: im.GetTeamGroupResponse
+	(*CreateTeamGroupRequest)(nil),             // 19: im.CreateTeamGroupRequest
+	(*CreateTeamGroupResponse)(nil),            // 20: im.CreateTeamGroupResponse
+	(*CheckGroupMemberRequest)(nil),            // 21: im.CheckGroupMemberRequest
+	(*CheckGroupMemberResponse)(nil),           // 22: im.CheckGroupMemberResponse
+	(*CheckTeamGroupAccessRequest)(nil),        // 23: im.CheckTeamGroupAccessRequest
+	(*CheckTeamGroupAccessResponse)(nil),       // 24: im.CheckTeamGroupAccessResponse
+	(*GetTeamGroupUnreadRequest)(nil),          // 25: im.GetTeamGroupUnreadRequest
+	(*GetTeamGroupUnreadResponse)(nil),         // 26: im.GetTeamGroupUnreadResponse
+	(*MarkTeamGroupMessagesReadRequest)(nil),   // 27: im.MarkTeamGroupMessagesReadRequest
+	(*MarkTeamGroupMessagesReadResponse)(nil),  // 28: im.MarkTeamGroupMessagesReadResponse
+	(*ListDirectMessagesRequest)(nil),          // 29: im.ListDirectMessagesRequest
+	(*DirectMessage)(nil),                      // 30: im.DirectMessage
+	(*ListMyUnreadConversationsRequest)(nil),   // 31: im.ListMyUnreadConversationsRequest
+	(*UnreadConversation)(nil),                 // 32: im.UnreadConversation
+	(*ListMyUnreadConversationsResponse)(nil),  // 33: im.ListMyUnreadConversationsResponse
+	(*ListDirectMessagesResponse)(nil),         // 34: im.ListDirectMessagesResponse
+	(*ListMyDirectConversationsRequest)(nil),   // 35: im.ListMyDirectConversationsRequest
+	(*DirectConversation)(nil),                 // 36: im.DirectConversation
+	(*ListMyDirectConversationsResponse)(nil),  // 37: im.ListMyDirectConversationsResponse
+	(*GetMyDirectConversationRequest)(nil),     // 38: im.GetMyDirectConversationRequest
+	(*GetMyDirectConversationResponse)(nil),    // 39: im.GetMyDirectConversationResponse
+	(*GetDirectUnreadRequest)(nil),             // 40: im.GetDirectUnreadRequest
+	(*GetDirectUnreadResponse)(nil),            // 41: im.GetDirectUnreadResponse
+	(*MarkDirectMessagesReadRequest)(nil),      // 42: im.MarkDirectMessagesReadRequest
+	(*MarkDirectMessagesReadResponse)(nil),     // 43: im.MarkDirectMessagesReadResponse
+	(*timestamppb.Timestamp)(nil),              // 44: google.protobuf.Timestamp
 }
 var file_rpc_im_im_proto_depIdxs = []int32{
-	42, // 0: im.OfflineMessage.created_at:type_name -> google.protobuf.Timestamp
+	44, // 0: im.OfflineMessage.created_at:type_name -> google.protobuf.Timestamp
 	3,  // 1: im.ListOfflineMessagesResponse.messages:type_name -> im.OfflineMessage
 	6,  // 2: im.ListTeamGroupMessagesResponse.messages:type_name -> im.TeamGroupMessage
-	13, // 3: im.ListTeamGroupsResponse.groups:type_name -> im.TeamGroup
-	13, // 4: im.GetTeamGroupResponse.group:type_name -> im.TeamGroup
-	30, // 5: im.ListMyUnreadConversationsResponse.conversations:type_name -> im.UnreadConversation
-	28, // 6: im.ListDirectMessagesResponse.messages:type_name -> im.DirectMessage
-	34, // 7: im.ListMyDirectConversationsResponse.conversations:type_name -> im.DirectConversation
-	34, // 8: im.GetMyDirectConversationResponse.conversation:type_name -> im.DirectConversation
-	19, // 9: im.IM.CheckGroupMember:input_type -> im.CheckGroupMemberRequest
-	21, // 10: im.IM.CheckTeamGroupAccess:input_type -> im.CheckTeamGroupAccessRequest
-	17, // 11: im.IM.CreateTeamGroup:input_type -> im.CreateTeamGroupRequest
-	12, // 12: im.IM.ListTeamGroups:input_type -> im.ListTeamGroupsRequest
-	15, // 13: im.IM.GetTeamGroup:input_type -> im.GetTeamGroupRequest
-	10, // 14: im.IM.JoinTeamGroup:input_type -> im.JoinTeamGroupRequest
-	5,  // 15: im.IM.ListTeamGroupMessages:input_type -> im.ListTeamGroupMessagesRequest
-	23, // 16: im.IM.GetTeamGroupUnread:input_type -> im.GetTeamGroupUnreadRequest
-	25, // 17: im.IM.MarkTeamGroupMessagesRead:input_type -> im.MarkTeamGroupMessagesReadRequest
-	27, // 18: im.IM.ListDirectMessages:input_type -> im.ListDirectMessagesRequest
-	33, // 19: im.IM.ListMyDirectConversations:input_type -> im.ListMyDirectConversationsRequest
-	36, // 20: im.IM.GetMyDirectConversation:input_type -> im.GetMyDirectConversationRequest
-	38, // 21: im.IM.GetDirectUnread:input_type -> im.GetDirectUnreadRequest
-	40, // 22: im.IM.MarkDirectMessagesRead:input_type -> im.MarkDirectMessagesReadRequest
-	29, // 23: im.IM.ListMyUnreadConversations:input_type -> im.ListMyUnreadConversationsRequest
-	8,  // 24: im.IM.CheckTeamGroupMessage:input_type -> im.CheckTeamGroupMessageRequest
-	2,  // 25: im.IM.ListOfflineMessages:input_type -> im.ListOfflineMessagesRequest
-	0,  // 26: im.IM.AckOfflineMessages:input_type -> im.AckOfflineMessagesRequest
-	20, // 27: im.IM.CheckGroupMember:output_type -> im.CheckGroupMemberResponse
-	22, // 28: im.IM.CheckTeamGroupAccess:output_type -> im.CheckTeamGroupAccessResponse
-	18, // 29: im.IM.CreateTeamGroup:output_type -> im.CreateTeamGroupResponse
-	14, // 30: im.IM.ListTeamGroups:output_type -> im.ListTeamGroupsResponse
-	16, // 31: im.IM.GetTeamGroup:output_type -> im.GetTeamGroupResponse
-	11, // 32: im.IM.JoinTeamGroup:output_type -> im.JoinTeamGroupResponse
-	7,  // 33: im.IM.ListTeamGroupMessages:output_type -> im.ListTeamGroupMessagesResponse
-	24, // 34: im.IM.GetTeamGroupUnread:output_type -> im.GetTeamGroupUnreadResponse
-	26, // 35: im.IM.MarkTeamGroupMessagesRead:output_type -> im.MarkTeamGroupMessagesReadResponse
-	32, // 36: im.IM.ListDirectMessages:output_type -> im.ListDirectMessagesResponse
-	35, // 37: im.IM.ListMyDirectConversations:output_type -> im.ListMyDirectConversationsResponse
-	37, // 38: im.IM.GetMyDirectConversation:output_type -> im.GetMyDirectConversationResponse
-	39, // 39: im.IM.GetDirectUnread:output_type -> im.GetDirectUnreadResponse
-	41, // 40: im.IM.MarkDirectMessagesRead:output_type -> im.MarkDirectMessagesReadResponse
-	31, // 41: im.IM.ListMyUnreadConversations:output_type -> im.ListMyUnreadConversationsResponse
-	9,  // 42: im.IM.CheckTeamGroupMessage:output_type -> im.CheckTeamGroupMessageResponse
-	4,  // 43: im.IM.ListOfflineMessages:output_type -> im.ListOfflineMessagesResponse
-	1,  // 44: im.IM.AckOfflineMessages:output_type -> im.AckOfflineMessagesResponse
-	27, // [27:45] is the sub-list for method output_type
-	9,  // [9:27] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	6,  // 3: im.GetTeamGroupMessageContextResponse.messages:type_name -> im.TeamGroupMessage
+	15, // 4: im.ListTeamGroupsResponse.groups:type_name -> im.TeamGroup
+	15, // 5: im.GetTeamGroupResponse.group:type_name -> im.TeamGroup
+	32, // 6: im.ListMyUnreadConversationsResponse.conversations:type_name -> im.UnreadConversation
+	30, // 7: im.ListDirectMessagesResponse.messages:type_name -> im.DirectMessage
+	36, // 8: im.ListMyDirectConversationsResponse.conversations:type_name -> im.DirectConversation
+	36, // 9: im.GetMyDirectConversationResponse.conversation:type_name -> im.DirectConversation
+	21, // 10: im.IM.CheckGroupMember:input_type -> im.CheckGroupMemberRequest
+	23, // 11: im.IM.CheckTeamGroupAccess:input_type -> im.CheckTeamGroupAccessRequest
+	19, // 12: im.IM.CreateTeamGroup:input_type -> im.CreateTeamGroupRequest
+	14, // 13: im.IM.ListTeamGroups:input_type -> im.ListTeamGroupsRequest
+	17, // 14: im.IM.GetTeamGroup:input_type -> im.GetTeamGroupRequest
+	12, // 15: im.IM.JoinTeamGroup:input_type -> im.JoinTeamGroupRequest
+	5,  // 16: im.IM.ListTeamGroupMessages:input_type -> im.ListTeamGroupMessagesRequest
+	8,  // 17: im.IM.GetTeamGroupMessageContext:input_type -> im.GetTeamGroupMessageContextRequest
+	25, // 18: im.IM.GetTeamGroupUnread:input_type -> im.GetTeamGroupUnreadRequest
+	27, // 19: im.IM.MarkTeamGroupMessagesRead:input_type -> im.MarkTeamGroupMessagesReadRequest
+	29, // 20: im.IM.ListDirectMessages:input_type -> im.ListDirectMessagesRequest
+	35, // 21: im.IM.ListMyDirectConversations:input_type -> im.ListMyDirectConversationsRequest
+	38, // 22: im.IM.GetMyDirectConversation:input_type -> im.GetMyDirectConversationRequest
+	40, // 23: im.IM.GetDirectUnread:input_type -> im.GetDirectUnreadRequest
+	42, // 24: im.IM.MarkDirectMessagesRead:input_type -> im.MarkDirectMessagesReadRequest
+	31, // 25: im.IM.ListMyUnreadConversations:input_type -> im.ListMyUnreadConversationsRequest
+	10, // 26: im.IM.CheckTeamGroupMessage:input_type -> im.CheckTeamGroupMessageRequest
+	2,  // 27: im.IM.ListOfflineMessages:input_type -> im.ListOfflineMessagesRequest
+	0,  // 28: im.IM.AckOfflineMessages:input_type -> im.AckOfflineMessagesRequest
+	22, // 29: im.IM.CheckGroupMember:output_type -> im.CheckGroupMemberResponse
+	24, // 30: im.IM.CheckTeamGroupAccess:output_type -> im.CheckTeamGroupAccessResponse
+	20, // 31: im.IM.CreateTeamGroup:output_type -> im.CreateTeamGroupResponse
+	16, // 32: im.IM.ListTeamGroups:output_type -> im.ListTeamGroupsResponse
+	18, // 33: im.IM.GetTeamGroup:output_type -> im.GetTeamGroupResponse
+	13, // 34: im.IM.JoinTeamGroup:output_type -> im.JoinTeamGroupResponse
+	7,  // 35: im.IM.ListTeamGroupMessages:output_type -> im.ListTeamGroupMessagesResponse
+	9,  // 36: im.IM.GetTeamGroupMessageContext:output_type -> im.GetTeamGroupMessageContextResponse
+	26, // 37: im.IM.GetTeamGroupUnread:output_type -> im.GetTeamGroupUnreadResponse
+	28, // 38: im.IM.MarkTeamGroupMessagesRead:output_type -> im.MarkTeamGroupMessagesReadResponse
+	34, // 39: im.IM.ListDirectMessages:output_type -> im.ListDirectMessagesResponse
+	37, // 40: im.IM.ListMyDirectConversations:output_type -> im.ListMyDirectConversationsResponse
+	39, // 41: im.IM.GetMyDirectConversation:output_type -> im.GetMyDirectConversationResponse
+	41, // 42: im.IM.GetDirectUnread:output_type -> im.GetDirectUnreadResponse
+	43, // 43: im.IM.MarkDirectMessagesRead:output_type -> im.MarkDirectMessagesReadResponse
+	33, // 44: im.IM.ListMyUnreadConversations:output_type -> im.ListMyUnreadConversationsResponse
+	11, // 45: im.IM.CheckTeamGroupMessage:output_type -> im.CheckTeamGroupMessageResponse
+	4,  // 46: im.IM.ListOfflineMessages:output_type -> im.ListOfflineMessagesResponse
+	1,  // 47: im.IM.AckOfflineMessages:output_type -> im.AckOfflineMessagesResponse
+	29, // [29:48] is the sub-list for method output_type
+	10, // [10:29] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_rpc_im_im_proto_init() }
@@ -2727,7 +2853,7 @@ func file_rpc_im_im_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rpc_im_im_proto_rawDesc), len(file_rpc_im_im_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   42,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
