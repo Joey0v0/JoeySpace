@@ -218,6 +218,11 @@ func main() {
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
+		Path:    "/api/v1/messages/unread-conversations",
+		Handler: listMyUnreadConversationsHandler(impb.NewIMClient(imRPCClient.Conn()), userpb.NewUserClient(rpcClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
 		Path:    "/api/v1/me/direct-conversations/:peer_id",
 		Handler: getMyDirectConversationHandler(impb.NewIMClient(imRPCClient.Conn()), userpb.NewUserClient(rpcClient.Conn())),
 	})
