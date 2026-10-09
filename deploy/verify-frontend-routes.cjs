@@ -21,7 +21,7 @@ async function checkHttpRoutes(baseUrl, fetchImpl = fetch) {
         ? response.status === 200 && isHtml
         : kind === 'missing-asset'
           ? response.status === 404
-          : response.status !== 200 && !isHtml;
+          : response.status >= 400 && response.status <= 599 && !isHtml;
       checks.push({ path, ok, status: response.status, contentType });
     } catch (error) {
       checks.push({ path, ok: false, error: error instanceof Error ? error.name : 'NetworkError' });

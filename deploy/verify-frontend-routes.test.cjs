@@ -54,3 +54,12 @@ test('rejects an API error returned as HTML', async () => {
   }));
   assert.equal(result.ok, false);
 });
+
+test('rejects successful empty responses from anonymous endpoints', async () => {
+  const result = await checkHttpRoutes('http://127.0.0.1:18083', proxy({
+    '/api/v1/user/info': new Response(null, { status: 204 }),
+    '/ws-ticket': new Response(null, { status: 204 }),
+  }));
+  assert.equal(result.ok, false);
+  assert.equal(result.checks.filter((check) => !check.ok).length, 2);
+});

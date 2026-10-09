@@ -82,7 +82,7 @@ compose up -d --no-deps frontend-web
 compose ps frontend-web im-ws api-gateway
 ```
 
-如果 F1—F5 后端新代码尚未在目标环境，需在变更清单中逐项列出需构建/重启的 Gateway、IM、Push、Task、Agent 等服务及依赖顺序，完成迁移/证书核对后再单独执行；不能仅重建前端宣称整链可用。先执行 `node deploy/verify-frontend-routes.cjs` 核对匿名路由，再从开发者电脑建立 `ssh -L 18083:127.0.0.1:18083 <SERVER>`，在真实 Chrome 执行 `node deploy/verify-vue-browser.cjs` 与[逐项清单](frontend-f6-acceptance-checklist.md)。有效/重放 WS 票据、双账号业务和持久事实仍按清单人工核对。任一基础路由或权限失败，停止后续业务验收。
+如果 F1—F5 后端新代码尚未在目标环境，需在变更清单中逐项列出需构建/重启的 Gateway、IM、Push、Task、Agent 等服务及依赖顺序，完成迁移/证书核对后再单独执行；不能仅重建前端宣称整链可用。在当前 `<REPO>/deploy` 目录执行 `node verify-frontend-routes.cjs` 核对匿名路由；再从开发者电脑建立 `ssh -L 18083:127.0.0.1:18083 <SERVER>`，在开发者电脑的仓库根目录执行 `node deploy/verify-vue-browser.cjs` 与[逐项清单](frontend-f6-acceptance-checklist.md)。有效/重放 WS 票据、双账号业务和持久事实仍按清单人工核对。任一基础路由或权限失败，停止后续业务验收。
 
 回退入口时，在**同一个已核实的 Compose 项目和完整覆盖列表**下先移除新增服务，再切回旧提交：
 

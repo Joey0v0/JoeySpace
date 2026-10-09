@@ -15,7 +15,7 @@
 
 每项填写 **PASS / FAIL / BLOCKED / NOT RUN**、实际行为、脱敏请求 ID/日志或截图路径。`BLOCKED` 写清缺少的环境条件；模型失败与页面失败分开记录。所有测试数据只使用一次性账号和团队。
 
-本地准备证据（不计入下方真实验收）：`verify-frontend-routes.test.cjs` 的 4 项替身检查通过；`verify-vue-browser.cjs` 在真实 Chrome 与临时 HTTP/WS 替身上完成 Vue 登录、消息刷新、群/任务深链及同源 API/WS 观察，跨源注入按预期失败。临时替身不是 Nginx 或真实业务服务，故下方仍为 `NOT RUN`。
+本地准备证据（不计入下方真实验收）：`verify-frontend-routes.test.cjs` 的 5 项替身检查通过；`verify-vue-browser.cjs` 在真实 Chrome 与临时 HTTP/WS 替身上完成 Vue 登录、消息刷新、群/任务深链及同源 API/WS 观察，跨源注入按预期失败。临时替身不是 Nginx 或真实业务服务，故下方仍为 `NOT RUN`。
 
 ## 入口与路由（任务 6）
 
