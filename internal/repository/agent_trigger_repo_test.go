@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"reflect"
 	"regexp"
 	"testing"
 	"time"
@@ -201,7 +202,7 @@ func TestAgentTriggerMessageRollsBackAtomicFailuresAndDoesNotPublishCallerIdenti
 			}
 			msg := triggerTestMessage()
 			original := msg
-			if err := NewAgentTriggerMessageRepository(repo.db).Create(context.Background(), &msg); err == nil || msg != original {
+			if err := NewAgentTriggerMessageRepository(repo.db).Create(context.Background(), &msg); err == nil || !reflect.DeepEqual(msg, original) {
 				t.Fatalf("failed transaction changed caller message: %+v %v", msg, err)
 			}
 		})
@@ -281,7 +282,7 @@ func TestAgentTriggerMessageRejectsReusedMessageIDWithDifferentOriginalFacts(t *
 			mock.ExpectRollback()
 			msg := triggerTestMessage()
 			original := msg
-			if err := NewAgentTriggerMessageRepository(repo.db).Create(context.Background(), &msg); err == nil || msg != original {
+			if err := NewAgentTriggerMessageRepository(repo.db).Create(context.Background(), &msg); err == nil || !reflect.DeepEqual(msg, original) {
 				t.Fatalf("conflicting message changed intent: %+v %v", msg, err)
 			}
 		})
