@@ -356,7 +356,7 @@ def main():
         require(any(row["task_id"] == task and row["assignee_id"] == ids[1]
                     for row in tasks["tasks"]), "assignee cannot see created task")
         http(base, "PUT", "/api/v1/teams/%s/tasks/%s/status" % (team, task),
-             token=tokens[1], body={"status": 1})
+             token=tokens[1], body={"status": 1, "expected_status": 0})
         notices = http(base, "GET", "/api/v1/teams/%s/task-notifications?limit=20" % team,
                        token=tokens[0])["notifications"]
         matching = [row for row in notices if row["task_id"] == task
