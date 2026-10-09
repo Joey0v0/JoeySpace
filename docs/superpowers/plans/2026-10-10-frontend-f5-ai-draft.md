@@ -57,7 +57,7 @@
 
 **文件：** 新增 `frontend/src/agent/api.ts`、`frontend/src/agent/api.test.ts`；修改 `frontend/src/api/client.ts`、`frontend/src/api/client.test.ts`。
 
-**接口：** `request<T>(path, options?, authenticated?, expectData?, timeoutMs?)` 保持旧调用兼容、默认 15000ms；`createAgentApi(request)` 提供 `ask(teamId, groupId, question)`、`trigger(scope)`、`collection(runId)`、`item(runId, index)`、`editText`、`selectAssignee`、`editDeadline`、`confirm`、`skip`、`retryReply`，所有返回值经过任务 1 解码。
+**接口：** `request<T>(path, options?, authenticated?, expectData?, timeoutMs?)` 保持旧调用兼容、默认 15000ms；`createAgentApi(request)` 提供 `ask(teamId, groupId, question)`、`trigger({teamId,groupId,messageId})`、`collection(scope: AgentScope)`、`item(scope: AgentScope,index)`、`editText`、`selectAssignee`、`editDeadline`、`confirm`、`skip`、`retryReply`。所有集合/单项写读方法均携带 `AgentScope`，以便用任务 1 解码器复核运行、团队和群。
 
 - [ ] 写失败测试：Ask 发送 `{question}`、逐项写入使用服务端字段名、回帖重试空请求体；非十进制 ID/越界索引不发请求；确认 `expected_due_at_unix_ms` 是数字、ID/版本是字符串。
 - [ ] 写客户端超时测试：普通调用仍 15 秒；Ask 至少 22 秒、确认至少 20 秒、回帖重试至少 19 秒且留传输余量；身份变化仍抛旧身份错误。
