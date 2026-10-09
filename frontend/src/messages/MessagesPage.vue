@@ -10,9 +10,12 @@ import { session } from '../auth/session.ts'
 import { createRealtimeClient, type ConnectionState, type SendStatus, type TextChat } from '../realtime/client.ts'
 import type { ChatMessage } from './history.ts'
 import { createOfflineInbox, type OfflineMessage } from './offline.ts'
+import { createSourceContext, initialSourceContextState } from './sourceContext.ts'
 const route = useRoute()
 const state = reactive(initialDirectoryState())
 const directory = createDirectory(api.request, session, state)
+const sourceState = reactive(initialSourceContextState())
+const sourceContext = createSourceContext(api.request, session, sourceState)
 interface MentionTarget { id: string; name: string }
 interface Outgoing extends SendStatus { text: string; toId: string; chatType: 1 | 2; mentionedUserIds: string[]; sentAt: number }
 interface ConversationHandle { applyChat(chat: TextChat): Promise<boolean>; applyOffline(chats: TextChat[]): Promise<boolean>; refreshFromServer(): Promise<ChatMessage[]>; checkPersisted(msgId: string): Promise<boolean | null> }
@@ -30,6 +33,10 @@ const key = computed(() => {
   return undefined
 })
 watch(key, value => { void directory.select(value) }, { immediate: true })
+watch(() => [String(route.name || ''), String(route.params.teamId || ''), String(route.params.groupId || ''), route.query.focus_message_id === undefined ? '' : typeof route.query.focus_message_id === 'string' ? route.query.focus_message_id : '!'], ([name, teamId, groupId, messageId]) => {
+  sourceContext.clear()
+  if (name === 'group' && messageId) void sourceContext.load(teamId, groupId, messageId)
+}, { immediate: true })
 const currentDraft = computed(() => key.value ? drafts[key.value] ?? '' : '')
 const currentMentions = computed(() => key.value ? mentions[key.value] ?? [] : [])
 const currentOutgoing = computed(() => key.value ? outgoing[key.value] ?? [] : [])
@@ -143,7 +150,7 @@ async function checkAndRetry(msgId: string) {
 }
 void directory.loadTeams()
 void directory.loadDirects()
-onUnmounted(() => { realtime.dispose(); offline.dispose(); clearLocal(); directory.dispose() })
+onUnmounted(() => { realtime.dispose(); offline.dispose(); sourceContext.dispose(); clearLocal(); directory.dispose() })
 function revokeCurrent() {
   const selected = state.current
   if (selected) {
@@ -169,7 +176,7 @@ function revokeCurrent() {
       <div class="sample-ribbon" role="note">{{ currentProfile?.nickname || currentProfile?.username }} · 真实会话与聊天</div>
       <UnreadOverview v-if="!key" />
       <section v-else-if="state.detailLoading" class="unavailable-state" role="status"><h1>正在复核会话…</h1><p>按当前登录身份检查访问权限。</p></section>
-      <ConversationView v-else-if="state.current" :key="state.current.key" ref="view" :conversation="state.current" :own-id="currentProfile?.id || ''" :joining="state.joining" :error="state.detailError" :connection="connection" :draft="currentDraft" :mentions="currentMentions" :outgoing="currentOutgoing" :notice="currentNotice" :offline-notice="offlineNotice" @update:draft="updateDraft" @update:mentions="updateMentions" @send="sendMessage" @retry="checkAndRetry" @offline="pullOffline" @join="directory.joinCurrent" @revoked="revokeCurrent" />
+      <ConversationView v-else-if="state.current" :key="state.current.key" ref="view" :conversation="state.current" :own-id="currentProfile?.id || ''" :joining="state.joining" :error="state.detailError" :connection="connection" :draft="currentDraft" :mentions="currentMentions" :outgoing="currentOutgoing" :notice="currentNotice" :offline-notice="offlineNotice" :source-state="sourceState" @update:draft="updateDraft" @update:mentions="updateMentions" @send="sendMessage" @retry="checkAndRetry" @offline="pullOffline" @join="directory.joinCurrent" @revoked="revokeCurrent" />
       <section v-else class="unavailable-state">
         <div class="empty-symbol" aria-hidden="true">?</div><h1>会话暂时无法打开</h1>
         <p role="alert">{{ state.detailError || '请从左侧选择会话' }}</p>

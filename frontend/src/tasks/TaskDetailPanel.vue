@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { formatTaskDue, taskStatusLabel, type TaskDetail } from './model.ts'
-const props = defineProps<{ detail: TaskDetail | null; loading: boolean; error: string; focusKey: string; retryable: boolean }>()
-defineEmits<{ close: []; retry: [] }>()
+import type { initialStatusMutationState } from './mutations.ts'
+const props = defineProps<{ detail: TaskDetail | null; loading: boolean; error: string; focusKey: string; retryable: boolean; mutation: ReturnType<typeof initialStatusMutationState> }>()
+defineEmits<{ close: []; retry: []; status: [value: 0 | 1 | 2]; mutationRetry: []; mutationRecheck: [] }>()
 const closeButton = ref<HTMLButtonElement | null>(null)
 async function focusClose() { await nextTick(); closeButton.value?.focus() }
 onMounted(focusClose)
@@ -22,7 +23,8 @@ watch(() => props.focusKey, focusClose)
         <div><dt>创建人</dt><dd>{{ detail.task.creator_name }}</dd></div>
         <div><dt>负责人</dt><dd>{{ detail.task.assignee_id === '0' ? '未分配' : detail.task.assignee_name }}</dd></div>
       </dl>
-      <section v-if="detail.task.source_message_id !== '0'" class="task-source-detail"><h3>讨论来源</h3><p>群聊 {{ detail.task.source_group_id }} · 消息 {{ detail.task.source_message_id }}</p></section>
+      <section v-if="detail.can_update_status" class="task-status-actions"><h3>更新状态</h3><div role="group" aria-label="任务状态"><button v-for="option in ([0, 1, 2] as const)" :key="option" type="button" :aria-pressed="detail.task.status === option" :disabled="detail.task.status === option || mutation.phase === 'submitting' || mutation.phase === 'rechecking' || mutation.phase === 'retryable' || mutation.phase === 'uncertain'" @click="$emit('status', option)">{{ taskStatusLabel(option) }}</button></div><p v-if="mutation.status" role="status">{{ mutation.status }}</p><p v-if="mutation.error" role="alert">{{ mutation.error }}</p><button v-if="mutation.phase === 'retryable'" type="button" class="task-secondary" @click="$emit('mutationRetry')">使用相同前提重试</button><button v-if="mutation.phase === 'uncertain'" type="button" class="task-secondary" @click="$emit('mutationRecheck')">再次核对</button></section>
+      <section v-if="detail.task.source_message_id !== '0'" class="task-source-detail"><h3>讨论来源</h3><p>群聊 {{ detail.task.source_group_id }} · 消息 {{ detail.task.source_message_id }}</p><RouterLink class="primary-link" :to="`/messages/teams/${detail.task.team_id}/groups/${detail.task.source_group_id}?focus_message_id=${detail.task.source_message_id}`">查看讨论来源</RouterLink></section>
     </div>
   </aside>
 </template>

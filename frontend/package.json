@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "typecheck": "vue-tsc --noEmit",
     "build": "npm run typecheck && vite build",
-    "test": "node --test src/messages/model.test.ts src/auth/session.test.ts src/auth/verification.test.ts src/api/client.test.ts src/messages/directory.test.ts src/messages/history.test.ts src/messages/offline.test.ts src/messages/unreadOverview.test.ts src/realtime/client.test.ts src/tasks/model.test.ts src/tasks/workspace.test.ts",
+    "test": "node --test src/messages/model.test.ts src/auth/session.test.ts src/auth/verification.test.ts src/api/client.test.ts src/messages/directory.test.ts src/messages/history.test.ts src/messages/offline.test.ts src/messages/unreadOverview.test.ts src/messages/sourceContext.test.ts src/realtime/client.test.ts src/tasks/model.test.ts src/tasks/workspace.test.ts src/tasks/create.test.ts src/tasks/mutations.test.ts",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {

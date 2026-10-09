@@ -5,12 +5,14 @@ import { session } from '../auth/session.ts'
 import type { Selection } from './directory.ts'
 import { createHistory, initialHistoryState, type ChatMessage } from './history.ts'
 import type { ConnectionState, SendStatus, TextChat } from '../realtime/client.ts'
+import { canCreateTaskFromMessage, taskFromMessageRoute, type SourceMessage, type initialSourceContextState } from './sourceContext.ts'
 interface MentionTarget { id: string; name: string }
-const props = defineProps<{ conversation: Selection; joining: boolean; error: string; ownId: string; connection: ConnectionState; draft: string; mentions: MentionTarget[]; outgoing: (SendStatus & { text: string })[]; notice: string; offlineNotice: string }>()
+const props = defineProps<{ conversation: Selection; joining: boolean; error: string; ownId: string; connection: ConnectionState; draft: string; mentions: MentionTarget[]; outgoing: (SendStatus & { text: string })[]; notice: string; offlineNotice: string; sourceState: ReturnType<typeof initialSourceContextState> }>()
 const emit = defineEmits<{ join: []; revoked: []; 'update:draft': [text: string]; 'update:mentions': [targets: MentionTarget[]]; send: []; retry: [msgId: string]; offline: [] }>()
 const history = createHistory(api.request, session, props.ownId, reactive(initialHistoryState()))
 const list = history.state
 const scrollElement = ref<HTMLElement | null>(null)
+const contextHeading = ref<HTMLElement | null>(null)
 const composing = ref(false)
 const hasNew = ref(false)
 let initialScrolled = false
@@ -64,6 +66,7 @@ watch(() => list.loaded, async loaded => {
   if (scrollElement.value) scrollElement.value.scrollTop = scrollElement.value.scrollHeight
 })
 watch(() => list.denied, denied => { if (denied) emit('revoked') })
+watch(() => props.sourceState.context?.target_message_id, async value => { if (value) { await nextTick(); contextHeading.value?.focus() } })
 onUnmounted(() => { namesScope++; clearNames(); history.dispose() })
 async function older() {
   const element = scrollElement.value
@@ -110,14 +113,15 @@ function keydown(event: KeyboardEvent) {
   emit('send')
 }
 defineExpose({ applyChat, applyOffline, refreshFromServer, checkPersisted })
-function sender(message: ChatMessage) {
+function sender(message: ChatMessage | SourceMessage) {
   if (message.sender_type === 2) return '机器人'
   if (message.from_id === props.ownId) return '我'
   if (props.conversation.kind === 'direct') return props.conversation.title
   return memberNames[message.from_id] || '成员 ' + message.from_id
 }
-function displayContent(message: ChatMessage) { return message.content_type === 1 ? message.content : '[其他类型消息]' }
-function displayTime(ms: number) { return new Date(ms).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
+function displayContent(message: ChatMessage | SourceMessage) { return message.content_type === 1 ? message.content : '[其他类型消息]' }
+function displayTime(ms: number | string) { return new Date(Number(ms)).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
+function taskRoute(messageId: string) { return props.conversation.kind === 'group' && isId(props.conversation.teamId) && isId(props.conversation.groupId) ? taskFromMessageRoute(props.conversation.teamId, props.conversation.groupId, messageId) : '/tasks/new' }
 </script>
 <template>
   <section class="conversation-view">
@@ -134,6 +138,18 @@ function displayTime(ms: number) { return new Date(ms).toLocaleString('zh-CN', {
         <p v-if="error" role="alert">{{ error }}</p>
       </section>
       <section v-else-if="list.denied" class="unavailable-state" role="alert"><h1>会话访问已失效</h1><p>{{ list.error }}</p></section>
+      <section v-else-if="sourceState.selection" class="source-context-view">
+        <h3 ref="contextHeading" tabindex="-1">讨论来源上下文</h3>
+        <p>仅显示目标消息前后最多 20 条授权消息；阅读这里不会标记已读。</p>
+        <div v-if="sourceState.loading" role="status" class="unavailable-state">正在读取讨论来源…</div>
+        <div v-else-if="sourceState.error" role="alert" class="unavailable-state">{{ sourceState.error }}</div>
+        <div v-else-if="sourceState.context" class="chat-messages">
+          <article v-for="item in sourceState.context.messages" :key="item.id" class="chat-message" :class="{ 'is-own': item.from_id === ownId && item.sender_type !== 2, 'is-source-target': item.id === sourceState.context.target_message_id }" :aria-label="item.id === sourceState.context.target_message_id ? '讨论来源目标消息' : undefined">
+            <div class="message-avatar" :class="{ 'is-bot': item.sender_type === 2 }" aria-hidden="true">{{ item.sender_type === 2 ? '✦' : sender(item).slice(0, 1) }}</div>
+            <div class="message-content"><div class="message-byline"><strong>{{ sender(item) }}</strong><span v-if="item.id === sourceState.context.target_message_id" class="source-target-label">来源消息</span><time :datetime="new Date(Number(item.created_at_unix_ms)).toISOString()">{{ displayTime(item.created_at_unix_ms) }}</time></div><p>{{ displayContent(item) }}</p><RouterLink v-if="conversation.kind === 'group'" class="message-task-action" :to="taskRoute(item.id)">创建任务</RouterLink></div>
+          </article>
+        </div>
+      </section>
       <template v-else>
         <div v-if="list.loaded && list.cursor !== '0'" style="text-align:center;margin-bottom:20px"><button type="button" :disabled="list.loading" @click="older">{{ list.loading ? '正在加载…' : '加载更早消息' }}</button></div>
         <div v-if="list.loading && !list.loaded" role="status" class="unavailable-state">正在读取消息…</div>
@@ -142,7 +158,7 @@ function displayTime(ms: number) { return new Date(ms).toLocaleString('zh-CN', {
         <div v-if="list.loaded && list.messages.length" class="chat-messages">
           <article v-for="item in list.messages" :key="item.id" class="chat-message" :class="{ 'is-own': item.from_id === ownId && item.sender_type !== 2 }">
             <div class="message-avatar" :class="{ 'is-bot': item.sender_type === 2 }" aria-hidden="true">{{ item.sender_type === 2 ? '✦' : sender(item).slice(0, 1) }}</div>
-            <div class="message-content"><div class="message-byline"><strong>{{ sender(item) }}</strong><span v-if="item.sender_type === 2" class="bot-badge">BOT</span><span v-if="item.mentioned_user_ids?.includes(ownId)" class="mention-mark">提及了你</span><time :datetime="new Date(item.created_at_unix_ms).toISOString()">{{ displayTime(item.created_at_unix_ms) }}</time></div><p>{{ displayContent(item) }}</p></div>
+            <div class="message-content"><div class="message-byline"><strong>{{ sender(item) }}</strong><span v-if="item.sender_type === 2" class="bot-badge">BOT</span><span v-if="item.mentioned_user_ids?.includes(ownId)" class="mention-mark">提及了你</span><time :datetime="new Date(item.created_at_unix_ms).toISOString()">{{ displayTime(item.created_at_unix_ms) }}</time></div><p>{{ displayContent(item) }}</p><RouterLink v-if="conversation.kind === 'group' && canCreateTaskFromMessage('group', item)" class="message-task-action" :to="taskRoute(item.id)">创建任务</RouterLink></div>
           </article>
         </div>
       </template>

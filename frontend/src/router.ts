@@ -19,6 +19,7 @@ export const router = createRouter({
       ],
     },
     { path: '/tasks', name: 'tasks', component: TasksPage },
+    { path: '/tasks/new', name: 'task-new', component: TasksPage },
     { path: '/tasks/teams/:teamId/:taskId', name: 'task-detail', component: TasksPage },
     { path: '/:pathMatch(.*)*', redirect: '/messages' },
   ],
