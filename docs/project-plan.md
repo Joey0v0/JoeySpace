@@ -29,6 +29,8 @@
 
 前端 F5 实施启动（2026-10-10）：用户已审查 F5 方案与计划并要求继续，F17—F19 确认。主 agent 在隔离 `codex/frontend-f5-ai-draft` 复核基线：前端 `npm test` 93/93，通过本地 npm 缓存恢复锁定依赖后 `npm run build`（含类型检查）通过。当前先执行任务 1 的本人指令资格与 Agent 响应严格解码；本轮产品能力尚未新增，后续按[八任务计划](superpowers/plans/2026-10-10-frontend-f5-ai-draft.md)逐项验证。
 
+前端 F5 任务 1—4 本地进展（2026-10-10）：隔离分支已完成本人原指令资格/严格解码、Agent HTTP 与按操作超时、临时 Ask/原指令状态控制、当前运行的 1—5 项集合读取与单项重读。任务 3 因执行 agent 用量上限改由主 agent 接手，保存 `419e2d0`；任务 4 保存 `ba2d64e`。任务 3 聚焦 5/5、现有测试 95/95、生产构建通过；任务 4 聚焦 9/9、类型检查与生产构建通过，并覆盖运行切换时旧集合请求竞争。页面入口、逐项编辑/决策和本地组合验收仍待任务 5—8；不把 F5 记为完成，不合 main、推送或部署。实际协作见[执行记录](worktree-collaboration-plan.md#60-前端-f5-任务-34-状态与集合2026-10-10)。
+
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 
 前端 F2 方案待审查（2026-10-09）：从 F1 提交 `e75c322` 建立独立 `codex/frontend-f2-navigation` 工作区，完成现有 User/IM/Gateway 接口的只读核对，并写成[真实登录与会话导航设计](frontend-f2-navigation-design.md)和[八任务实施计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)。推荐复用现有 Bearer 登录、按本标签页保存会话；User/IM 分属目录数据，Gateway 组合有限显示名；F2 先交付真实导航，完整消息阅读、未读/@我和主群配置后续单独接线。这些涉及身份保存、资料读取和跨服务读契约，[F06—F08](architecture-decisions.md#前端设计记录2026-10-09)仍待用户审查确认。当前 F2 仅有文档，未修改产品代码、协议或数据库；F1/main 均未合并或部署。

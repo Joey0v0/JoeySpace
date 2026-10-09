@@ -616,3 +616,9 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 59. 前端 F5 任务 2 独立执行（2026-10-10）
 
 主 agent 从 `e2f08e4` 修正草稿 HTTP 调用必须带团队/群/运行范围的计划签名，固定[任务 2 契约](frontend-f5-task2-contract.md)于 `406ce09`。执行 worktree `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-api`、分支 `codex/frontend-f5-api` 仅改 Agent API/测试与通用客户端超时/测试四文件；主 agent 独占 Git 与集成。执行中发现契约“缺身份本地拒绝”会改变现有通用请求行为，主 agent 裁定维持既有路由/Gateway 401，并于 `ea464ce` 修正文档。执行 agent 没有 Git 写、越界文件、子 agent、合 main、推送或部署。主 agent 集成保存 `682c098`；定向组合 26/26、现有前端 95/95、类型检查与生产构建通过；独立只读规格/质量审查通过、无待修发现。真实后端链和页面未在本步验收。
+
+## 60. 前端 F5 任务 3、4 状态与集合（2026-10-10）
+
+任务 3 的共同契约由主 agent 保存于 `93ae034`。执行 worktree `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-review-state`、分支 `codex/frontend-f5-review-state`，仅允许修改 `frontend/src/agent/review.ts` 和 `frontend/src/agent/review.test.ts`；锁定依赖离线恢复成功。执行 agent 随后遇到用量上限且未留下文件，主 agent 在该 worktree 接手：先写失败测试，再实现临时 Ask、原指令状态与限时轮询；集成分支独立通过聚焦 5/5、现有 95/95、类型检查、生产构建与 `git diff --check`，保存 `419e2d0`。
+
+任务 4 基于该提交由主 agent 在集成 worktree `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-ai-draft` 继续，仅修改同两份状态文件。先见集合/单项新增测试失败，再实现当前已完成运行的集合读取、计数、选择和单项重读；又用运行切换竞争的失败测试修正旧请求占用新读取状态。最终聚焦 9/9、类型检查与生产构建通过，保存 `ba2d64e`。两个任务未修改协议、后端、数据库、依赖或页面；未合 main、推送或部署。任务 5—8 仍待实施。
