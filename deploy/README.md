@@ -8,12 +8,13 @@
 
 正式 Vue 页面使用独立的 [docker-compose.frontend.yaml](docker-compose.frontend.yaml) 覆盖文件。它构建静态前端，并仅将宿主机 `127.0.0.1:18083` 映射到 Nginx 容器的 80 端口；Nginx 在容器网络内把 `/api/v1/` 转给 `api-gateway`，把 `/ws-ticket` 和 `/ws` 转给 `im-ws`。这份覆盖文件不替代其他功能所需的 Compose 覆盖，也不修改私有 `.env`。
 
-在仓库根目录构建和启动该入口（具体部署前仍须按 F6 操作单核对目标环境和迁移）：
+在仓库根目录可先静态解析配置并单独构建前端镜像：
 
 ```sh
 docker compose --env-file deploy/.env -f deploy/docker-compose.yaml -f deploy/docker-compose.frontend.yaml build frontend-web
-docker compose --env-file deploy/.env -f deploy/docker-compose.yaml -f deploy/docker-compose.frontend.yaml up -d frontend-web im-ws
 ```
+
+正式启动时必须把该环境已启用的其他 Compose 覆盖文件一并列入命令，再按 F6 操作单核对迁移、证书和回退后执行 `up`；不能用上述仅含基础与前端覆盖的示例重建正在运行的 `im-ws`，以免丢失现有证书与通知等配置。
 
 服务器本机访问 `http://127.0.0.1:18083`。从开发者电脑访问服务器回环入口，可先建立 SSH 隧道，再在电脑浏览器打开同一地址：
 
