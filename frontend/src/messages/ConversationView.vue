@@ -66,7 +66,7 @@ watch(() => list.loaded, async loaded => {
   if (scrollElement.value) scrollElement.value.scrollTop = scrollElement.value.scrollHeight
 })
 watch(() => list.denied, denied => { if (denied) emit('revoked') })
-watch(() => props.sourceState.context?.target_message_id, async value => { if (value) { await nextTick(); contextHeading.value?.focus() } })
+watch(() => props.sourceState.context?.target_message_id, async value => { if (value) { await nextTick(); contextHeading.value?.focus() } }, { immediate: true })
 onUnmounted(() => { namesScope++; clearNames(); history.dispose() })
 async function older() {
   const element = scrollElement.value

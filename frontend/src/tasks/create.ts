@@ -18,6 +18,35 @@ export function initialCreateState() {
 type State = ReturnType<typeof initialCreateState>
 type Request = (path: string, options?: RequestInit) => Promise<unknown>
 
+export interface TeamMember { user_id: string; username: string; nickname: string }
+export function initialMemberDirectoryState() { return { teamId: '', items: [] as TeamMember[], cursor: '0', loaded: false, loading: false, error: '' } }
+type MemberState = ReturnType<typeof initialMemberDirectoryState>
+export function createMemberDirectory(request: Request, state: MemberState = initialMemberDirectoryState()) {
+  let scope = 0
+  async function load() {
+    if (!isId(state.teamId) || state.loading || (state.loaded && state.cursor === '0')) return
+    const ticket = scope, teamId = state.teamId, after = state.cursor
+    state.loading = true; state.error = ''
+    try {
+      const data = await request(`/teams/${teamId}/members?after_user_id=${after}&limit=100`) as { members?: unknown; next_after_user_id?: unknown }
+      if (ticket !== scope || teamId !== state.teamId) return
+      if (!data || !Array.isArray(data.members) || !data.members.every(item => !!item && typeof item === 'object' && isId((item as TeamMember).user_id) && typeof (item as TeamMember).username === 'string' && typeof (item as TeamMember).nickname === 'string')
+        || (data.next_after_user_id !== '0' && !isId(data.next_after_user_id))) throw new ApiError(502, '成员目录数据无效，请重试')
+      state.items = [...new Map([...state.items, ...(data.members as TeamMember[])].map(item => [item.user_id, item])).values()]
+      state.cursor = data.next_after_user_id; state.loaded = true
+    } catch (error) {
+      if (ticket === scope && !(error instanceof StaleRequestError)) state.error = errorText(error)
+    } finally { if (ticket === scope) state.loading = false }
+  }
+  function select(teamId: string) {
+    scope++
+    Object.assign(state, initialMemberDirectoryState(), { teamId })
+    return load()
+  }
+  function dispose() { scope++; Object.assign(state, initialMemberDirectoryState()) }
+  return { state, load, select, dispose }
+}
+
 function invalid(message: string): never { throw new ApiError(400, message) }
 export function shanghaiDateTimeToUnixMs(value: string): number {
   if (!value) return 0

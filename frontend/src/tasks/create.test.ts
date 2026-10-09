@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ApiError } from '../api/client.ts'
 import { createSession } from '../auth/session.ts'
-import { createTaskCreator, initialCreateState, normalizeCreate, randomIdempotencyKey, shanghaiDateTimeToUnixMs } from './create.ts'
+import { createMemberDirectory, createTaskCreator, initialCreateState, initialMemberDirectoryState, normalizeCreate, randomIdempotencyKey, shanghaiDateTimeToUnixMs } from './create.ts'
 
 test('Shanghai datetime conversion is timezone independent and validates calendar and bounds', () => {
   assert.equal(shanghaiDateTimeToUnixMs(''), 0)
@@ -58,4 +58,21 @@ test('definite create failure unlocks and uses task-specific conflict text; stal
   await second.submit({ teamId: '2', title: '标题', description: '', assigneeId: '0', sourceGroupId: '0', sourceMessageId: '0', dueLocal: '' })
   assert.equal(secondState.frozen, false); assert.match(secondState.error, /请求键/); assert.doesNotMatch(secondState.error, /用户名/)
   second.dispose()
+})
+
+test('member team switch starts the new request immediately and rejects the old response', async () => {
+  const deferred = () => { let resolve!: (value: unknown) => void; const promise = new Promise<unknown>(done => { resolve = done }); return { promise, resolve } }
+  const a = deferred(), b = deferred(), calls: string[] = []
+  const state = initialMemberDirectoryState()
+  const directory = createMemberDirectory(async path => { calls.push(path); return path.includes('/teams/2/') ? a.promise : b.promise }, state)
+  let assigneeId = '9'
+  const first = directory.select('2')
+  assigneeId = '0'
+  const second = directory.select('3')
+  assert.equal(assigneeId, '0'); assert.equal(state.loading, true); assert.equal(calls.length, 2)
+  a.resolve({ members: [{ user_id: '20', username: 'old', nickname: '旧成员' }], next_after_user_id: '0' }); await first
+  assert.equal(state.loading, true); assert.equal(state.items.length, 0)
+  b.resolve({ members: [{ user_id: '30', username: 'new', nickname: '新成员' }], next_after_user_id: '0' }); await second
+  assert.equal(state.loading, false); assert.deepEqual(state.items.map(item => item.user_id), ['30'])
+  directory.dispose()
 })
