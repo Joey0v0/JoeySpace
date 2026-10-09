@@ -39,6 +39,7 @@ export interface RealtimeOptions {
   onChat?: (message: TextChat) => void
   onSendStatus?: (status: SendStatus) => void
   onRefresh?: () => void
+  onTaskNotification?: (hint: { notificationId: string; teamId: string }) => void
 }
 
 const decimalId = (value: unknown, allowZero = false): value is string =>
@@ -82,6 +83,7 @@ export function createRealtimeClient(options: RealtimeOptions) {
   let state: ConnectionState = 'idle'
   let pending: string | null = null
   const seen = new Set<string>()
+  const seenTaskNotifications = new Set<string>()
 
   function setState(next: ConnectionState) {
     if (state !== next) { state = next; options.onState?.(next) }
@@ -140,6 +142,13 @@ export function createRealtimeClient(options: RealtimeOptions) {
       seen.add(chat.msgId)
       if (seen.size > 1000) seen.delete(seen.values().next().value!)
       options.onChat?.(chat)
+    } else if (wire.type === 'task_notification_changed') {
+      if (Object.keys(wire).length !== 2 || !wire.data || typeof wire.data !== 'object') return
+      const data = wire.data as Record<string, unknown>
+      if (Object.keys(data).length !== 3 || data.version !== 1 || !decimalId(data.notification_id) || !decimalId(data.team_id) || seenTaskNotifications.has(data.notification_id)) return
+      seenTaskNotifications.add(data.notification_id)
+      if (seenTaskNotifications.size > 1000) seenTaskNotifications.delete(seenTaskNotifications.values().next().value!)
+      options.onTaskNotification?.({ notificationId: data.notification_id, teamId: data.team_id })
     }
   }
   async function openConnection() {
@@ -204,6 +213,7 @@ export function createRealtimeClient(options: RealtimeOptions) {
     if (disposed) return
     stopConnection('登录身份已改变，发送结果待核对')
     seen.clear()
+    seenTaskNotifications.clear()
     reconnectAttempts = 0
     if (wanted && options.identity.token()) void openConnection()
     else setState('disconnected')
@@ -225,6 +235,7 @@ export function createRealtimeClient(options: RealtimeOptions) {
     disconnect()
     unsubscribe()
     seen.clear()
+    seenTaskNotifications.clear()
   }
   function send(input: TextSend): boolean {
     if (disposed || state !== 'connected' || !socket || socket.readyState !== 1 || pending !== null ||

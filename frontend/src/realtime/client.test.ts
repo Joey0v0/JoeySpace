@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createRealtimeClient, type SocketLike, type SendStatus, type TextChat } from './client.ts'
 
-function fixture() {
+function fixture(overrides: Partial<Parameters<typeof createRealtimeClient>[0]> = {}) {
   let token: string | null = 'jwt-one'
   let version = 1
   const listeners = new Set<() => void>()
@@ -36,6 +36,7 @@ function fixture() {
     onChat: chat => chats.push(chat),
     onSendStatus: status => statuses.push(status),
     onRefresh: () => { refreshes++ },
+    ...overrides,
   })
   return { client, sockets, ticketRequests, statuses, chats, states, changeToken, refreshes: () => refreshes }
 }
@@ -218,4 +219,16 @@ test('stale ticket response cannot open a socket after logout', async () => {
   assert.equal(opened, 0)
   assert.equal(client.state(), 'disconnected')
   client.dispose()
+})
+
+test('accepts only exact task notification hint frames and deduplicates IDs per connection', async () => {
+  const hints: Array<{ notificationId: string; teamId: string }> = []
+  const f = fixture({ onTaskNotification: hint => hints.push(hint) })
+  f.client.connect(); await tick(); f.sockets[0].open()
+  const valid = { type: 'task_notification_changed', data: { version: 1, notification_id: '9007199254740993', team_id: '7' } }
+  f.sockets[0].receive(valid); f.sockets[0].receive(valid)
+  f.sockets[0].receive({ ...valid, extra: true })
+  f.sockets[0].receive({ ...valid, data: { ...valid.data, notification_id: '01' } })
+  assert.deepEqual(hints, [{ notificationId: '9007199254740993', teamId: '7' }])
+  f.client.dispose()
 })

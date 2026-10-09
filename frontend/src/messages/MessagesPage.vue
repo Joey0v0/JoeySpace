@@ -8,6 +8,7 @@ import { createDirectory, initialDirectoryState } from './directory.ts'
 import { api, currentProfile, isId } from '../api/client.ts'
 import { session } from '../auth/session.ts'
 import { createRealtimeClient, type ConnectionState, type SendStatus, type TextChat } from '../realtime/client.ts'
+import { taskSignal } from '../realtime/taskSignal.ts'
 import type { ChatMessage } from './history.ts'
 import { createOfflineInbox, type OfflineMessage } from './offline.ts'
 import { createSourceContext, initialSourceContextState } from './sourceContext.ts'
@@ -88,6 +89,7 @@ const realtime = createRealtimeClient({
     }
   },
   onRefresh: () => { void reconcile(); void pullOffline() },
+  onTaskNotification: () => taskSignal.set(),
 })
 const offline = createOfflineInbox(api.request, session, async items => {
   const chats: TextChat[] = []

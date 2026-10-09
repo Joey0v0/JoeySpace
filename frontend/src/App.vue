@@ -3,11 +3,14 @@ import { computed, onUnmounted, shallowRef } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { clearSession } from './auth/session.ts'
 import { verification } from './auth/verification.ts'
+import { taskSignal } from './realtime/taskSignal.ts'
 const route = useRoute()
 const login = computed(() => route.path === '/login')
 const status = shallowRef({ ...verification.state })
 const unsubscribe = verification.subscribe(() => { status.value = { ...verification.state } })
-onUnmounted(unsubscribe)
+const taskPending = shallowRef(taskSignal.pending())
+const unsubscribeSignal = taskSignal.subscribe(() => { taskPending.value = taskSignal.pending() })
+onUnmounted(() => { unsubscribe(); unsubscribeSignal() })
 const reviewing = computed(() => !login.value && !!status.value.error)
 </script>
 <template>
@@ -16,7 +19,7 @@ const reviewing = computed(() => !login.value && !!status.value.error)
       <RouterLink class="brand" to="/messages" aria-label="JoeySpace，返回会话总览">J<span>.</span></RouterLink>
       <div class="module-links">
         <RouterLink class="module-link" to="/messages" active-class="is-active"><span class="module-icon" aria-hidden="true">◌</span><span>消息</span></RouterLink>
-        <RouterLink class="module-link" to="/tasks" active-class="is-active"><span class="module-icon" aria-hidden="true">✓</span><span>我的任务</span></RouterLink>
+        <RouterLink class="module-link task-nav-link" to="/tasks" active-class="is-active"><span class="module-icon" aria-hidden="true">✓</span><span>我的任务</span><span v-if="taskPending" class="task-nav-signal"><span class="sr-only">有新的任务通知</span></span></RouterLink>
       </div>
       <button class="module-footer" type="button" @click="clearSession">退出登录</button>
     </nav>

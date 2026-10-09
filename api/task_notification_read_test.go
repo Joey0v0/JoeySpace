@@ -55,13 +55,13 @@ func TestMarkTaskNotificationReadForwardsExactIDsAndToken(t *testing.T) {
 			Code int `json:"code"`
 			Data struct {
 				NotificationID string `json:"notification_id"`
-				ReadAtUnixMs   int64  `json:"read_at_unix_ms"`
+				ReadAtUnixMs   string `json:"read_at_unix_ms"`
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 			t.Fatal(err)
 		}
-		if w.Code != http.StatusOK || result.Code != errcode.Success || result.Data.NotificationID != "9007199254740997" || result.Data.ReadAtUnixMs != 1791097201123 {
+		if w.Code != http.StatusOK || result.Code != errcode.Success || result.Data.NotificationID != "9007199254740997" || result.Data.ReadAtUnixMs != "1791097201123" {
 			t.Fatalf("read response: %d %s", w.Code, w.Body.String())
 		}
 	}
@@ -226,13 +226,13 @@ func TestMarkTaskNotificationReadHTTPOverTCPGRPC(t *testing.T) {
 	var result struct {
 		Data struct {
 			NotificationID string `json:"notification_id"`
-			ReadAtUnixMs   int64  `json:"read_at_unix_ms"`
+			ReadAtUnixMs   string `json:"read_at_unix_ms"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusOK || result.Data.NotificationID != "9007199254740997" || result.Data.ReadAtUnixMs != 1791097201123 {
+	if resp.StatusCode != http.StatusOK || result.Data.NotificationID != "9007199254740997" || result.Data.ReadAtUnixMs != "1791097201123" {
 		t.Fatalf("TCP round trip: %d %s", resp.StatusCode, body)
 	}
 	select {

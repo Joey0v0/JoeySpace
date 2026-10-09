@@ -28,7 +28,7 @@ type taskNotificationReadResponse struct {
 
 type taskNotificationReadData struct {
 	NotificationID int64 `json:"notification_id,string"`
-	ReadAtUnixMs   int64 `json:"read_at_unix_ms"`
+	ReadAtUnixMs   int64 `json:"read_at_unix_ms,string"`
 }
 
 func markTaskNotificationReadHandler(client taskNotificationReadMarker) http.HandlerFunc {
