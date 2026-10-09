@@ -3,9 +3,13 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/segmentio/kafka-go"
@@ -23,21 +27,27 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // 允许所有来源（生产环境应限制）
-	},
+	// HandleWS performs the configured Origin check before calling Upgrade.
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+type wsTicketStore interface {
+	Issue(context.Context, int64, string, time.Duration) (string, error)
+	Consume(context.Context, string) (int64, string, error)
 }
 
 // Server WebSocket 网关服务
 type Server struct {
-	hub         *Hub
-	kafkaWriter *kafkaWriterAdapter
-	redisRepo   repository.RedisRepository
-	wsRPCAddr   string
-	jwtSecret   string
-	imConn      *grpc.ClientConn
-	imClient    pb.IMClient
-	logger      *zap.Logger
+	hub            *Hub
+	kafkaWriter    *kafkaWriterAdapter
+	redisRepo      repository.RedisRepository
+	wsRPCAddr      string
+	jwtSecret      string
+	imConn         *grpc.ClientConn
+	imClient       pb.IMClient
+	logger         *zap.Logger
+	tickets        wsTicketStore
+	allowedOrigins map[string]struct{}
 }
 
 // kafkaWriterAdapter 适配 kafka-go Writer 到 KafkaWriter 接口
@@ -82,31 +92,128 @@ func NewServer(cfg *config.Config, hub *Hub, redisRepo repository.RedisRepositor
 	}
 
 	return &Server{
-		hub:         hub,
-		kafkaWriter: &kafkaWriterAdapter{writer: writer},
-		redisRepo:   redisRepo,
-		wsRPCAddr:   wsRPCAddr,
-		jwtSecret:   cfg.JWT.Secret,
-		imConn:      imConn,
-		imClient:    imClient,
-		logger:      logger,
+		hub:            hub,
+		kafkaWriter:    &kafkaWriterAdapter{writer: writer},
+		redisRepo:      redisRepo,
+		wsRPCAddr:      wsRPCAddr,
+		jwtSecret:      cfg.JWT.Secret,
+		imConn:         imConn,
+		imClient:       imClient,
+		logger:         logger,
+		tickets:        repository.NewWSTicketStore(),
+		allowedOrigins: parseAllowedOrigins(os.Getenv("WS_ALLOWED_ORIGINS")),
 	}
 }
 
+const wsTicketTTL = 30 * time.Second
+
+func parseAllowedOrigins(raw string) map[string]struct{} {
+	allowed := make(map[string]struct{})
+	for _, part := range strings.Split(raw, ",") {
+		origin := strings.TrimSpace(part)
+		if origin != "" && origin != "*" {
+			allowed[origin] = struct{}{}
+		}
+	}
+	return allowed
+}
+
+func (s *Server) originAllowed(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	} // existing non-browser clients
+	u, err := url.Parse(origin)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	if u.Host == r.Host {
+		return true
+	}
+	_, ok := s.allowedOrigins[origin]
+	return ok
+}
+
+// HandleWSTicket exchanges a valid Bearer token for a short-lived, single-use URL credential.
+func (s *Server) HandleWSTicket(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.originAllowed(r) {
+		http.Error(w, "forbidden origin", http.StatusForbidden)
+		return
+	}
+	parts := strings.Fields(r.Header.Get("Authorization"))
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		http.Error(w, "missing bearer token", http.StatusUnauthorized)
+		return
+	}
+	claims, err := jwt.ParseToken(parts[1], s.jwtSecret)
+	if err != nil || claims.UserID <= 0 {
+		http.Error(w, "invalid bearer token", http.StatusUnauthorized)
+		return
+	}
+	if s.tickets == nil {
+		http.Error(w, "ticket service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	ticket, err := s.tickets.Issue(r.Context(), claims.UserID, parts[1], wsTicketTTL)
+	if err != nil {
+		http.Error(w, "ticket service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "msg": "ok", "data": map[string]any{"ticket": ticket, "expires_in_seconds": 30}})
+}
+
 // HandleWS 处理 WebSocket 升级请求
-// 客户端通过 URL query 传递 JWT token 进行鉴权
-// ws://host:port/ws?token=xxx
+// Formal browser clients use a single-use ticket. token remains for old clients.
 func (s *Server) HandleWS(w http.ResponseWriter, r *http.Request) {
-	// 从 URL query 获取 token
-	token := r.URL.Query().Get("token")
+	if !s.originAllowed(r) {
+		http.Error(w, "forbidden origin", http.StatusForbidden)
+		return
+	}
+	if !websocket.IsWebSocketUpgrade(r) {
+		http.Error(w, "websocket upgrade required", http.StatusBadRequest)
+		return
+	}
+	query := r.URL.Query()
+	if len(query["ticket"]) > 1 || len(query["token"]) > 1 || (query.Has("ticket") && query.Has("token")) {
+		http.Error(w, "invalid credentials", http.StatusBadRequest)
+		return
+	}
+	token := query.Get("token")
+	if query.Has("ticket") {
+		if s.tickets == nil {
+			http.Error(w, "ticket service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		userID, original, err := s.tickets.Consume(r.Context(), query.Get("ticket"))
+		if errors.Is(err, repository.ErrWSTicketMissing) {
+			http.Error(w, "invalid ticket", http.StatusUnauthorized)
+			return
+		}
+		if err != nil {
+			http.Error(w, "ticket service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		claims, err := jwt.ParseToken(original, s.jwtSecret)
+		if err != nil || claims.UserID != userID {
+			http.Error(w, "invalid ticket", http.StatusUnauthorized)
+			return
+		}
+		token = original
+	}
 	if token == "" {
-		http.Error(w, "missing token", http.StatusUnauthorized)
+		http.Error(w, "missing credentials", http.StatusUnauthorized)
 		return
 	}
 
 	// 验证 JWT
 	claims, err := jwt.ParseToken(token, s.jwtSecret)
-	if err != nil {
+	if err != nil || claims.UserID <= 0 {
 		s.logger.Warn("ws auth failed",
 			zap.String("remote_addr", r.RemoteAddr),
 			zap.Error(err),

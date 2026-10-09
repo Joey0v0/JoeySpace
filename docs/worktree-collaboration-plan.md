@@ -4,6 +4,17 @@
 
 本方案中的 Agent 指参与项目开发的 Codex agent，与项目运行时的 Eino Agent 服务不同。依据 [项目计划](project-plan.md)、[负责人方案](agent-assignee-design.md)和现行 [AGENTS.md](../AGENTS.md)。方案讨论时仅新增本文；用户随后明确要求按方案执行，已将协作要求加入 AGENTS.md，准备共同契约。实际进展另见本文第 9 节。
 
+## 前端 F3 第一批执行记录（2026-10-09）
+
+用户审查[完整 F3 方案](frontend-f3-chat-design.md)后明确回复“审查通过，继续进行下一步”。主 agent 从 F2 `37c72cd` 建立 `codex/frontend-f3-chat`，固定[首批共享契约](frontend-f3-api-contract.md)提交 `5a70dbf`，从该提交建立干净 Vue 执行 worktree。本批按[八步计划](superpowers/plans/2026-10-09-frontend-f3-chat.md)全体合计，不按 agent 单独计数；F10/F11 的新协议留第二批。
+
+| 角色 | 绝对工作目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 主 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-chat` | `codex/frontend-f3-chat` | `internal/ws/`、`internal/repository/`、`cmd/ws/`、`frontend/vite.config.ts`、共享协议/生成/迁移/依赖、`docs/` 与最终集成 |
+| Vue 执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-vue` | `codex/frontend-f3-vue` | 仅 `frontend/src/messages/` 中消息历史、当前会话未读/显式确认的实现与测试；不改公共客户端、路由、样式、依赖或文档 |
+
+Vue agent 先完成计划步骤 2—3；主 agent 并行负责步骤 1、4 的后端票据与代理。后续 Vue 发送/恢复是否继续在同一执行分支由主 agent 审查前两步后分配。任何 agent 不自行合 main、推送或部署。当前仅记录分工，不表示实现已完成。
+
 ## 前端 F2 执行记录（2026-10-09）
 
 用户审查[完整方案](frontend-f2-navigation-design.md)后回复“没啥问题，继续”。主 agent 从 F1 `e75c322` 建 `codex/frontend-f2-navigation`，提交共同协议与[接口契约](frontend-f2-api-contract.md) `df8fc09`，从同一提交建立三个干净 worktree；协议、生成代码、Gateway、依赖、共同文档和集成仅由主 agent 负责。各执行 agent 不自行合并 main、推送、部署或更改迁移。

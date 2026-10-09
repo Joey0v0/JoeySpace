@@ -72,6 +72,7 @@ func runWS() error {
 	// 注册 WebSocket 路由
 	wsMux := http.NewServeMux()
 	wsMux.HandleFunc("/ws", server.HandleWS)
+	wsMux.HandleFunc("/ws-ticket", server.HandleWSTicket)
 
 	// 启动 WS 对外服务（客户端连接）
 	wsAddr := fmt.Sprintf(":%d", cfg.WSServer.Port)
