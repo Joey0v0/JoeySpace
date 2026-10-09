@@ -4,7 +4,26 @@
 
 ## 从仓库部署当前版本
 
-F3 WS 来源限制：本机旧 `/demo/chat` 的 Gateway Origin（localhost/127.0.0.1:8082）已在 Compose 默认值中。若从公网地址或 HTTPS 站点打开演示页，先在私有 `.env` 设置该页面的完整 Origin，例如 `WS_ALLOWED_ORIGINS=http://<服务器地址>:8082`，再重建 `im-ws`；否则浏览器 WS 握手会返回 403。正式 Vue 页面通过同源 `/ws-ticket` 与 `/ws` 连接；生产反向代理及静态站点仍须在 F6 联调。
+### F6 Vue 同源入口（配置准备）
+
+正式 Vue 页面使用独立的 [docker-compose.frontend.yaml](docker-compose.frontend.yaml) 覆盖文件。它构建静态前端，并仅将宿主机 `127.0.0.1:18083` 映射到 Nginx 容器的 80 端口；Nginx 在容器网络内把 `/api/v1/` 转给 `api-gateway`，把 `/ws-ticket` 和 `/ws` 转给 `im-ws`。这份覆盖文件不替代其他功能所需的 Compose 覆盖，也不修改私有 `.env`。
+
+在仓库根目录构建和启动该入口（具体部署前仍须按 F6 操作单核对目标环境和迁移）：
+
+```sh
+docker compose --env-file deploy/.env -f deploy/docker-compose.yaml -f deploy/docker-compose.frontend.yaml build frontend-web
+docker compose --env-file deploy/.env -f deploy/docker-compose.yaml -f deploy/docker-compose.frontend.yaml up -d frontend-web im-ws
+```
+
+服务器本机访问 `http://127.0.0.1:18083`。从开发者电脑访问服务器回环入口，可先建立 SSH 隧道，再在电脑浏览器打开同一地址：
+
+```sh
+ssh -L 18083:127.0.0.1:18083 <user>@<server>
+```
+
+覆盖文件始终保留旧 `/demo/chat` 的两个本机 Origin，并加入 `http://127.0.0.1:18083`。私有 `.env` 的 `WS_ALLOWED_ORIGINS` 可追加其他完整 Origin；以后如启用公网地址或 HTTPS，先核对实际页面 Origin 并另行配置、验证 TLS 与访问范围，不能直接沿用这里的回环地址。
+
+F3 WS 来源限制：本机旧 `/demo/chat` 的 Gateway Origin（localhost/127.0.0.1:8082）已在 Compose 默认值中。若从公网地址或 HTTPS 站点打开演示页，先在私有 `.env` 设置该页面的完整 Origin，例如 `WS_ALLOWED_ORIGINS=http://<服务器地址>:8082`，再重建 `im-ws`；否则浏览器 WS 握手会返回 403。正式 Vue 页面通过同源 `/ws-ticket` 与 `/ws` 连接；F6 静态站点及反向代理配置已准备，真实环境联调仍待完成。
 
 F3 第二批本地代码新增跨会话未读及结构化提及。已有数据库在启动该版 IM 前必须先核对并执行 [036 提及关系表](mysql/migrations/036_im_group_message_mentions.sql)，因为未读总览即使查看“全部未读”也会联查该表；新空卷的 `init.sql` 已包含。普通提及的 Push→IM 校验还需显式叠加 [docker-compose.mentions.yaml](docker-compose.mentions.yaml)，且保留 [docker-compose.team-leave.yaml](docker-compose.team-leave.yaml) 的 Push→User 当前团队资格链。两个私有目录 `IM_MENTION_CERT_DIR`、`PUSH_IM_MENTION_CERT_DIR` 各含独立的 `cert.pem/key.pem/ca.pem`，使用同一受信 CA；IM 服务证书 DNS SAN 为 `im.go-im.internal`、服务端用途，Push 客户端证书 DNS SAN 为 `push.go-im.internal`、客户端用途。新证书未纳入首次安装的 `provision-mtls.sh`，需由自管 CA 在仓库外签发并验证；不要重跑首次脚本覆盖现有凭证。先迁移、准备证书并用 `docker compose ... -f docker-compose.team-leave.yaml -f docker-compose.mentions.yaml config --quiet` 核对，再启用覆盖文件。未叠加覆盖时，普通提及校验默认关闭，带提及的发送会拒绝落库。此批未在真实 MySQL、Docker 或云端执行上述步骤。
 

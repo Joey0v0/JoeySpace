@@ -1,0 +1,15 @@
+services:
+  frontend-web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    ports:
+      - "127.0.0.1:18083:80"
+    depends_on:
+      - api-gateway
+      - im-ws
+
+  im-ws:
+    environment:
+      # Keep both demo origins even when a private .env adds another origin.
+      WS_ALLOWED_ORIGINS: "http://localhost:8082,http://127.0.0.1:8082,http://127.0.0.1:18083,${WS_ALLOWED_ORIGINS:-}"
