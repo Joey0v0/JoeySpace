@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -113,6 +114,55 @@ func TestMyTaskNotificationEnrichmentRejectsUnexpectedRows(t *testing.T) {
 	}}, row)
 	if err == nil {
 		t.Fatal("team name failure hidden")
+	}
+}
+
+func TestMyTaskNotificationEnrichmentIsBoundedToPageTeamsAndActors(t *testing.T) {
+	rows := []*taskpb.TaskNotificationItem{
+		{NotificationId: 1, TeamId: 10, TaskId: 11, TaskTitle: "A", ActorId: 2, FromStatus: 0, ToStatus: 1, CurrentStatus: 1, CreatedAtUnixMs: 5},
+		{NotificationId: 2, TeamId: 10, TaskId: 12, TaskTitle: "B", ActorId: 1, FromStatus: 1, ToStatus: 2, CurrentStatus: 2, CreatedAtUnixMs: 6},
+		{NotificationId: 3, TeamId: 20, TaskId: 13, TaskTitle: "C", ActorId: 3, FromStatus: 0, ToStatus: 2, CurrentStatus: 2, CreatedAtUnixMs: 7},
+	}
+	teamCalls, memberCalls := 0, 0
+	names := taskNamesFake{
+		teams: func(_ context.Context, req *userpb.BatchGetMyTeamNamesRequest) (*userpb.BatchGetMyTeamNamesResponse, error) {
+			teamCalls++
+			if !reflect.DeepEqual(req.TeamIds, []int64{10, 20}) {
+				t.Fatalf("team ids=%v", req.TeamIds)
+			}
+			return &userpb.BatchGetMyTeamNamesResponse{Teams: []*userpb.MyTeamName{{TeamId: 10, Name: "T10"}, {TeamId: 20, Name: "T20"}}}, nil
+		},
+		members: func(_ context.Context, req *userpb.BatchGetTeamMemberDisplayNamesRequest) (*userpb.BatchGetTeamMemberDisplayNamesResponse, error) {
+			memberCalls++
+			want := map[int64][]int64{10: {1, 2}, 20: {3}}[req.TeamId]
+			if !reflect.DeepEqual(req.UserIds, want) {
+				t.Fatalf("team=%d actors=%v", req.TeamId, req.UserIds)
+			}
+			result := &userpb.BatchGetTeamMemberDisplayNamesResponse{}
+			for _, id := range req.UserIds {
+				result.Users = append(result.Users, &userpb.TeamMemberDisplayName{UserId: id, DisplayName: "actor"})
+			}
+			return result, nil
+		},
+	}
+	result, err := enrichMyTaskNotifications(context.Background(), names, rows)
+	if err != nil || len(result) != 3 || teamCalls != 1 || memberCalls != 2 {
+		t.Fatalf("result=%v err=%v teamCalls=%d memberCalls=%d", result, err, teamCalls, memberCalls)
+	}
+}
+
+func TestMyTaskNotificationActorNameFailureAbortsPage(t *testing.T) {
+	rows := []*taskpb.TaskNotificationItem{{NotificationId: 1, TeamId: 10, TaskId: 11, TaskTitle: "A", ActorId: 2, FromStatus: 0, ToStatus: 1, CurrentStatus: 1, CreatedAtUnixMs: 5}}
+	names := taskNamesFake{
+		teams: func(context.Context, *userpb.BatchGetMyTeamNamesRequest) (*userpb.BatchGetMyTeamNamesResponse, error) {
+			return &userpb.BatchGetMyTeamNamesResponse{}, nil
+		},
+		members: func(context.Context, *userpb.BatchGetTeamMemberDisplayNamesRequest) (*userpb.BatchGetTeamMemberDisplayNamesResponse, error) {
+			return nil, status.Error(codes.Unavailable, "actors")
+		},
+	}
+	if result, err := enrichMyTaskNotifications(context.Background(), names, rows); result != nil || status.Code(err) != codes.Unavailable {
+		t.Fatalf("result=%v err=%v", result, err)
 	}
 }
 

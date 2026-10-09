@@ -12,7 +12,7 @@ type notificationCursor struct {
 	Version          int    `json:"v"`
 	TeamID           int64  `json:"team"`
 	UpperID          int64  `json:"upper"`
-	SnapshotAtUnixMs int64  `json:"at"`
+	ReadCutoffUnixMs int64  `json:"read_cutoff"`
 	Phase            string `json:"phase"`
 	LastID           int64  `json:"last"`
 }
@@ -30,7 +30,7 @@ func decodeNotificationCursor(value string, teamID int64) (notificationCursor, e
 	data, err := base64.RawURLEncoding.Strict().DecodeString(value)
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	if err != nil || decoder.Decode(&cursor) != nil || decoder.Decode(&struct{}{}) != io.EOF || encodeNotificationCursor(cursor) != value || cursor.Version != 1 || cursor.TeamID != teamID || cursor.UpperID <= 0 || cursor.SnapshotAtUnixMs <= 0 || cursor.SnapshotAtUnixMs > maxTaskDueAtUnixMs || cursor.LastID <= 0 || cursor.LastID > cursor.UpperID || (cursor.Phase != "unread" && cursor.Phase != "read") {
+	if err != nil || decoder.Decode(&cursor) != nil || decoder.Decode(&struct{}{}) != io.EOF || encodeNotificationCursor(cursor) != value || cursor.Version != 1 || cursor.TeamID != teamID || cursor.UpperID <= 0 || cursor.ReadCutoffUnixMs <= 0 || cursor.ReadCutoffUnixMs > maxTaskDueAtUnixMs || cursor.LastID <= 0 || cursor.LastID > cursor.UpperID || (cursor.Phase != "unread" && cursor.Phase != "read") {
 		return notificationCursor{}, errors.New("invalid cursor")
 	}
 	return cursor, nil

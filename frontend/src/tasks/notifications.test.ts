@@ -52,6 +52,32 @@ test('403 read denial clears all private notification content and paging state',
   store.dispose()
 })
 
+test('403 read denial invalidates an older continuation response', async () => {
+  const identity = createSession({ getItem: () => null, setItem() {}, removeItem() {} }); identity.setSession('token')
+  let resolvePage!: (page: any) => void
+  const state = initialNotificationState(); state.items = [item('9')]; state.cursor = 'next'; state.unreadCount = '1'; state.loaded = true
+  const store = createTaskNotifications(async () => new Promise(done => { resolvePage = done }), async () => { throw new ApiError(403, 'denied') }, identity, state)
+  const continuation = store.loadMore(); await store.markRead(state.items[0])
+  resolvePage({ notifications: [item('8')], next_cursor: '', unread_count: '1' }); await continuation
+  assert.deepEqual(state.items, []); assert.equal(state.cursor, ''); assert.equal(state.unreadCount, '0')
+  store.dispose()
+})
+
+test('account and filter changes reject old pages while ordinary read failure preserves content', async () => {
+  const identity = createSession({ getItem: () => null, setItem() {}, removeItem() {} }); identity.setSession('one')
+  const resolvers: Array<(page: any) => void> = []
+  const state = initialNotificationState()
+  const store = createTaskNotifications(async () => new Promise(done => { resolvers.push(done) }), async () => { throw new ApiError(503, 'down') }, identity, state)
+  const oldAccount = store.load(); identity.setSession('two'); resolvers[0]({ notifications: [item('7')], next_cursor: '', unread_count: '1' }); await oldAccount
+  assert.equal(state.items.length, 0)
+  const oldFilter = store.load(); store.setTeam('11'); resolvers[1]({ notifications: [item('6')], next_cursor: '', unread_count: '1' }); await oldFilter
+  assert.equal(state.items.length, 0)
+  resolvers[2]({ notifications: [item('5')], next_cursor: '', unread_count: '1' }); await new Promise(done => setTimeout(done, 0))
+  assert.deepEqual(state.items.map(value => value.notification_id), ['5'])
+  await store.markRead(state.items[0]); assert.deepEqual(state.items.map(value => value.notification_id), ['5']); assert.equal(state.unreadCount, '1')
+  store.dispose()
+})
+
 test('preserves a loaded page on refresh and continuation failures and deduplicates merged IDs', async () => {
   const identity = createSession({ getItem: () => null, setItem() {}, removeItem() {} })
   identity.setSession('token')

@@ -86,7 +86,7 @@ export function createTaskNotifications(list: (options: ListOptions) => Promise<
     } catch (error) {
       if (disposed || ticket !== scope || error instanceof StaleRequestError) return
       state.error = errorText(error)
-      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) { state.items = []; state.cursor = ''; state.unreadCount = '0'; state.loaded = false; state.queuedRefresh = false }
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) { scope++; refreshVersion++; state.items = []; state.cursor = ''; state.unreadCount = '0'; state.loaded = false; state.loading = false; state.queuedRefresh = false; state.reading = '' }
     } finally { if (ticket === scope) state.reading = '' }
   }
   function dispose() { if (disposed) return; disposed = true; scope++; refreshVersion++; state.loading = false; state.queuedRefresh = false; state.reading = ''; unsubscribe() }

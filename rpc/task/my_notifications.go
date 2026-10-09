@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/yjydist/go-im/rpc/task/pb"
 	userpb "github.com/yjydist/go-im/rpc/user/pb"
@@ -27,8 +26,8 @@ type myNotificationRow struct {
 	ReadAtUnixMs    int64
 }
 
-func notificationWasUnreadAt(readAtUnixMs, snapshotAtUnixMs int64) bool {
-	return readAtUnixMs == 0 || readAtUnixMs > snapshotAtUnixMs
+func notificationWasUnreadAt(readAtUnixMs, readCutoffUnixMs int64) bool {
+	return readAtUnixMs == 0 || readAtUnixMs > readCutoffUnixMs
 }
 
 func (s *taskServer) notificationAccess(ctx context.Context, teamID int64) (context.Context, int64, []int64, error) {
@@ -77,20 +76,19 @@ func (s *taskServer) ListMyTaskNotifications(ctx context.Context, req *pb.ListMy
 		}
 	}
 	if len(teams) > 0 && req.GetCursor() == "" {
-		now := time.Now
-		if s.now != nil {
-			now = s.now
+		var snapshot struct {
+			UpperNotificationID sql.NullInt64
+			ReadCutoffUnixMs    int64
 		}
-		cursor.SnapshotAtUnixMs = now().UTC().UnixMilli()
-		if cursor.SnapshotAtUnixMs <= 0 || cursor.SnapshotAtUnixMs > maxTaskDueAtUnixMs {
-			return nil, status.Error(codes.Unavailable, "notification clock invalid")
-		}
-		var upper struct{ UpperNotificationID sql.NullInt64 }
-		if err := s.db.WithContext(ctx).Table("task_status_notifications AS n").Select("MAX(n.id) AS upper_notification_id").Where("n.recipient_id = ? AND n.team_id IN ?", callerID, teams).Scan(&upper).Error; err != nil {
+		if err := s.db.WithContext(ctx).Table("task_status_notifications AS n").Select("MAX(n.id) AS upper_notification_id, CAST(UNIX_TIMESTAMP(CURRENT_TIMESTAMP) * 1000 AS SIGNED) - 1 AS read_cutoff_unix_ms").Where("n.recipient_id = ? AND n.team_id IN ?", callerID, teams).Scan(&snapshot).Error; err != nil {
 			return nil, taskDatabaseError(ctx, err)
 		}
-		if upper.UpperNotificationID.Valid {
-			cursor.UpperID = upper.UpperNotificationID.Int64
+		if snapshot.ReadCutoffUnixMs <= 0 || snapshot.ReadCutoffUnixMs > maxTaskDueAtUnixMs {
+			return nil, taskDatabaseError(ctx, errors.New("invalid notification read cutoff"))
+		}
+		cursor.ReadCutoffUnixMs = snapshot.ReadCutoffUnixMs
+		if snapshot.UpperNotificationID.Valid {
+			cursor.UpperID = snapshot.UpperNotificationID.Int64
 		}
 	}
 	if len(teams) > 0 && cursor.UpperID > 0 {
@@ -99,8 +97,8 @@ func (s *taskServer) ListMyTaskNotifications(ctx context.Context, req *pb.ListMy
 			return nil, taskDatabaseError(ctx, err)
 		}
 		query := s.db.WithContext(ctx).Table("task_status_notifications AS n").Select("n.id AS notification_id, n.team_id, n.task_id, t.title AS task_title, t.status AS current_status, o.actor_id, o.from_status, o.to_status, CAST(UNIX_TIMESTAMP(n.created_at) * 1000 AS SIGNED) AS created_at_unix_ms, COALESCE(CAST(UNIX_TIMESTAMP(n.read_at) * 1000 AS SIGNED), 0) AS read_at_unix_ms").Joins("JOIN task_operations AS o ON o.id = n.operation_id AND o.task_id = n.task_id").Joins("JOIN tasks AS t ON t.id = n.task_id AND t.team_id = n.team_id").Where("n.recipient_id = ? AND n.team_id IN ? AND n.id <= ?", callerID, teams, cursor.UpperID)
-		unreadPartition := fmt.Sprintf("(n.read_at IS NULL OR CAST(UNIX_TIMESTAMP(n.read_at) * 1000 AS SIGNED) > %d)", cursor.SnapshotAtUnixMs)
-		readPartition := fmt.Sprintf("(n.read_at IS NOT NULL AND CAST(UNIX_TIMESTAMP(n.read_at) * 1000 AS SIGNED) <= %d)", cursor.SnapshotAtUnixMs)
+		unreadPartition := fmt.Sprintf("(n.read_at IS NULL OR CAST(UNIX_TIMESTAMP(n.read_at) * 1000 AS SIGNED) > %d)", cursor.ReadCutoffUnixMs)
+		readPartition := fmt.Sprintf("(n.read_at IS NOT NULL AND CAST(UNIX_TIMESTAMP(n.read_at) * 1000 AS SIGNED) <= %d)", cursor.ReadCutoffUnixMs)
 		if req.GetCursor() != "" {
 			if cursor.Phase == "unread" {
 				query = query.Where("(("+unreadPartition+" AND n.id < ?) OR "+readPartition+")", cursor.LastID)
@@ -128,7 +126,7 @@ func (s *taskServer) ListMyTaskNotifications(ctx context.Context, req *pb.ListMy
 		var previousUnread, previousRead int64
 		for _, row := range rows {
 			_, teamAllowed := allowed[row.TeamID]
-			wasUnread := notificationWasUnreadAt(row.ReadAtUnixMs, cursor.SnapshotAtUnixMs)
+			wasUnread := notificationWasUnreadAt(row.ReadAtUnixMs, cursor.ReadCutoffUnixMs)
 			if !teamAllowed || row.NotificationID <= 0 || row.NotificationID > cursor.UpperID || row.TeamID <= 0 || row.TaskID <= 0 || row.ActorID <= 0 || row.TaskTitle == "" || row.CurrentStatus < 0 || row.CurrentStatus > 2 || row.FromStatus < 0 || row.FromStatus > 2 || row.ToStatus < 0 || row.ToStatus > 2 || row.FromStatus == row.ToStatus || row.CreatedAtUnixMs <= 0 || row.CreatedAtUnixMs > maxTaskDueAtUnixMs || row.ReadAtUnixMs < 0 || row.ReadAtUnixMs > maxTaskDueAtUnixMs || (row.ReadAtUnixMs > 0 && row.ReadAtUnixMs < row.CreatedAtUnixMs) {
 				return nil, taskDatabaseError(ctx, errors.New("invalid notification row"))
 			}
@@ -156,7 +154,7 @@ func (s *taskServer) ListMyTaskNotifications(ctx context.Context, req *pb.ListMy
 		if more && len(rows) > 0 {
 			last := rows[len(rows)-1]
 			cursor.LastID = last.NotificationID
-			if !notificationWasUnreadAt(last.ReadAtUnixMs, cursor.SnapshotAtUnixMs) {
+			if !notificationWasUnreadAt(last.ReadAtUnixMs, cursor.ReadCutoffUnixMs) {
 				cursor.Phase = "read"
 			}
 			result.NextCursor = encodeNotificationCursor(cursor)
