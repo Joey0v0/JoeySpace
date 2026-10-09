@@ -65,7 +65,7 @@ func TestListTeamGroupsHTTPForwardsAndPreservesIDs(t *testing.T) {
 		if req.GetTeamId() != 9007199254740993 || req.GetAfterGroupId() != 9 || req.GetLimit() != 2 || len(md.Get("authorization")) != 1 || md.Get("authorization")[0] != "Bearer test-token" {
 			t.Fatalf("unexpected RPC request: %v, %v", req, md)
 		}
-		return &pb.ListTeamGroupsResponse{Groups: []*pb.TeamGroup{{GroupId: 9007199254740995, Name: "Planning", OwnerId: 9007199254740997}}, NextAfterGroupId: 9007199254740995}, nil
+		return &pb.ListTeamGroupsResponse{Groups: []*pb.TeamGroup{{GroupId: 9007199254740995, Name: "Planning", OwnerId: 9007199254740997, Joined: true}}, NextAfterGroupId: 9007199254740995}, nil
 	}}
 	w := httptest.NewRecorder()
 	listTeamGroupsHandler(client)(w, teamGroupListRequest("9007199254740993", "?after_group_id=9&limit=2", "Bearer test-token"))
@@ -74,6 +74,7 @@ func TestListTeamGroupsHTTPForwardsAndPreservesIDs(t *testing.T) {
 			Groups []struct {
 				GroupID string `json:"group_id"`
 				OwnerID string `json:"owner_id"`
+				Joined  bool   `json:"joined"`
 			} `json:"groups"`
 			Next string `json:"next_after_group_id"`
 		} `json:"data"`
@@ -81,7 +82,7 @@ func TestListTeamGroupsHTTPForwardsAndPreservesIDs(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if w.Code != 200 || len(result.Data.Groups) != 1 || result.Data.Groups[0].GroupID != "9007199254740995" || result.Data.Groups[0].OwnerID != "9007199254740997" || result.Data.Next != "9007199254740995" {
+	if w.Code != 200 || len(result.Data.Groups) != 1 || result.Data.Groups[0].GroupID != "9007199254740995" || result.Data.Groups[0].OwnerID != "9007199254740997" || !result.Data.Groups[0].Joined || result.Data.Next != "9007199254740995" {
 		t.Fatalf("response: %d %s", w.Code, w.Body.String())
 	}
 }

@@ -182,6 +182,11 @@ func main() {
 		Handler: listTeamGroupsHandler(impb.NewIMClient(imRPCClient.Conn())),
 	})
 	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/teams/:team_id/groups/:group_id",
+		Handler: getTeamGroupHandler(impb.NewIMClient(imRPCClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
 		Method:  http.MethodPost,
 		Path:    "/api/v1/teams/:team_id/groups/:group_id/join",
 		Handler: joinTeamGroupHandler(impb.NewIMClient(imRPCClient.Conn())),
@@ -208,6 +213,16 @@ func main() {
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodGet,
+		Path:    "/api/v1/me/direct-conversations",
+		Handler: listMyDirectConversationsHandler(impb.NewIMClient(imRPCClient.Conn()), userpb.NewUserClient(rpcClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/me/direct-conversations/:peer_id",
+		Handler: getMyDirectConversationHandler(impb.NewIMClient(imRPCClient.Conn()), userpb.NewUserClient(rpcClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
 		Path:    "/api/v1/direct/:peer_id/unread",
 		Handler: getDirectUnreadHandler(impb.NewIMClient(imRPCClient.Conn())),
 	})
@@ -230,6 +245,11 @@ func main() {
 		Method:  http.MethodPost,
 		Path:    "/api/v1/teams",
 		Handler: createTeamHandler(userpb.NewUserClient(rpcClient.Conn())),
+	})
+	server.AddRoute(rest.Route{
+		Method:  http.MethodGet,
+		Path:    "/api/v1/teams",
+		Handler: listMyTeamsHandler(userpb.NewUserClient(rpcClient.Conn())),
 	})
 	server.AddRoute(rest.Route{
 		Method:  http.MethodPost,

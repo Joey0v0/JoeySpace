@@ -30,6 +30,7 @@ type teamGroupData struct {
 	GroupID int64  `json:"group_id,string"`
 	Name    string `json:"name"`
 	OwnerID int64  `json:"owner_id,string"`
+	Joined  bool   `json:"joined"`
 }
 
 func listTeamGroupsHandler(client pb.IMClient) http.HandlerFunc {
@@ -97,7 +98,7 @@ func listTeamGroupsHandler(client pb.IMClient) http.HandlerFunc {
 		}
 		data := &teamGroupListData{Groups: make([]teamGroupData, 0, len(result.GetGroups())), NextAfterGroupID: result.GetNextAfterGroupId()}
 		for _, group := range result.GetGroups() {
-			data.Groups = append(data.Groups, teamGroupData{GroupID: group.GetGroupId(), Name: group.GetName(), OwnerID: group.GetOwnerId()})
+			data.Groups = append(data.Groups, teamGroupData{GroupID: group.GetGroupId(), Name: group.GetName(), OwnerID: group.GetOwnerId(), Joined: group.GetJoined()})
 		}
 		httpx.WriteJson(w, http.StatusOK, teamGroupListResponse{Code: errcode.Success, Msg: "success", Data: data})
 	}
