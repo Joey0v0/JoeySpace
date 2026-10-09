@@ -7,7 +7,7 @@ export interface TeamOption { team_id: string; name: string; role: number }
 interface Page<T> { items: T[]; cursor: string; loaded: boolean; loading: boolean; error: string }
 const page = <T>(cursor = '0'): Page<T> => ({ items: [], cursor, loaded: false, loading: false, error: '' })
 export function initialTaskWorkspaceState() {
-  return { view: 'open' as TaskView, teamId: '0', teams: page<TeamOption>(), tasks: page<Task>(''), selected: null as { teamId: string; taskId: string } | null, detail: null as TaskDetail | null, detailLoading: false, detailError: '' }
+  return { view: 'open' as TaskView, teamId: '0', teams: page<TeamOption>(), tasks: page<Task>(''), taskRetry: null as 'initial' | 'refresh' | 'more' | null, selected: null as { teamId: string; taskId: string } | null, detail: null as TaskDetail | null, detailLoading: false, detailError: '' }
 }
 type State = ReturnType<typeof initialTaskWorkspaceState>
 type Client = Pick<ReturnType<typeof createApiClient>, 'listMyTasks' | 'getTask'> & { request: (path: string, options?: RequestInit, authenticated?: boolean, expectData?: boolean) => Promise<unknown> }
@@ -22,19 +22,21 @@ export function createTaskWorkspace(client: Client, identity: ReturnType<typeof 
   async function loadTasks(replace = false) {
     if (state.tasks.loading || (!replace && state.tasks.loaded && state.tasks.cursor === '')) return
     const ticket = scope, current = state.tasks, cursor = replace ? '' : current.cursor
-    current.loading = true; current.error = ''
+    const operation = replace ? 'refresh' : current.loaded ? 'more' : 'initial'
+    current.loading = true; current.error = ''; state.taskRetry = null
     try {
       const result = await client.listMyTasks({ view: state.view, teamId: state.teamId, cursor, limit: 20 })
       if (ticket !== scope) return
       current.items = replace ? result.tasks : merge(current.items, result.tasks, item => item.task_id)
-      current.cursor = result.next_cursor; current.loaded = true
+      current.cursor = result.next_cursor; current.loaded = true; state.taskRetry = null
     } catch (error) {
       if (ticket !== scope || error instanceof StaleRequestError) return
-      current.error = errorText(error)
+      current.error = errorText(error); state.taskRetry = operation
     } finally { if (ticket === scope) current.loading = false }
   }
   const refreshTasks = () => loadTasks(true)
-  function resetTasks() { scope++; state.tasks = page<Task>(''); state.detail = null; state.detailError = ''; state.detailLoading = false; state.selected = null; detailTicket++ }
+  const retryTasks = () => state.taskRetry === 'refresh' ? refreshTasks() : loadTasks()
+  function resetTasks() { scope++; state.tasks = page<Task>(''); state.taskRetry = null; state.detail = null; state.detailError = ''; state.detailLoading = false; state.selected = null; detailTicket++ }
   function setView(view: TaskView) { if (view !== state.view) { state.view = view; resetTasks() } }
   function setTeam(teamId: string) { if ((teamId === '0' || isId(teamId)) && teamId !== state.teamId) { state.teamId = teamId; resetTasks() } }
 
@@ -71,5 +73,5 @@ export function createTaskWorkspace(client: Client, identity: ReturnType<typeof 
       target.error = errorText(error)
     } finally { if (ticket === teamScope) target.loading = false }
   }
-  return { state, loadTasks, refreshTasks, setView, setTeam, selectTask, loadTeams, dispose: unsubscribe }
+  return { state, loadTasks, refreshTasks, retryTasks, setView, setTeam, selectTask, loadTeams, dispose: unsubscribe }
 }

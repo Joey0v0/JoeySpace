@@ -10,8 +10,12 @@ const deferred = <T>() => { let resolve!: (value: T) => void; let reject!: (reas
 
 test('task pagination merges unique rows and failure preserves rows and cursor', async () => {
   let page = 0
+  const cursors: string[] = []
   const api = {
-    listMyTasks: async (): Promise<TaskPage> => ++page === 1 ? { tasks: [task('1')], next_cursor: 'cursor_one' } : page === 2 ? { tasks: [task('1'), task('2')], next_cursor: 'cursor_two' } : Promise.reject(new ApiError(503, '稍后重试')),
+    listMyTasks: async (options: { cursor?: string }): Promise<TaskPage> => {
+      cursors.push(options.cursor ?? '')
+      return ++page === 1 ? { tasks: [task('1')], next_cursor: 'cursor_one' } : page === 2 ? { tasks: [task('1'), task('2')], next_cursor: 'cursor_two' } : page === 3 ? Promise.reject(new ApiError(503, '稍后重试')) : { tasks: [task('3')], next_cursor: '' }
+    },
     getTask: async (): Promise<TaskDetail> => ({ task: task('1'), can_update_status: true }), request: async () => ({}),
   }
   const state = initialTaskWorkspaceState(), workspace = createTaskWorkspace(api, createSession(), state)
@@ -19,17 +23,34 @@ test('task pagination merges unique rows and failure preserves rows and cursor',
   assert.deepEqual(state.tasks.items.map(item => item.task_id), ['1', '2']); assert.equal(state.tasks.cursor, 'cursor_two')
   await workspace.loadTasks()
   assert.deepEqual(state.tasks.items.map(item => item.task_id), ['1', '2']); assert.equal(state.tasks.cursor, 'cursor_two'); assert.match(state.tasks.error, /稍后/)
+  assert.equal(state.taskRetry, 'more')
+  await workspace.retryTasks()
+  assert.deepEqual(cursors, ['', 'cursor_one', 'cursor_two', 'cursor_two'])
+  assert.deepEqual(state.tasks.items.map(item => item.task_id), ['1', '2', '3']); assert.equal(state.tasks.cursor, '')
   workspace.dispose()
 })
 
 test('refresh failure retains same-filter rows while filter switch clears them', async () => {
   let fail = false
-  const api = { listMyTasks: async () => fail ? Promise.reject(new ApiError(503, '失败')) : ({ tasks: [task('1')], next_cursor: '' }), getTask: async () => ({ task: task('1'), can_update_status: true }), request: async () => ({}) }
+  const cursors: string[] = []
+  const api = { listMyTasks: async (options: { cursor?: string }) => { cursors.push(options.cursor ?? ''); return fail ? Promise.reject(new ApiError(503, '失败')) : ({ tasks: [task('1')], next_cursor: '' }) }, getTask: async () => ({ task: task('1'), can_update_status: true }), request: async () => ({}) }
   const state = initialTaskWorkspaceState(), workspace = createTaskWorkspace(api, createSession(), state)
   await workspace.loadTasks(); fail = true; await workspace.refreshTasks()
-  assert.equal(state.tasks.items.length, 1)
+  assert.equal(state.tasks.items.length, 1); assert.equal(state.taskRetry, 'refresh')
+  fail = false; await workspace.retryTasks()
+  assert.deepEqual(cursors, ['', '', '']); assert.equal(state.taskRetry, null)
   workspace.setView('completed')
-  assert.equal(state.tasks.items.length, 0)
+  assert.equal(state.tasks.items.length, 0); assert.equal(state.taskRetry, null)
+  workspace.dispose()
+})
+
+test('failed initial task page retries from the empty cursor', async () => {
+  const cursors: string[] = []
+  const api = { listMyTasks: async (options: { cursor?: string }) => { cursors.push(options.cursor ?? ''); if (cursors.length === 1) throw new ApiError(503, '失败'); return { tasks: [task('1')], next_cursor: '' } }, getTask: async () => ({ task: task('1'), can_update_status: true }), request: async () => ({}) }
+  const state = initialTaskWorkspaceState(), workspace = createTaskWorkspace(api, createSession(), state)
+  await workspace.loadTasks(); assert.equal(state.taskRetry, 'initial')
+  await workspace.retryTasks()
+  assert.deepEqual(cursors, ['', '']); assert.equal(state.tasks.items[0]?.task_id, '1')
   workspace.dispose()
 })
 

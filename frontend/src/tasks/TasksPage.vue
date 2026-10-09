@@ -46,8 +46,8 @@ onUnmounted(workspace.dispose)
         <button v-if="state.teams.cursor !== '0'" class="task-team-more" type="button" :disabled="state.teams.loading" @click="workspace.loadTeams">更多团队</button>
         <span v-if="state.teams.error" class="task-team-error" role="alert">{{ state.teams.error }} <button type="button" @click="workspace.loadTeams">重试</button></span>
       </div>
-      <TaskList :state="state" @open="openTask" @more="workspace.loadTasks" @retry="state.tasks.loaded ? workspace.refreshTasks() : workspace.loadTasks()" />
+      <TaskList :state="state" @open="openTask" @more="workspace.loadTasks" @retry="workspace.retryTasks" />
     </section>
-    <TaskDetailPanel v-if="route.params.taskId" :detail="state.detail" :loading="state.detailLoading" :error="state.detailError" :selected-task-id="state.selected?.taskId" @close="closeDetail" @retry="retryDetail" />
+    <TaskDetailPanel v-if="route.params.taskId" :detail="state.detail" :loading="state.detailLoading" :error="state.detailError" :focus-key="String(route.params.teamId) + ':' + String(route.params.taskId)" :retryable="!!state.selected" @close="closeDetail" @retry="retryDetail" />
   </main>
 </template>
