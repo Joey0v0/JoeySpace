@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '../api/client.ts'
 import { session } from '../auth/session.ts'
@@ -7,7 +7,7 @@ import { createMemberDirectory, initialMemberDirectoryState, shanghaiDateTimeToU
 import type { AgentReviewState, createAgentReview } from './review.ts'
 
 const props = defineProps<{ state: AgentReviewState; review: ReturnType<typeof createAgentReview> }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; fillInstruction: [] }>()
 const selected = computed(() => props.state.selectedIndex === null ? null : props.state.collection?.items[props.state.selectedIndex] ?? null)
 const memberState = reactive(initialMemberDirectoryState())
 const members = createMemberDirectory(api.request, memberState)
@@ -16,6 +16,8 @@ const dueLocal = ref('')
 const assigneeBaseline = ref('')
 const dueBaseline = ref('')
 const formError = ref('')
+const askInput = ref('')
+const closeButton = ref<HTMLButtonElement | null>(null)
 
 const shanghaiValue = (milliseconds: number) => milliseconds > 0 ? new Date(milliseconds + 8 * 60 * 60 * 1000).toISOString().slice(0, 16) : ''
 const shanghaiText = (milliseconds: number) => milliseconds > 0 ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(milliseconds)) : '未设置'
@@ -25,6 +27,11 @@ const selectedAssigneeValid = computed(() => assigneeChoice.value === '0' || mem
 const savedAssigneeOutsidePage = computed(() => !!selected.value && selected.value.draft.assignee_id !== '0' && !memberState.items.some(member => member.user_id === selected.value?.draft.assignee_id))
 const hasUnsavedChoice = computed(() => assigneeChoice.value !== assigneeBaseline.value || dueLocal.value !== dueBaseline.value)
 const hasUnsavedInput = computed(() => props.review.hasUnsavedText() || hasUnsavedChoice.value)
+defineExpose({ hasUnsavedInput: () => hasUnsavedInput.value })
+
+watch(() => props.state.mode, mode => { if (mode === 'ask') askInput.value = props.state.question }, { immediate: true })
+watch(() => [props.state.mode, props.state.source?.messageId], async () => { await nextTick(); closeButton.value?.focus() })
+onMounted(async () => { await nextTick(); closeButton.value?.focus() })
 
 watch(() => props.state.group?.teamId, teamId => {
   if (teamId) void members.select(teamId)
@@ -75,11 +82,21 @@ function skipItem() {
 function retryReply() {
   if (selected.value) void props.review.retryReply(selected.value.item_index)
 }
+function submitAsk() { void props.review.ask(askInput.value) }
 </script>
 
 <template>
-  <aside class="task-detail-panel agent-panel" aria-label="AI 草稿审查">
-    <header class="task-detail-header"><div><p>AI 草稿</p><h2>逐项审查</h2></div><button type="button" aria-label="关闭 AI 草稿审查" @click="closePanel">×</button></header>
+  <aside class="task-detail-panel agent-panel" :aria-label="state.mode === 'ask' ? 'AI 助手' : 'AI 草稿审查'">
+    <header class="task-detail-header"><div><p>当前团队群 · AI 助手</p><h2>{{ state.mode === 'ask' ? '向 AI 提问' : '逐项审查' }}</h2></div><button ref="closeButton" type="button" :aria-label="state.mode === 'ask' ? '关闭 AI 助手' : '关闭 AI 草稿审查'" @click="closePanel">×</button></header>
+    <section v-if="state.mode === 'ask'" class="agent-ask">
+      <p>回答仅在这次打开的面板中显示，不会发送到群聊。</p>
+      <form @submit.prevent="submitAsk"><label>问题<textarea v-model="askInput" rows="5" :disabled="state.askBusy" placeholder="请根据当前团队的讨论回答我的问题" /><span>{{ [...askInput].length }}/2000 字</span></label><button class="primary-link" type="submit" :disabled="state.askBusy || !askInput.trim() || [...askInput.trim()].length > 2000">{{ state.askBusy ? '正在提问…' : '提问' }}</button></form>
+      <p v-if="state.askBusy" role="status">正在等待 AI 回答…</p>
+      <p v-if="state.askError" role="alert">{{ state.askError }}</p>
+      <section v-if="state.answer" aria-label="AI 回答"><h3>回答</h3><p class="agent-answer">{{ state.answer }}</p></section>
+      <button type="button" class="task-secondary" @click="emit('fillInstruction')">整理讨论事项：填入群聊指令</button>
+      <p class="agent-hint">此操作只填入输入框，发送前可继续编辑。</p>
+    </section>
     <p v-if="state.trigger?.status === 'queued' || state.trigger?.status === 'running'" role="status">AI 正在整理当前指令…</p>
     <p v-if="state.trigger?.status === 'exhausted'" role="alert">本次整理未成功。请查看原消息后重新发送明确指令。</p>
     <p v-if="state.triggerError" role="alert">{{ state.triggerError }}</p>
@@ -96,8 +113,8 @@ function retryReply() {
         <p v-else>这项草稿没有单独的讨论来源消息</p>
         <p>当前状态：{{ selected.status === 'waiting_confirmation' ? '待审查' : selected.status === 'creating' ? '创建中' : selected.status === 'succeeded' ? '已创建' : '已跳过' }}</p>
         <div v-if="selected.status === 'waiting_confirmation'" class="task-form">
-          <label>标题<input :value="state.textInput?.title ?? selected.draft.title" maxlength="200" :disabled="!editable" @input="review.updateText(($event.target as HTMLInputElement).value, state.textInput?.description ?? selected.draft.description)" /></label>
-          <label>说明<textarea :value="state.textInput?.description ?? selected.draft.description" maxlength="2000" rows="4" :disabled="!editable" @input="review.updateText(state.textInput?.title ?? selected.draft.title, ($event.target as HTMLTextAreaElement).value)" /></label>
+          <label>标题<input :value="state.textInput?.title ?? selected.draft.title" :disabled="!editable" @input="review.updateText(($event.target as HTMLInputElement).value, state.textInput?.description ?? selected.draft.description)" /><span>{{ [...(state.textInput?.title ?? selected.draft.title)].length }}/200 字</span></label>
+          <label>说明<textarea :value="state.textInput?.description ?? selected.draft.description" rows="4" :disabled="!editable" @input="review.updateText(state.textInput?.title ?? selected.draft.title, ($event.target as HTMLTextAreaElement).value)" /><span>{{ [...(state.textInput?.description ?? selected.draft.description)].length }}/2000 字</span></label>
           <p v-if="review.hasUnsavedText()" role="status">文字有未保存修改；请保存或放弃后继续审查。</p>
           <p v-if="hasUnsavedChoice" role="status">负责人或期限选择尚未保存；请分别保存或放弃。</p>
           <button type="button" :disabled="!editable || !review.hasUnsavedText()" @click="saveText">保存标题和说明</button>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import ConversationList from './ConversationList.vue'
 import ConversationView from './ConversationView.vue'
 import UnreadOverview from './UnreadOverview.vue'
@@ -12,14 +12,45 @@ import { taskSignal } from '../realtime/taskSignal.ts'
 import type { ChatMessage } from './history.ts'
 import { createOfflineInbox, type OfflineMessage } from './offline.ts'
 import { createSourceContext, initialSourceContextState } from './sourceContext.ts'
+import AgentPanel from '../agent/AgentPanel.vue'
+import { createAgentApi } from '../agent/api.ts'
+import { agentPanelEntry, canShowAgentToolbar, prefillAgentCommand } from '../agent/navigation.ts'
+import { createAgentReview, initialAgentReviewState } from '../agent/review.ts'
 const route = useRoute()
+const router = useRouter()
 const state = reactive(initialDirectoryState())
 const directory = createDirectory(api.request, session, state)
 const sourceState = reactive(initialSourceContextState())
 const sourceContext = createSourceContext(api.request, session, sourceState)
+const agentState = reactive(initialAgentReviewState())
+const agentReview = createAgentReview(createAgentApi(api.request), session, agentState)
+const agentPanel = ref<InstanceType<typeof AgentPanel> | null>(null)
+let allowPanelNavigation = false
+function canLeaveAgentPanel() { return allowPanelNavigation || !agentPanel.value?.hasUnsavedInput() || window.confirm('AI 草稿有未保存修改。放弃修改并离开？') }
+onBeforeRouteUpdate(canLeaveAgentPanel)
+onBeforeRouteLeave(canLeaveAgentPanel)
+const focusReturn = ref<HTMLElement | null>(null)
+const panelEntry = computed(() => agentPanelEntry(String(route.name || ''), String(route.params.teamId || ''), String(route.params.groupId || ''), route.query, state.current))
+watch(panelEntry, entry => {
+  if (!entry) { agentReview.close(); return }
+  if (entry.mode === 'ask') agentReview.openAsk({ teamId: entry.teamId, groupId: entry.groupId })
+  else void agentReview.openTrigger({ teamId: entry.teamId, groupId: entry.groupId, messageId: entry.messageId })
+}, { immediate: true })
+watch(() => [agentState.trigger?.status, agentState.trigger?.run_id], ([status]) => {
+  if (status === 'completed' && !agentState.collection && !agentState.collectionBusy && !agentState.collectionError) void agentReview.loadCollection()
+})
+watch(() => agentState.mode, mode => {
+  if (mode === 'closed' && panelEntry.value) void router.replace({ name: 'group', params: route.params, query: {} })
+})
+watch(panelEntry, async entry => {
+  if (entry || !focusReturn.value) return
+  await nextTick()
+  if (focusReturn.value?.isConnected) focusReturn.value.focus()
+  focusReturn.value = null
+})
 interface MentionTarget { id: string; name: string }
 interface Outgoing extends SendStatus { text: string; toId: string; chatType: 1 | 2; mentionedUserIds: string[]; sentAt: number }
-interface ConversationHandle { applyChat(chat: TextChat): Promise<boolean>; applyOffline(chats: TextChat[]): Promise<boolean>; refreshFromServer(): Promise<ChatMessage[]>; checkPersisted(msgId: string): Promise<boolean | null> }
+interface ConversationHandle { applyChat(chat: TextChat): Promise<boolean>; applyOffline(chats: TextChat[]): Promise<boolean>; refreshFromServer(): Promise<ChatMessage[]>; checkPersisted(msgId: string): Promise<boolean | null>; focusComposer(): void }
 const view = ref<ConversationHandle | null>(null)
 const connection = ref<ConnectionState>('idle')
 const drafts = reactive<Record<string, string>>({})
@@ -33,7 +64,7 @@ const key = computed(() => {
   if (route.name === 'group') return 'group:' + String(route.params.teamId) + ':' + String(route.params.groupId)
   return undefined
 })
-watch(key, value => { void directory.select(value) }, { immediate: true })
+watch(key, value => { agentReview.close(); void directory.select(value) }, { immediate: true })
 watch(() => [String(route.name || ''), String(route.params.teamId || ''), String(route.params.groupId || ''), route.query.focus_message_id === undefined ? '' : typeof route.query.focus_message_id === 'string' ? route.query.focus_message_id : '!'], ([name, teamId, groupId, messageId]) => {
   sourceContext.clear()
   if (name === 'group' && messageId) void sourceContext.load(teamId, groupId, messageId)
@@ -108,6 +139,30 @@ async function pullOffline() {
 }
 realtime.connect()
 function updateDraft(text: string) { if (key.value) drafts[key.value] = text }
+function openAi(source: HTMLElement) {
+  if (!canShowAgentToolbar(state.current)) return
+  focusReturn.value = source
+  void router.push({ name: 'group', params: { teamId: state.current!.teamId, groupId: state.current!.groupId }, query: { ai: 'ask' } })
+}
+function openAiTrigger(messageId: string, source: HTMLElement) {
+  if (!canShowAgentToolbar(state.current) || !isId(messageId)) return
+  focusReturn.value = source
+  void router.push({ name: 'group', params: { teamId: state.current!.teamId, groupId: state.current!.groupId }, query: { ai_message_id: messageId } })
+}
+async function closeAi() {
+  agentReview.close()
+  allowPanelNavigation = true
+  try { if (route.name === 'group') await router.replace({ name: 'group', params: route.params, query: {} }) }
+  finally { allowPanelNavigation = false }
+}
+async function fillInstruction() {
+  if (!canShowAgentToolbar(state.current) || !key.value) return
+  drafts[key.value] = prefillAgentCommand(drafts[key.value] ?? '')
+  focusReturn.value = null
+  await closeAi()
+  await nextTick()
+  view.value?.focusComposer()
+}
 function updateMentions(targets: MentionTarget[]) { if (key.value) mentions[key.value] = targets }
 function sendMessage() {
   const selected = state.current, selectedKey = key.value
@@ -152,8 +207,12 @@ async function checkAndRetry(msgId: string) {
 }
 void directory.loadTeams()
 void directory.loadDirects()
-onUnmounted(() => { realtime.dispose(); offline.dispose(); sourceContext.dispose(); clearLocal(); directory.dispose() })
+onUnmounted(() => { realtime.dispose(); offline.dispose(); sourceContext.dispose(); agentReview.dispose(); clearLocal(); directory.dispose() })
 function revokeCurrent() {
+  agentReview.close()
+  allowPanelNavigation = true
+  if (route.name === 'group') void router.replace({ name: 'group', params: route.params, query: {} }).finally(() => { allowPanelNavigation = false })
+  else allowPanelNavigation = false
   const selected = state.current
   if (selected) {
     delete drafts[selected.key]
@@ -174,17 +233,20 @@ function revokeCurrent() {
 <template>
   <main class="messages-layout">
     <ConversationList :state="state" :active-key="key" @teams="directory.loadTeams" @groups="directory.loadGroups" @directs="directory.loadDirects" />
+    <div class="messages-main" :class="{ 'has-agent': !!panelEntry && agentState.mode !== 'closed' }">
     <div class="messages-workspace">
       <div class="sample-ribbon" role="note">{{ currentProfile?.nickname || currentProfile?.username }} · 真实会话与聊天</div>
       <UnreadOverview v-if="!key" />
       <section v-else-if="state.detailLoading" class="unavailable-state" role="status"><h1>正在复核会话…</h1><p>按当前登录身份检查访问权限。</p></section>
-      <ConversationView v-else-if="state.current" :key="state.current.key" ref="view" :conversation="state.current" :own-id="currentProfile?.id || ''" :joining="state.joining" :error="state.detailError" :connection="connection" :draft="currentDraft" :mentions="currentMentions" :outgoing="currentOutgoing" :notice="currentNotice" :offline-notice="offlineNotice" :source-state="sourceState" @update:draft="updateDraft" @update:mentions="updateMentions" @send="sendMessage" @retry="checkAndRetry" @offline="pullOffline" @join="directory.joinCurrent" @revoked="revokeCurrent" />
+      <ConversationView v-else-if="state.current" :key="state.current.key" ref="view" :conversation="state.current" :own-id="currentProfile?.id || ''" :joining="state.joining" :error="state.detailError" :connection="connection" :draft="currentDraft" :mentions="currentMentions" :outgoing="currentOutgoing" :notice="currentNotice" :offline-notice="offlineNotice" :source-state="sourceState" @update:draft="updateDraft" @update:mentions="updateMentions" @send="sendMessage" @retry="checkAndRetry" @offline="pullOffline" @join="directory.joinCurrent" @revoked="revokeCurrent" @open-ai="openAi" @open-ai-trigger="openAiTrigger" />
       <section v-else class="unavailable-state">
         <div class="empty-symbol" aria-hidden="true">?</div><h1>会话暂时无法打开</h1>
         <p role="alert">{{ state.detailError || '请从左侧选择会话' }}</p>
         <button class="primary-link" type="button" @click="directory.select(key)">重新检查</button>
         <RouterLink class="primary-link" to="/messages">返回会话总览</RouterLink>
       </section>
+    </div>
+    <AgentPanel v-if="panelEntry && agentState.mode !== 'closed'" ref="agentPanel" :state="agentState" :review="agentReview" @close="closeAi" @fill-instruction="fillInstruction" />
     </div>
   </main>
 </template>

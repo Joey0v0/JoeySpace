@@ -6,13 +6,15 @@ import type { Selection } from './directory.ts'
 import { createHistory, initialHistoryState, type ChatMessage } from './history.ts'
 import type { ConnectionState, SendStatus, TextChat } from '../realtime/client.ts'
 import { canCreateTaskFromMessage, taskFromMessageRoute, type SourceMessage, type initialSourceContextState } from './sourceContext.ts'
+import { canShowAgentToolbar, canShowOwnAgentTrigger } from '../agent/navigation.ts'
 interface MentionTarget { id: string; name: string }
 const props = defineProps<{ conversation: Selection; joining: boolean; error: string; ownId: string; connection: ConnectionState; draft: string; mentions: MentionTarget[]; outgoing: (SendStatus & { text: string })[]; notice: string; offlineNotice: string; sourceState: ReturnType<typeof initialSourceContextState> }>()
-const emit = defineEmits<{ join: []; revoked: []; 'update:draft': [text: string]; 'update:mentions': [targets: MentionTarget[]]; send: []; retry: [msgId: string]; offline: [] }>()
+const emit = defineEmits<{ join: []; revoked: []; 'update:draft': [text: string]; 'update:mentions': [targets: MentionTarget[]]; send: []; retry: [msgId: string]; offline: []; openAi: [source: HTMLElement]; openAiTrigger: [messageId: string, source: HTMLElement] }>()
 const history = createHistory(api.request, session, props.ownId, reactive(initialHistoryState()))
 const list = history.state
 const scrollElement = ref<HTMLElement | null>(null)
 const contextHeading = ref<HTMLElement | null>(null)
+const composerInput = ref<HTMLTextAreaElement | null>(null)
 const composing = ref(false)
 const hasNew = ref(false)
 let initialScrolled = false
@@ -112,7 +114,10 @@ function keydown(event: KeyboardEvent) {
   event.preventDefault()
   emit('send')
 }
-defineExpose({ applyChat, applyOffline, refreshFromServer, checkPersisted })
+function focusComposer() { void nextTick(() => composerInput.value?.focus()) }
+function openAi(event: MouseEvent) { if (canShowAgentToolbar(props.conversation) && !list.denied) emit('openAi', event.currentTarget as HTMLElement) }
+function openAiTrigger(message: ChatMessage, event: MouseEvent) { if (canShowOwnAgentTrigger(props.conversation, message, props.ownId) && !list.denied) emit('openAiTrigger', message.id, event.currentTarget as HTMLElement) }
+defineExpose({ applyChat, applyOffline, refreshFromServer, checkPersisted, focusComposer })
 function sender(message: ChatMessage | SourceMessage) {
   if (message.sender_type === 2) return '机器人'
   if (message.from_id === props.ownId) return '我'
@@ -128,6 +133,7 @@ function taskRoute(messageId: string) { return props.conversation.kind === 'grou
     <header class="chat-header">
       <div class="chat-header-avatar" :class="conversation.kind" aria-hidden="true">{{ conversation.kind === 'group' ? '#' : conversation.title.slice(0, 1) }}</div>
       <div class="chat-heading"><p class="eyebrow">{{ conversation.kind === 'group' ? 'TEAM CONVERSATION' : 'DIRECT MESSAGE' }}</p><h2>{{ conversation.title }}</h2><span>{{ conversation.kind === 'group' ? '团队群聊' : '私聊' }}</span></div>
+      <button v-if="canShowAgentToolbar(conversation) && !list.denied" class="chat-ai-entry" type="button" @click="openAi">AI 助手</button>
       <span v-if="list.unreadCount !== ''" class="chat-unread">当前未读 {{ list.unreadCount }}</span>
       <span class="chat-connection" :class="connection">{{ connection === 'connected' ? '实时连接正常' : connection === 'connecting' || connection === 'reconnecting' ? '正在连接…' : '连接已断开' }}</span>
     </header>
@@ -158,7 +164,7 @@ function taskRoute(messageId: string) { return props.conversation.kind === 'grou
         <div v-if="list.loaded && list.messages.length" class="chat-messages">
           <article v-for="item in list.messages" :key="item.id" class="chat-message" :class="{ 'is-own': item.from_id === ownId && item.sender_type !== 2 }">
             <div class="message-avatar" :class="{ 'is-bot': item.sender_type === 2 }" aria-hidden="true">{{ item.sender_type === 2 ? '✦' : sender(item).slice(0, 1) }}</div>
-            <div class="message-content"><div class="message-byline"><strong>{{ sender(item) }}</strong><span v-if="item.sender_type === 2" class="bot-badge">BOT</span><span v-if="item.mentioned_user_ids?.includes(ownId)" class="mention-mark">提及了你</span><time :datetime="new Date(item.created_at_unix_ms).toISOString()">{{ displayTime(item.created_at_unix_ms) }}</time></div><p>{{ displayContent(item) }}</p><RouterLink v-if="conversation.kind === 'group' && canCreateTaskFromMessage('group', item)" class="message-task-action" :to="taskRoute(item.id)">创建任务</RouterLink></div>
+            <div class="message-content"><div class="message-byline"><strong>{{ sender(item) }}</strong><span v-if="item.sender_type === 2" class="bot-badge">BOT</span><span v-if="item.mentioned_user_ids?.includes(ownId)" class="mention-mark">提及了你</span><time :datetime="new Date(item.created_at_unix_ms).toISOString()">{{ displayTime(item.created_at_unix_ms) }}</time></div><p>{{ displayContent(item) }}</p><div class="message-actions"><RouterLink v-if="conversation.kind === 'group' && canCreateTaskFromMessage('group', item)" class="message-task-action" :to="taskRoute(item.id)">创建任务</RouterLink><button v-if="!list.denied && canShowOwnAgentTrigger(conversation, item, ownId)" class="message-ai-action" type="button" :aria-label="`查看第 ${item.id} 条 AI 整理指令处理状态`" @click="openAiTrigger(item, $event)">查看 AI 处理</button></div></div>
           </article>
         </div>
       </template>
@@ -169,7 +175,7 @@ function taskRoute(messageId: string) { return props.conversation.kind === 'grou
         <div class="mention-selected"><button type="button" class="mention-trigger" :aria-expanded="pickerOpen" @click="pickerOpen = !pickerOpen">@ 提及成员 {{ mentions.length ? `(${mentions.length}/10)` : '' }}</button><button v-for="target in mentions" :key="target.id" type="button" class="mention-chip" :aria-label="`移除提及 ${target.name}`" @click="removeMember(target.id)">@{{ target.name }} ×</button></div>
         <div v-if="pickerOpen" class="mention-picker"><input v-model="memberSearch" aria-label="查找团队成员" placeholder="在已加载成员中查找" /><p>仅当前群成员可被提及，发送时由服务端核验。</p><div class="mention-candidates"><button v-for="[id, name] in candidates" :key="id" type="button" :disabled="mentions.length >= 10" @click="selectMember(id, name)">{{ name }}</button><span v-if="!candidates.length">当前列表没有匹配成员</span></div><button v-if="memberCursor !== '0'" type="button" :disabled="membersLoading" @click="loadMoreMembers">{{ membersLoading ? '正在加载…' : '加载更多成员' }}</button><button v-if="membersError" type="button" @click="loadMoreMembers">{{ membersError }} · 重试</button></div>
       </div>
-      <div class="composer-surface"><textarea :value="draft" aria-label="输入消息" placeholder="输入消息，Enter 发送，Shift+Enter 换行" rows="3" @input="emit('update:draft', ($event.target as HTMLTextAreaElement).value)" @keydown="keydown" @compositionstart="composing = true" @compositionend="composing = false" /></div>
+      <div class="composer-surface"><textarea ref="composerInput" :value="draft" aria-label="输入消息" placeholder="输入消息，Enter 发送，Shift+Enter 换行" rows="3" @input="emit('update:draft', ($event.target as HTMLTextAreaElement).value)" @keydown="keydown" @compositionstart="composing = true" @compositionend="composing = false" /></div>
       <div class="composer-actions" style="max-width:850px;margin:auto">
         <span>阅读消息不会自动标记已读</span>
         <div>
