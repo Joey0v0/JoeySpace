@@ -328,6 +328,10 @@ func TestInvalidChatDataRejectedBeforeDedup(t *testing.T) {
 		`{"msg_id":"m7","to_id":0,"chat_type":1,"content_type":1}`,
 		`{"msg_id":"m7","to_id":100,"chat_type":0,"content_type":1}`,
 		`{"msg_id":"m7","to_id":100,"chat_type":1,"content_type":0}`,
+		`{"msg_id":"m7","to_id":"100","chat_type":1,"content_type":1,"mentioned_user_ids":["7"]}`,
+		`{"msg_id":"m7","to_id":"100","chat_type":2,"content_type":1,"mentioned_user_ids":[7]}`,
+		`{"msg_id":"m7","to_id":"100","chat_type":2,"content_type":1,"mentioned_user_ids":["7","7"]}`,
+		`{"msg_id":"m7","to_id":"100","chat_type":2,"content_type":2,"mentioned_user_ids":["7"]}`,
 	} {
 		redis := &dedupStub{}
 		writer := &kafkaStub{}
@@ -345,6 +349,27 @@ func TestInvalidChatDataRejectedBeforeDedup(t *testing.T) {
 		if response.Type != "error" || response.Data.Code != 400 || redis.called != 0 || writer.called != 0 {
 			t.Fatalf("invalid data %s: response=%+v, redis=%d, kafka=%d", data, response, redis.called, writer.called)
 		}
+	}
+}
+
+func TestGroupMentionIDsReachKafkaAndChangeMsgIDFingerprint(t *testing.T) {
+	checker, redis, writer := &membershipStub{t: t}, &dedupStub{}, &kafkaStub{}
+	client := &Client{UserID: 42, token: "test-token", send: make(chan []byte, 2), imClient: checker,
+		kafkaWriter: writer, redisRepo: redis, logger: zap.NewNop()}
+	client.handleChat(json.RawMessage(`{"msg_id":"mention-1","to_id":"100","chat_type":2,"content_type":1,"content":"hello","mentioned_user_ids":["9007199254740993","7"]}`))
+	var sent KafkaChatMsg
+	if err := json.Unmarshal(writer.last, &sent); err != nil {
+		t.Fatal(err)
+	}
+	if sent.FromID != 42 || len(sent.MentionedUserIDs) != 2 || sent.MentionedUserIDs[0] != 7 || sent.MentionedUserIDs[1] != 9007199254740993 || writer.called != 1 {
+		t.Fatalf("Kafka mention event = %+v, writes=%d", sent, writer.called)
+	}
+	if !strings.Contains(string(<-client.send), `"type":"ack"`) {
+		t.Fatal("first send not acknowledged")
+	}
+	client.handleChat(json.RawMessage(`{"msg_id":"mention-1","to_id":"100","chat_type":2,"content_type":1,"content":"hello","mentioned_user_ids":["8"]}`))
+	if writer.called != 1 || !strings.Contains(string(<-client.send), `"code":409`) {
+		t.Fatalf("changed mention set reused msg_id, writes=%d", writer.called)
 	}
 }
 

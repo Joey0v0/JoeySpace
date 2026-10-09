@@ -249,7 +249,8 @@ func (c *Client) handleChat(data json.RawMessage) {
 	}
 	if !validClientMsgID(chatData.MsgID) ||
 		chatData.ToID <= 0 || (chatData.ChatType != 1 && chatData.ChatType != 2) ||
-		(chatData.ContentType != 1 && chatData.ContentType != 2 && chatData.ContentType != 3) {
+		(chatData.ContentType != 1 && chatData.ContentType != 2 && chatData.ContentType != 3) ||
+		(len(chatData.MentionedUserIDs) > 0 && (chatData.ChatType != 2 || chatData.ContentType != 1)) {
 		c.sendError(400, "invalid chat data")
 		return
 	}
@@ -279,12 +280,13 @@ func (c *Client) handleChat(data json.RawMessage) {
 	}
 
 	fingerprintBytes, err := json.Marshal(struct {
-		FromID      int64
-		ToID        int64
-		ChatType    int
-		ContentType int
-		Content     string
-	}{c.UserID, chatData.ToID, chatData.ChatType, chatData.ContentType, chatData.Content})
+		FromID           int64
+		ToID             int64
+		ChatType         int
+		ContentType      int
+		Content          string
+		MentionedUserIDs []int64
+	}{c.UserID, chatData.ToID, chatData.ChatType, chatData.ContentType, chatData.Content, chatData.MentionedUserIDs})
 	if err != nil {
 		c.sendError(500, "server error")
 		return
@@ -320,14 +322,15 @@ func (c *Client) handleChat(data json.RawMessage) {
 
 	// 封装 Kafka 消息
 	kafkaMsg := KafkaChatMsg{
-		MsgID:       chatData.MsgID,
-		FromID:      c.UserID,
-		SenderType:  model.MessageSenderUser,
-		ToID:        chatData.ToID,
-		ChatType:    chatData.ChatType,
-		ContentType: chatData.ContentType,
-		Content:     chatData.Content,
-		Timestamp:   time.Now().UnixMilli(),
+		MsgID:            chatData.MsgID,
+		FromID:           c.UserID,
+		SenderType:       model.MessageSenderUser,
+		ToID:             chatData.ToID,
+		ChatType:         chatData.ChatType,
+		ContentType:      chatData.ContentType,
+		Content:          chatData.Content,
+		MentionedUserIDs: chatData.MentionedUserIDs,
+		Timestamp:        time.Now().UnixMilli(),
 	}
 
 	msgBytes, err := json.Marshal(kafkaMsg)
