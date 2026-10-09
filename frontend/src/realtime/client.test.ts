@@ -105,6 +105,20 @@ test('oversized UTF-8 frame is rejected before socket send', async () => {
   f.client.dispose()
 })
 
+test('persisted chat before ACK releases pending send and ignores late ACK', async () => {
+  const f = fixture()
+  f.client.connect(); await tick(); f.sockets[0].open()
+  const first = { msgId: 'early-history', toId: '2', chatType: 1 as const, content: 'first' }
+  assert.equal(f.client.send(first), true)
+  f.client.confirmPersisted(first.msgId)
+  assert.deepEqual(f.statuses.at(-1), { msgId: first.msgId, status: 'confirmed' })
+  assert.equal(f.client.send({ ...first, msgId: 'second' }), true)
+  f.sockets[0].receive({ type: 'ack', data: { msg_id: first.msgId } })
+  assert.deepEqual(f.statuses.at(-1), { msgId: 'second', status: 'sending' })
+  f.sockets[0].receive({ type: 'ack', data: { msg_id: 'second' } })
+  f.client.dispose()
+})
+
 test('rejects malformed and non-text chat frames and deduplicates by msg_id', async () => {
   const f = fixture()
   f.client.connect(); await tick(); f.sockets[0].open()

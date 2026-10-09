@@ -14,7 +14,7 @@ const route = useRoute()
 const state = reactive(initialDirectoryState())
 const directory = createDirectory(api.request, session, state)
 interface Outgoing extends SendStatus { text: string; toId: string; chatType: 1 | 2; sentAt: number }
-interface ConversationHandle { applyChat(chat: TextChat): Promise<boolean>; refreshFromServer(): Promise<ChatMessage[]>; checkPersisted(msgId: string): Promise<boolean | null> }
+interface ConversationHandle { applyChat(chat: TextChat): Promise<boolean>; applyOffline(chats: TextChat[]): Promise<boolean>; refreshFromServer(): Promise<ChatMessage[]>; checkPersisted(msgId: string): Promise<boolean | null> }
 const view = ref<ConversationHandle | null>(null)
 const connection = ref<ConnectionState>('idle')
 const drafts = reactive<Record<string, string>>({})
@@ -63,6 +63,15 @@ const realtime = createRealtimeClient({
     if (!item) return
     item.status = status.status
     item.error = status.error
+    if (status.status === 'confirmed') {
+      setTimeout(() => {
+        if (item.status !== 'confirmed') return
+        for (const entries of Object.values(outgoing)) {
+          const index = entries.indexOf(item)
+          if (index >= 0) { entries.splice(index, 1); break }
+        }
+      }, 4000)
+    }
     if (status.status === 'accepted') {
       setTimeout(() => { void reconcile() }, 700)
       setTimeout(() => { void reconcile() }, 2500)
@@ -71,13 +80,15 @@ const realtime = createRealtimeClient({
   onRefresh: () => { void reconcile(); void pullOffline() },
 })
 const offline = createOfflineInbox(api.request, session, async items => {
+  const chats: TextChat[] = []
   for (const item of items) {
     offlineCache.set(item.msg_id, item)
     if (offlineCache.size > 1000) offlineCache.delete(offlineCache.keys().next().value!)
     if (item.content_type !== 1) continue
     const chat: TextChat = { id: item.id, msgId: item.msg_id, fromId: item.from_id, toId: item.to_id, senderType: item.sender_type, initiatorId: item.initiator_id, chatType: item.chat_type, content: item.content, createdAt: item.created_at }
-    await view.value?.applyChat(chat)
+    chats.push(chat)
   }
+  if (chats.length) await view.value?.applyOffline(chats)
 })
 async function pullOffline() {
   await offline.pull()

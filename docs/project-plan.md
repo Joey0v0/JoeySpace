@@ -13,6 +13,8 @@
 
 前端 F3 方案用户已确认（2026-10-09）：从已验证 F2 `37c72cd` 建立隔离 `codex/frontend-f3-chat`；只读核对现有 IM/Gateway 历史、逐消息已读、离线与 WS 发送，形成[真实聊天设计](frontend-f3-chat-design.md)及[分两批实施计划](superpowers/plans/2026-10-09-frontend-f3-chat.md)。用户回复“审查通过，继续进行下一步”，确认 F09 一次性 WS 票据与 Origin 限制、F10 由 IM 持有权威跨会话未读摘要、F11 普通成员结构化提及。实施从 F3 第一批开始；F2/main 保持原状，不把方案记成能力完成。
 
+前端 F3 第一批本地集成（2026-10-09）：WS 30 秒一次性 Redis 票据、Origin 限制及旧演示白名单兼容；Vue 群/私聊持久历史分页、当前会话权威未读、每批最多 100 条显式已读、纯文本 WS 发送及独立受理/历史状态、断线重连和离线补拉已经在 `codex/frontend-f3-chat` 集成。全仓 `go test ./... -count=1`、前端 53 项统一测试及类型检查/生产构建通过。本机 Chrome 与 HTTP/WS 替身完成私聊登录→历史→发送→显式已读及 1280/1440/1920 桌面视觉核对；真实 MySQL/Redis/Kafka/群聊双账号浏览器链、物理键盘输入法和正式反代未验。完整八步、实际文件和限制见[F3 审查](frontend-f3-review.md)。F10/F11 尚未实施，F3 全阶段不标完成；F2/main 未合并、推送或部署。
+
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 
 前端 F2 方案待审查（2026-10-09）：从 F1 提交 `e75c322` 建立独立 `codex/frontend-f2-navigation` 工作区，完成现有 User/IM/Gateway 接口的只读核对，并写成[真实登录与会话导航设计](frontend-f2-navigation-design.md)和[八任务实施计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)。推荐复用现有 Bearer 登录、按本标签页保存会话；User/IM 分属目录数据，Gateway 组合有限显示名；F2 先交付真实导航，完整消息阅读、未读/@我和主群配置后续单独接线。这些涉及身份保存、资料读取和跨服务读契约，[F06—F08](architecture-decisions.md#前端设计记录2026-10-09)仍待用户审查确认。当前 F2 仅有文档，未修改产品代码、协议或数据库；F1/main 均未合并或部署。

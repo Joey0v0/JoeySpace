@@ -243,7 +243,9 @@ export function createRealtimeClient(options: RealtimeOptions) {
     }
   }
   function confirmPersisted(msgId: string) {
-    if (msgIdValid(msgId)) options.onSendStatus?.({ msgId, status: 'confirmed' })
+    if (!msgIdValid(msgId)) return
+    if (pending === msgId) { pending = null; clearAckTimer() }
+    options.onSendStatus?.({ msgId, status: 'confirmed' })
   }
   function markUncertain(msgId: string) {
     if (msgIdValid(msgId)) options.onSendStatus?.({ msgId, status: 'uncertain', error: '持久记录待核对' })

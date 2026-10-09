@@ -90,18 +90,23 @@ export function createHistory(request: Request, identity: ReturnType<typeof crea
     if (!selected || !isId(ownId)) return []
     return [...new Set(state.messages.filter(item => !confirmedIDs.has(item.id) && (selected?.kind === 'direct' ? item.from_id === selected.key.slice('direct:'.length) && item.to_id === ownId : item.sender_type === 2 || item.from_id !== ownId)).map(item => item.id))]
   }
-  function applyRealtime(chat: TextChat): boolean {
+  function applyRealtimeBatch(chats: TextChat[]): boolean {
     if (!selected) return false
-    const inScope = selected.kind === 'group'
-      ? chat.chatType === 2 && chat.toId === selected.groupId
-      : chat.chatType === 1 && ((chat.fromId === ownId && chat.toId === selected.key.slice('direct:'.length)) || (chat.toId === ownId && chat.fromId === selected.key.slice('direct:'.length)))
-    if (!inScope) return false
-    const item: ChatMessage = { id: chat.id, msg_id: chat.msgId, from_id: chat.fromId, to_id: chat.toId, sender_type: chat.senderType, initiator_id: chat.initiatorId, content_type: 1, content: chat.content, created_at_unix_ms: Date.parse(chat.createdAt) }
-    if (!message(item)) return false
-    state.messages = [...new Map([...state.messages, item].map(value => [value.id, value])).values()].sort(newestFirst).reverse()
+    const items: ChatMessage[] = []
+    for (const chat of chats) {
+      const inScope = selected.kind === 'group'
+        ? chat.chatType === 2 && chat.toId === selected.groupId
+        : chat.chatType === 1 && ((chat.fromId === ownId && chat.toId === selected.key.slice('direct:'.length)) || (chat.toId === ownId && chat.fromId === selected.key.slice('direct:'.length)))
+      if (!inScope) continue
+      const item: ChatMessage = { id: chat.id, msg_id: chat.msgId, from_id: chat.fromId, to_id: chat.toId, sender_type: chat.senderType, initiator_id: chat.initiatorId, content_type: 1, content: chat.content, created_at_unix_ms: Date.parse(chat.createdAt) }
+      if (message(item)) items.push(item)
+    }
+    if (!items.length) return false
+    state.messages = [...new Map([...state.messages, ...items].map(value => [value.id, value])).values()].sort(newestFirst).reverse()
     state.loaded = true
     return true
   }
+  function applyRealtime(chat: TextChat): boolean { return applyRealtimeBatch([chat]) }
   async function markLoadedRead() {
     if (!selected || state.marking || state.pendingConfirmation) return
     const ids = pendingBatch ?? receivedIDs().slice(0, 100)
@@ -122,5 +127,5 @@ export function createHistory(request: Request, identity: ReturnType<typeof crea
     } finally { if (epoch === scope) state.marking = false }
   }
   function dispose() { scope++; selected = null; unsubscribe() }
-  return { state, select, loadLatest, loadOlder, refreshUnread, receivedIDs, applyRealtime, markLoadedRead, dispose }
+  return { state, select, loadLatest, loadOlder, refreshUnread, receivedIDs, applyRealtime, applyRealtimeBatch, markLoadedRead, dispose }
 }

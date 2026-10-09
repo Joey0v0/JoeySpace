@@ -16,6 +16,8 @@
 
 Vue agent 先完成计划步骤 2—3；主 agent 已实现步骤 1、4 的后端票据与代理（`7ef2a83`）；实时 agent 在独立模块完成步骤 5—6 的连接/帧状态基础。页面接线由主 agent 在审查两个执行分支后集成。任何 agent 不自行合 main、推送或部署。当前仅记录分工，不表示整体功能已完成。
 
+本批交付更新：Vue `e6624a3`、修复 `b92445f` 分别集成 `940901a`、`471a399`；实时 `bb2be11` 集成 `040d354`；主 agent 票据 `7ef2a83`、来源兼容 `9b99dcf`、页面/离线/样式 `52dd4fd`。两个执行 agent 均只改约定目录，提交后工作区干净；主 agent 未合 main。独立审查发现并修复持久消息先于 ACK 的竞态；全仓 Go、53 项前端统一测试、类型检查/构建及本机 Chrome 替身流程结果见[F3 审查](frontend-f3-review.md)。F10/F11 和真实部署后续。
+
 ## 前端 F2 执行记录（2026-10-09）
 
 用户审查[完整方案](frontend-f2-navigation-design.md)后回复“没啥问题，继续”。主 agent 从 F1 `e75c322` 建 `codex/frontend-f2-navigation`，提交共同协议与[接口契约](frontend-f2-api-contract.md) `df8fc09`，从同一提交建立三个干净 worktree；协议、生成代码、Gateway、依赖、共同文档和集成仅由主 agent 负责。各执行 agent 不自行合并 main、推送、部署或更改迁移。

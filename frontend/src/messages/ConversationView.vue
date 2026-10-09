@@ -59,8 +59,12 @@ function atBottom() {
   return !element || element.scrollHeight - element.scrollTop - element.clientHeight < 80
 }
 async function applyChat(chat: TextChat) {
+  return applyOffline([chat])
+}
+async function applyOffline(chats: TextChat[]) {
   const follow = atBottom()
-  if (!history.applyRealtime(chat)) return false
+  const applied = history.applyRealtimeBatch(chats)
+  if (!applied) return false
   if (follow) { await nextTick(); if (scrollElement.value) scrollElement.value.scrollTop = scrollElement.value.scrollHeight }
   else hasNew.value = true
   void history.refreshUnread()
@@ -86,7 +90,7 @@ function keydown(event: KeyboardEvent) {
   event.preventDefault()
   emit('send')
 }
-defineExpose({ applyChat, refreshFromServer, checkPersisted })
+defineExpose({ applyChat, applyOffline, refreshFromServer, checkPersisted })
 function sender(message: ChatMessage) {
   if (message.sender_type === 2) return '机器人'
   if (message.from_id === props.ownId) return '我'
