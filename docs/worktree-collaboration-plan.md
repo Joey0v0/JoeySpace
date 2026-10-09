@@ -4,6 +4,19 @@
 
 本方案中的 Agent 指参与项目开发的 Codex agent，与项目运行时的 Eino Agent 服务不同。依据 [项目计划](project-plan.md)、[负责人方案](agent-assignee-design.md)和现行 [AGENTS.md](../AGENTS.md)。方案讨论时仅新增本文；用户随后明确要求按方案执行，已将协作要求加入 AGENTS.md，准备共同契约。实际进展另见本文第 9 节。
 
+## 前端 F2 执行记录（2026-10-09）
+
+用户审查[完整方案](frontend-f2-navigation-design.md)后回复“没啥问题，继续”。主 agent 从 F1 `e75c322` 建 `codex/frontend-f2-navigation`，提交共同协议与[接口契约](frontend-f2-api-contract.md) `df8fc09`，从同一提交建立三个干净 worktree；协议、生成代码、Gateway、依赖、共同文档和集成仅由主 agent 负责。各执行 agent 不自行合并 main、推送、部署或更改迁移。
+
+| 角色 | 绝对工作目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 主 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f2-navigation` | `codex/frontend-f2-navigation` | proto/pb、`api/`、`frontend/package.json` 和 `vite.config.ts`、文档及集成 |
+| User agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f2-user` | `codex/frontend-f2-user` | `rpc/user/` 非 proto/pb 的本人团队、显示名实现和测试 |
+| IM agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f2-im` | `codex/frontend-f2-im` | `rpc/im/` 非 proto/pb 的群目录/详情、持久私聊目录/详情实现和测试 |
+| Vue agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f2-vue` | `codex/frontend-f2-vue` | `frontend/src/` 的认证、导航、组件及业务测试 |
+
+本批按[八任务计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)计数，不按 agent 各算八步。此处记录的是执行分工，不能把正在实施的功能标为已完成。
+
 ## 1. 当前基础与推荐人数
 
 核对时项目实际路径仍为 `D:\zy\GoLang\go-im`；Git 当前分支 `main`，起点提交 `7a717cc`，工作区干净，只有主工作区。上述状态是新增本方案文档之前的状态。已具备共同提交起点，无需再次初始化 Git。
