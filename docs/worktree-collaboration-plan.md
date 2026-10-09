@@ -12,8 +12,9 @@
 | --- | --- | --- | --- |
 | 主 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-chat` | `codex/frontend-f3-chat` | `internal/ws/`、`internal/repository/`、`cmd/ws/`、`frontend/vite.config.ts`、共享协议/生成/迁移/依赖、`docs/` 与最终集成 |
 | Vue 执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-vue` | `codex/frontend-f3-vue` | 仅 `frontend/src/messages/` 中消息历史、当前会话未读/显式确认的实现与测试；不改公共客户端、路由、样式、依赖或文档 |
+| 实时执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-realtime` | `codex/frontend-f3-realtime` | 仅新建 `frontend/src/realtime/` 中 WS 票据连接管理、协议校验、恢复提示与测试；不改消息页面、公共客户端、路由、样式、依赖或文档 |
 
-Vue agent 先完成计划步骤 2—3；主 agent 并行负责步骤 1、4 的后端票据与代理。后续 Vue 发送/恢复是否继续在同一执行分支由主 agent 审查前两步后分配。任何 agent 不自行合 main、推送或部署。当前仅记录分工，不表示实现已完成。
+Vue agent 先完成计划步骤 2—3；主 agent 已实现步骤 1、4 的后端票据与代理（`7ef2a83`）；实时 agent 在独立模块完成步骤 5—6 的连接/帧状态基础。页面接线由主 agent 在审查两个执行分支后集成。任何 agent 不自行合 main、推送或部署。当前仅记录分工，不表示整体功能已完成。
 
 ## 前端 F2 执行记录（2026-10-09）
 
