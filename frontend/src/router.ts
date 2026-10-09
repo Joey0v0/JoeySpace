@@ -3,7 +3,7 @@ import MessagesPage from './messages/MessagesPage.vue'
 import TaskPreview from './TaskPreview.vue'
 import LoginPage from './auth/LoginPage.vue'
 import { session, restoreSession } from './auth/session.ts'
-import { verifySession, StaleRequestError } from './api/client.ts'
+import { verification } from './auth/verification.ts'
 
 restoreSession()
 export const router = createRouter({
@@ -25,7 +25,9 @@ export const router = createRouter({
 router.beforeEach(async to => {
   if (to.path === '/login') return true
   if (!session.token()) return '/login'
-  try { await verifySession(); return true }
-  catch (error) { if (error instanceof StaleRequestError) return false; return '/login' }
+  const result = await verification.check(to.fullPath)
+  if (result === 'login') return '/login'
+  if (result === 'stale') return false
+  return true
 })
 session.subscribe(() => { if (!session.token()) void router.replace('/login') })
