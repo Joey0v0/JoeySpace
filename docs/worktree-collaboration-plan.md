@@ -17,6 +17,8 @@
 
 本批按[八任务计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)计数，不按 agent 各算八步。此处记录的是执行分工，不能把正在实施的功能标为已完成。
 
+本批集成记录：共同 `df8fc09` → Gateway `99bee05` → User `fe5cbbe`（集成 `575c37d`）→ IM 群 `52cbd82`（集成 `1021ac5`）、私聊 `130909f`（集成 `6a2895a`）、撤权测试 `0577e45`（集成 `e947f1f`）→ Vue 登录 `fa761a1`（集成 `b775503`）、导航 `29c4cce`（集成 `b246573`）、入群/撤权/刷新修复 `d99f360`、`5c2f2c3`、`f3cf4eb`（集成 `77ceabc`、`4f4f282`、`5ce321e`）。主 agent 另负责 `api/frontend_f2_flow_test.go`、Vite 代理与完整 npm 测试脚本；执行 agent 未越界修改协议、生成代码、迁移、依赖或共同文档，未自行合 main/推送。完整验证及限制见[项目计划](project-plan.md)顶部 F2 进展。三个执行 worktree 保留，方便追溯与用户审查。
+
 ## 1. 当前基础与推荐人数
 
 核对时项目实际路径仍为 `D:\zy\GoLang\go-im`；Git 当前分支 `main`，起点提交 `7a717cc`，工作区干净，只有主工作区。上述状态是新增本方案文档之前的状态。已具备共同提交起点，无需再次初始化 Git。

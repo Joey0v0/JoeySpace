@@ -17,6 +17,8 @@
 
 前端 F2 实施进展（2026-10-09）：用户已确认上述 F2 方案并要求继续，F06—F08 改为用户已定。主 agent 提交共享 RPC 协议/生成代码与[接口契约](frontend-f2-api-contract.md) `df8fc09`，User、IM、Vue 从该共同提交进入三个独立 worktree；主 agent 的 Gateway 路由和 HTTP 测试提交为 `99bee05`。共享协议与 Gateway 定向测试已通过；各执行分支仍在开发，本段不声称 F2 整体可运行。分工见[协作记录](worktree-collaboration-plan.md#前端-f2-执行记录2026-10-09)。
 
+前端 F2 本地集成验证（2026-10-09）：三个执行分支已在 `codex/frontend-f2-navigation` 集成并经逐项只读审查；发现并修复入群成功无 `data`、群撤权与在途详情竞争、本人资料临时故障丢失深链接。User 提供本人活动团队/有限显示名，IM 提供当前群加入状态与持久私聊目录，Gateway 以 Bearer 转发并在 IM 证实 peer 后补名，Vue 提供真实登录/注册/分页导航及显式入群。全仓 `go test ./... -count=1`、前端 33 项 `npm test`、`npm run build`（含类型检查）、HTTP→实际本机 gRPC 的 Bearer/大 ID/未知 peer 组合测试通过。本地 Chrome 对 mock Gateway 完成登录、团队/私聊导航、显式入群、深链接刷新、503 复核重试、退出及 1280×720/1440×900/1920×1080 无横向溢出检查；截图已人工查看。headless CDP 本次未将 Enter 事件投递至焦点控件，真实键盘激活未验收。Docker daemon 不可用，F2 SQL 仍只有替身验证，真实 MySQL/EXPLAIN、双账号真实服务链、云端部署均未验收；不据此选择新索引或把 F3 聊天阅读/未读标为完成。F1/main 未合并或部署，用户审查本集成分支后再决定合 main。
+
 当前交付说明（2026-10-07）：既定功能源码已合入本地 `main`，三个执行 worktree 均干净，暂无待合并成果。当前 GitHub 同步状态以实时 Git 查询为准，不把某次提交差额写成永久状态。部署者按照[项目首页](../README.md#快速开始)和[部署指南](../deploy/README.md#从仓库部署当前版本)填写自己的配置、处理新库或已有库、启动服务并完成[验收清单](stage7-acceptance.md)。下方按时间记录的“未合并 main”“下一步接线”“无 Docker”等表述是历史快照；历史实现来源不作为当前产品的对外定位。
 
 云端基础联调（2026-10-08）：用户的新阿里云空库基础 Compose 已通过双账号注册登录、团队/入群、跨账号任务状态与持久通知/已读。首次脚本的单聊在线投递超时；日志确认 WS 已写 Kafka、主题有两条消息，Push 启动早于主题创建且未消费。只重启 Push 后两条均被消费并入库，符合 kafka-go 首次空分区分配问题；再次运行脚本已获得 `PASS`，实测单聊 WebSocket→Kafka→Push→WebSocket 在线送达。聊天、Agent触发和任务通知三个 Reader 已准备相同的 `WatchPartitionChanges` 修复，并记录[备选及边界](architecture-decisions.md#架构与技术选型记录)；本地相关 Go 检查通过，但新 Reader 版本尚未部署到云端，首次建主题恢复行为也尚未复验。Agent、团队群专用核权与实时通知覆盖仍未启用；阶段7不标完整通过。
