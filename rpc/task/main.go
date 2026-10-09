@@ -70,7 +70,8 @@ func main() {
 	if err != nil {
 		log.Fatal("invalid TASK_SNOWFLAKE_NODE_ID")
 	}
-	impl := &taskServer{db: db, idNode: idNode, teamClient: userpb.NewUserClient(conn), imClient: imClient}
+	userClient := userpb.NewUserClient(conn)
+	impl := &taskServer{db: db, idNode: idNode, teamClient: userClient, identityClient: userClient, teamDirectory: userClient, imClient: imClient}
 	c = rpcauth.WithoutRPCRequestContent(c, &pb.Task_ServiceDesc)
 	s := zrpc.MustNewServer(c, func(server *grpc.Server) {
 		pb.RegisterTaskServer(server, impl)

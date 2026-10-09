@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/bwmarrin/snowflake"
@@ -31,10 +32,17 @@ const maxTaskDueAtUnixMs int64 = 253402300799999 // 9999-12-31 23:59:59.999 UTC
 
 type taskServer struct {
 	pb.UnimplementedTaskServer
-	db         *gorm.DB
-	idNode     *snowflake.Node
-	teamClient teamChecker
-	imClient   interface {
+	db             *gorm.DB
+	idNode         *snowflake.Node
+	teamClient     teamChecker
+	identityClient interface {
+		GetMyInfo(context.Context, *userpb.GetMyInfoRequest, ...grpc.CallOption) (*userpb.GetUserInfoResponse, error)
+	}
+	teamDirectory interface {
+		ListMyTeams(context.Context, *userpb.ListMyTeamsRequest, ...grpc.CallOption) (*userpb.ListMyTeamsResponse, error)
+	}
+	now      func() time.Time
+	imClient interface {
 		CheckTeamGroupMessage(context.Context, *impb.CheckTeamGroupMessageRequest, ...grpc.CallOption) (*impb.CheckTeamGroupMessageResponse, error)
 	}
 }
