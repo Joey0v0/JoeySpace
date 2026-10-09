@@ -33,6 +33,7 @@ const (
 	IM_GetMyDirectConversation_FullMethodName   = "/im.IM/GetMyDirectConversation"
 	IM_GetDirectUnread_FullMethodName           = "/im.IM/GetDirectUnread"
 	IM_MarkDirectMessagesRead_FullMethodName    = "/im.IM/MarkDirectMessagesRead"
+	IM_ListMyUnreadConversations_FullMethodName = "/im.IM/ListMyUnreadConversations"
 	IM_CheckTeamGroupMessage_FullMethodName     = "/im.IM/CheckTeamGroupMessage"
 	IM_ListOfflineMessages_FullMethodName       = "/im.IM/ListOfflineMessages"
 	IM_AckOfflineMessages_FullMethodName        = "/im.IM/AckOfflineMessages"
@@ -70,6 +71,8 @@ type IMClient interface {
 	GetDirectUnread(ctx context.Context, in *GetDirectUnreadRequest, opts ...grpc.CallOption) (*GetDirectUnreadResponse, error)
 	// 本人显式确认该对方发来的具体消息。
 	MarkDirectMessagesRead(ctx context.Context, in *MarkDirectMessagesReadRequest, opts ...grpc.CallOption) (*MarkDirectMessagesReadResponse, error)
+	// 本人当前可读的跨群/私聊未读会话；由 IM 统一计算，按消息快照分页。
+	ListMyUnreadConversations(ctx context.Context, in *ListMyUnreadConversationsRequest, opts ...grpc.CallOption) (*ListMyUnreadConversationsResponse, error)
 	// 核对当前用户可访问指定团队群中的来源消息，供任务服务建立引用。
 	CheckTeamGroupMessage(ctx context.Context, in *CheckTeamGroupMessageRequest, opts ...grpc.CallOption) (*CheckTeamGroupMessageResponse, error)
 	// 从 authorization metadata 确定本人，只读拉取尚未确认的离线消息。
@@ -226,6 +229,16 @@ func (c *iMClient) MarkDirectMessagesRead(ctx context.Context, in *MarkDirectMes
 	return out, nil
 }
 
+func (c *iMClient) ListMyUnreadConversations(ctx context.Context, in *ListMyUnreadConversationsRequest, opts ...grpc.CallOption) (*ListMyUnreadConversationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMyUnreadConversationsResponse)
+	err := c.cc.Invoke(ctx, IM_ListMyUnreadConversations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *iMClient) CheckTeamGroupMessage(ctx context.Context, in *CheckTeamGroupMessageRequest, opts ...grpc.CallOption) (*CheckTeamGroupMessageResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CheckTeamGroupMessageResponse)
@@ -288,6 +301,8 @@ type IMServer interface {
 	GetDirectUnread(context.Context, *GetDirectUnreadRequest) (*GetDirectUnreadResponse, error)
 	// 本人显式确认该对方发来的具体消息。
 	MarkDirectMessagesRead(context.Context, *MarkDirectMessagesReadRequest) (*MarkDirectMessagesReadResponse, error)
+	// 本人当前可读的跨群/私聊未读会话；由 IM 统一计算，按消息快照分页。
+	ListMyUnreadConversations(context.Context, *ListMyUnreadConversationsRequest) (*ListMyUnreadConversationsResponse, error)
 	// 核对当前用户可访问指定团队群中的来源消息，供任务服务建立引用。
 	CheckTeamGroupMessage(context.Context, *CheckTeamGroupMessageRequest) (*CheckTeamGroupMessageResponse, error)
 	// 从 authorization metadata 确定本人，只读拉取尚未确认的离线消息。
@@ -345,6 +360,9 @@ func (UnimplementedIMServer) GetDirectUnread(context.Context, *GetDirectUnreadRe
 }
 func (UnimplementedIMServer) MarkDirectMessagesRead(context.Context, *MarkDirectMessagesReadRequest) (*MarkDirectMessagesReadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MarkDirectMessagesRead not implemented")
+}
+func (UnimplementedIMServer) ListMyUnreadConversations(context.Context, *ListMyUnreadConversationsRequest) (*ListMyUnreadConversationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListMyUnreadConversations not implemented")
 }
 func (UnimplementedIMServer) CheckTeamGroupMessage(context.Context, *CheckTeamGroupMessageRequest) (*CheckTeamGroupMessageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckTeamGroupMessage not implemented")
@@ -628,6 +646,24 @@ func _IM_MarkDirectMessagesRead_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IM_ListMyUnreadConversations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMyUnreadConversationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMServer).ListMyUnreadConversations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IM_ListMyUnreadConversations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMServer).ListMyUnreadConversations(ctx, req.(*ListMyUnreadConversationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _IM_CheckTeamGroupMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CheckTeamGroupMessageRequest)
 	if err := dec(in); err != nil {
@@ -744,6 +780,10 @@ var IM_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MarkDirectMessagesRead",
 			Handler:    _IM_MarkDirectMessagesRead_Handler,
+		},
+		{
+			MethodName: "ListMyUnreadConversations",
+			Handler:    _IM_ListMyUnreadConversations_Handler,
 		},
 		{
 			MethodName: "CheckTeamGroupMessage",

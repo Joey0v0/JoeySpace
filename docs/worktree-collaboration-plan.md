@@ -18,6 +18,19 @@ Vue agent 先完成计划步骤 2—3；主 agent 已实现步骤 1、4 的后�
 
 本批交付更新：Vue `e6624a3`、修复 `b92445f` 分别集成 `940901a`、`471a399`；实时 `bb2be11` 集成 `040d354`；主 agent 票据 `7ef2a83`、来源兼容 `9b99dcf`、页面/离线/样式 `52dd4fd`。两个执行 agent 均只改约定目录，提交后工作区干净；主 agent 未合 main。独立审查发现并修复持久消息先于 ACK 的竞态；全仓 Go、53 项前端统一测试、类型检查/构建及本机 Chrome 替身流程结果见[F3 审查](frontend-f3-review.md)。F10/F11 和真实部署后续。
 
+## 前端 F3 第二批 F10 分工（2026-10-09）
+
+用户已审查通过第一批并要求继续。主 agent 统一持有 `rpc/im/im.proto`、`rpc/im/pb/`、迁移、共享文档、F11 受控协议及最终集成。三个 F10 执行 agent 从同一共享契约提交建立独立分支，不合 main、不推送、不修改共同协议或依赖；全体小步合计不超过九步。
+
+| 角色 | 绝对工作目录 | 分支 | 允许文件 |
+| --- | --- | --- | --- |
+| 主 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-chat` | `codex/frontend-f3-chat` | 共享协议/生成、迁移、F11 后端边界、`docs/` 与整合 |
+| IM F10 执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-overview-im` | `codex/frontend-f3-overview-im` | 仅 `rpc/im/` 内非 proto/pb 的 F10 未读摘要实现与测试 |
+| Gateway F10 执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-overview-api` | `codex/frontend-f3-overview-api` | 仅 `api/` 内 F10 HTTP 处理器、路由与测试 |
+| Vue F10 执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f3-overview-vue` | `codex/frontend-f3-overview-vue` | 仅 `frontend/src/messages/` 内 F10 总览模型、页面与测试 |
+
+F11 的实际写入链经用户选择保留 Push，详见[第二批契约](frontend-f3-overview-contract.md)。三个执行 agent 不改 F11；主 agent 在 F10 集成后再逐步实现 F11。
+
 ## 前端 F2 执行记录（2026-10-09）
 
 用户审查[完整方案](frontend-f2-navigation-design.md)后回复“没啥问题，继续”。主 agent 从 F1 `e75c322` 建 `codex/frontend-f2-navigation`，提交共同协议与[接口契约](frontend-f2-api-contract.md) `df8fc09`，从同一提交建立三个干净 worktree；协议、生成代码、Gateway、依赖、共同文档和集成仅由主 agent 负责。各执行 agent 不自行合并 main、推送、部署或更改迁移。

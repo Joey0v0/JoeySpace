@@ -35,6 +35,8 @@ service IM {
   rpc GetDirectUnread(GetDirectUnreadRequest) returns (GetDirectUnreadResponse);
   // 本人显式确认该对方发来的具体消息。
   rpc MarkDirectMessagesRead(MarkDirectMessagesReadRequest) returns (MarkDirectMessagesReadResponse);
+  // 本人当前可读的跨群/私聊未读会话；由 IM 统一计算，按消息快照分页。
+  rpc ListMyUnreadConversations(ListMyUnreadConversationsRequest) returns (ListMyUnreadConversationsResponse);
   // 核对当前用户可访问指定团队群中的来源消息，供任务服务建立引用。
   rpc CheckTeamGroupMessage(CheckTeamGroupMessageRequest) returns (CheckTeamGroupMessageResponse);
   // 从 authorization metadata 确定本人，只读拉取尚未确认的离线消息。
@@ -86,6 +88,7 @@ message TeamGroupMessage {
   // from_id refers to a user or bot according to sender_type.
   int32 sender_type = 7;
   int64 initiator_id = 8;
+  repeated int64 mentioned_user_ids = 9; // 仅经核验的新消息；旧消息为空。
 }
 
 message ListTeamGroupMessagesResponse {
@@ -195,6 +198,32 @@ message DirectMessage {
   int32 content_type = 5;
   string content = 6;
   int64 created_at_unix_ms = 7;
+}
+
+message ListMyUnreadConversationsRequest {
+  int64 snapshot_upper_message_id = 1; // 首次为 0；后续原样回传。
+  int64 before_last_message_id = 2; // 首次为 0；后续使用上一页游标。
+  int32 limit = 3; // 默认 20，最大 50。
+  bool mentions_only = 4; // 仅返回有未读结构化提及的群会话。
+}
+
+message UnreadConversation {
+  int32 chat_type = 1; // 1: 私聊，2: 团队群。
+  int64 team_id = 2; // 仅团队群。
+  int64 group_id = 3; // 仅团队群。
+  int64 peer_id = 4; // 仅私聊。
+  string group_name = 5; // IM 内部群名；私聊显示名由 Gateway 补充。
+  int64 last_message_id = 6;
+  int64 last_message_time_unix_ms = 7;
+  string preview = 8; // 最新持久消息的有限纯文本预览。
+  int64 unread_count = 9;
+  int64 mention_unread_count = 10;
+}
+
+message ListMyUnreadConversationsResponse {
+  repeated UnreadConversation conversations = 1;
+  int64 snapshot_upper_message_id = 2;
+  int64 next_before_last_message_id = 3;
 }
 
 message ListDirectMessagesResponse {
