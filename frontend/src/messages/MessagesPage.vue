@@ -19,6 +19,7 @@ watch(key, value => { void directory.select(value) }, { immediate: true })
 void directory.loadTeams()
 void directory.loadDirects()
 onUnmounted(directory.dispose)
+function revokeCurrent() { state.current = null; state.detailError = '当前账号已无权访问这个会话' }
 </script>
 <template>
   <main class="messages-layout">
@@ -27,7 +28,7 @@ onUnmounted(directory.dispose)
       <div class="sample-ribbon" role="note">{{ currentProfile?.nickname || currentProfile?.username }} · 真实会话导航</div>
       <UnreadOverview v-if="!key" />
       <section v-else-if="state.detailLoading" class="unavailable-state" role="status"><h1>正在复核会话…</h1><p>按当前登录身份检查访问权限。</p></section>
-      <ConversationView v-else-if="state.current" :conversation="state.current" :joining="state.joining" :error="state.detailError" @join="directory.joinCurrent" />
+      <ConversationView v-else-if="state.current" :key="state.current.key" :conversation="state.current" :own-id="currentProfile?.id || ''" :joining="state.joining" :error="state.detailError" @join="directory.joinCurrent" @revoked="revokeCurrent" />
       <section v-else class="unavailable-state">
         <div class="empty-symbol" aria-hidden="true">?</div><h1>会话暂时无法打开</h1>
         <p role="alert">{{ state.detailError || '请从左侧选择会话' }}</p>
