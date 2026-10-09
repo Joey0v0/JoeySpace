@@ -13,7 +13,7 @@ import (
 )
 
 func overviewRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"chat_type", "team_id", "group_id", "peer_id", "last_message_id", "unread_count", "closed_generation", "content", "content_type", "created_at"})
+	return sqlmock.NewRows([]string{"chat_type", "team_id", "group_id", "peer_id", "group_name", "last_message_id", "unread_count", "closed_generation", "content", "content_type", "created_at"})
 }
 
 func TestListMyUnreadConversationsSkipsRevokedCandidatesWithoutLosingPage(t *testing.T) {
@@ -30,9 +30,9 @@ func TestListMyUnreadConversationsSkipsRevokedCandidatesWithoutLosingPage(t *tes
 	m.ExpectQuery("SELECT c.chat_type").
 		WithArgs(int64(42), int64(42), int64(42), int64(1000), int64(42), int64(42), int64(42), int64(42), int64(42), int64(42), int64(1000), int64(42), int64(0), int64(0), 51).
 		WillReturnRows(overviewRows().
-			AddRow(2, 100, 10, 0, 99, 4, 0, "secret", 1, now).
-			AddRow(1, 0, 0, 77, 98, 2, 0, "hello", 1, now).
-			AddRow(2, 200, 20, 0, 97, 1, 0, "visible", 1, now))
+			AddRow(2, 100, 10, 0, "private", 99, 4, 0, "secret", 1, now).
+			AddRow(1, 0, 0, 77, "", 98, 2, 0, "hello", 1, now).
+			AddRow(2, 200, 20, 0, "工作群", 97, 1, 0, "visible", 1, now))
 	got, err := s.ListMyUnreadConversations(teamGroupListContext(t), &pb.ListMyUnreadConversationsRequest{SnapshotUpperMessageId: 1000, Limit: 1})
 	if err != nil || len(got.GetConversations()) != 1 || got.GetConversations()[0].GetPeerId() != 77 || got.GetNextBeforeLastMessageId() != 98 {
 		t.Fatalf("page after revoked group: %v %v", got, err)
@@ -48,7 +48,7 @@ func TestListMyUnreadConversationsGroupFenceAndFinalRecheck(t *testing.T) {
 	s.teamClient = directoryTeamClient{generation: func() int64 { calls++; return 2 }}
 	now := time.Unix(100, 0)
 	m.ExpectQuery("SELECT c.chat_type").WillReturnRows(overviewRows().
-		AddRow(2, 200, 20, 0, 98, 2, 1, "visible", 1, now))
+		AddRow(2, 200, 20, 0, "工作群", 98, 2, 1, "visible", 1, now))
 	m.ExpectQuery("SELECT gm.group_id, g.team_id").WithArgs(int64(42), int64(20)).
 		WillReturnRows(sqlmock.NewRows([]string{"group_id", "team_id", "closed_generation"}).AddRow(20, 200, 1))
 	got, err := s.ListMyUnreadConversations(teamGroupListContext(t), &pb.ListMyUnreadConversationsRequest{SnapshotUpperMessageId: 1000})
@@ -70,12 +70,12 @@ func TestListMyUnreadConversationsScansPastFullRevokedBatch(t *testing.T) {
 	now := time.Unix(100, 0)
 	rows := overviewRows()
 	for id := 100; id >= 50; id-- {
-		rows.AddRow(2, 100, id, 0, id, 1, 0, "revoked", 1, now)
+		rows.AddRow(2, 100, id, 0, "撤权群", id, 1, 0, "revoked", 1, now)
 	}
 	m.ExpectQuery("SELECT c.chat_type").WillReturnRows(rows)
 	m.ExpectQuery("SELECT c.chat_type").
 		WithArgs(int64(42), int64(42), int64(42), int64(1000), int64(42), int64(42), int64(42), int64(42), int64(42), int64(42), int64(1000), int64(42), int64(50), int64(50), 51).
-		WillReturnRows(overviewRows().AddRow(1, 0, 0, 77, 49, 1, 0, "direct", 1, now))
+		WillReturnRows(overviewRows().AddRow(1, 0, 0, 77, "", 49, 1, 0, "direct", 1, now))
 	got, err := s.ListMyUnreadConversations(teamGroupListContext(t), &pb.ListMyUnreadConversationsRequest{SnapshotUpperMessageId: 1000, Limit: 1})
 	if err != nil || len(got.GetConversations()) != 1 || got.GetConversations()[0].GetPeerId() != 77 || calls != 1 {
 		t.Fatalf("scan result: %v %v calls=%d", got, err, calls)
@@ -86,7 +86,7 @@ func TestListMyUnreadConversationsDiscardsPageOnFinalFenceChange(t *testing.T) {
 	s, m := testIMServer(t)
 	s.teamClient = directoryTeamClient{generation: func() int64 { return 2 }}
 	m.ExpectQuery("SELECT c.chat_type").WillReturnRows(overviewRows().
-		AddRow(2, 200, 20, 0, 98, 2, 0, "private", 1, time.Unix(100, 0)))
+		AddRow(2, 200, 20, 0, "工作群", 98, 2, 0, "private", 1, time.Unix(100, 0)))
 	m.ExpectQuery("SELECT gm.group_id, g.team_id").
 		WillReturnRows(sqlmock.NewRows([]string{"group_id", "team_id", "closed_generation"}).AddRow(20, 200, 2))
 	got, err := s.ListMyUnreadConversations(teamGroupListContext(t), &pb.ListMyUnreadConversationsRequest{SnapshotUpperMessageId: 1000})

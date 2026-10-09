@@ -6,6 +6,7 @@ import (
 	"time"
 	"unicode"
 
+	snowflake "github.com/bwmarrin/snowflake"
 	"github.com/yjydist/go-im/rpc/im/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,11 +15,11 @@ import (
 // The two arms compute authoritative per-message unread counts in a single
 // database query. A conversation's position is its latest message within the
 // fixed upper bound, including messages the reader already acknowledged.
-const unreadConversationCandidatesSQL = `SELECT c.chat_type, c.team_id, c.group_id, c.peer_id,
+const unreadConversationCandidatesSQL = `SELECT c.chat_type, c.team_id, c.group_id, c.peer_id, c.group_name,
  c.last_message_id, c.unread_count, c.closed_generation, m.content, m.content_type, m.created_at
 FROM (
  SELECT 1 AS chat_type, 0 AS team_id, 0 AS group_id,
-  IF(m.from_id = ?, m.to_id, m.from_id) AS peer_id,
+  IF(m.from_id = ?, m.to_id, m.from_id) AS peer_id, '' AS group_name,
   MAX(m.id) AS last_message_id,
   SUM(IF(m.to_id = ? AND NOT EXISTS (
    SELECT 1 FROM im_direct_message_reads AS r
@@ -30,7 +31,7 @@ FROM (
    (m.to_id = ? AND m.from_id > 0 AND m.from_id <> ?))
  GROUP BY peer_id HAVING unread_count > 0
  UNION ALL
- SELECT 2 AS chat_type, g.team_id, g.id AS group_id, 0 AS peer_id,
+ SELECT 2 AS chat_type, g.team_id, g.id AS group_id, 0 AS peer_id, g.name AS group_name,
   MAX(m.id) AS last_message_id,
   SUM(IF(NOT (m.sender_type IN (0, 1) AND m.from_id = ?) AND NOT EXISTS (
    SELECT 1 FROM im_group_message_reads AS r
@@ -41,19 +42,18 @@ FROM (
  JOIN messages AS m ON m.chat_type = 2 AND m.to_id = g.id AND m.id <= ?
  LEFT JOIN im_team_group_fences AS f ON f.team_id = g.team_id AND f.user_id = gm.user_id
  WHERE gm.user_id = ?
- GROUP BY g.team_id, g.id, f.closed_through_generation HAVING unread_count > 0
+ GROUP BY g.team_id, g.id, g.name, f.closed_through_generation HAVING unread_count > 0
 ) AS c
 JOIN messages AS m ON m.id = c.last_message_id
 WHERE (? = 0 OR c.last_message_id < ?)
 ORDER BY c.last_message_id DESC LIMIT ?`
-
-const unreadConversationUpperSQL = "SELECT COALESCE(MAX(id), 0) AS upper_id FROM messages"
 
 type unreadConversationCandidate struct {
 	ChatType         int32
 	TeamID           int64
 	GroupID          int64
 	PeerID           int64
+	GroupName        string
 	LastMessageID    int64
 	UnreadCount      int64
 	ClosedGeneration int64
@@ -80,11 +80,14 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 	}
 	upper := req.GetSnapshotUpperMessageId()
 	if upper == 0 {
-		var row struct{ UpperID int64 }
-		if err := s.db.WithContext(ctx).Raw(unreadConversationUpperSQL).Scan(&row).Error; err != nil {
-			return nil, groupUnreadDBError(ctx)
+		// Capture an ID ceiling at request time without exposing a global MAX(id)
+		// from conversations the caller cannot read. Snowflake's lower bits cover
+		// every node and sequence value in this millisecond.
+		upper = ((time.Now().UnixMilli() - snowflake.Epoch) << (snowflake.NodeBits + snowflake.StepBits)) |
+			((1 << (snowflake.NodeBits + snowflake.StepBits)) - 1)
+		if upper <= 0 {
+			return nil, status.Error(codes.Unavailable, "unread snapshot unavailable")
 		}
-		upper = row.UpperID
 	}
 	result := &pb.ListMyUnreadConversationsResponse{Conversations: make([]*pb.UnreadConversation, 0), SnapshotUpperMessageId: upper}
 	if upper == 0 {
@@ -119,7 +122,7 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 			}
 			before = row.LastMessageID
 			if row.ChatType == 2 {
-				if row.TeamID <= 0 || row.GroupID <= 0 || row.PeerID != 0 || row.ClosedGeneration < 0 {
+				if row.TeamID <= 0 || row.GroupID <= 0 || row.PeerID != 0 || row.GroupName == "" || row.ClosedGeneration < 0 {
 					return nil, groupUnreadDBError(ctx)
 				}
 				state, known := teams[row.TeamID]
@@ -137,7 +140,7 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 				if !state.allowed || state.generation <= row.ClosedGeneration {
 					continue
 				}
-			} else if row.ChatType != 1 || row.PeerID <= 0 || row.GroupID != 0 || row.TeamID != 0 {
+			} else if row.ChatType != 1 || row.PeerID <= 0 || row.GroupID != 0 || row.TeamID != 0 || row.GroupName != "" {
 				return nil, groupUnreadDBError(ctx)
 			}
 			if len(result.Conversations) == limit {
@@ -146,7 +149,7 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 			}
 			result.Conversations = append(result.Conversations, &pb.UnreadConversation{
 				ChatType: row.ChatType, TeamId: row.TeamID, GroupId: row.GroupID,
-				PeerId: row.PeerID, LastMessageId: row.LastMessageID,
+				PeerId: row.PeerID, GroupName: row.GroupName, LastMessageId: row.LastMessageID,
 				LastMessageTimeUnixMs: row.CreatedAt.UnixMilli(),
 				Preview:               unreadPreview(row.Content, row.ContentType), UnreadCount: row.UnreadCount,
 			})

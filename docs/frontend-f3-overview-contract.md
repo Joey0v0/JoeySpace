@@ -6,7 +6,7 @@
 
 - `IM.ListMyUnreadConversations` 只从 Bearer metadata 确定本人，不接受 `user_id`。请求 `snapshot_upper_message_id`、`before_last_message_id` 为十进制正数或 0，`limit` 默认 20、最大 50，`mentions_only` 为布尔值。第一页两个游标均为 0；续页须原样传回上界和上一页的 `next_before_last_message_id`。
 - IM 只返回本人目前有权读取的团队群、本人持久私聊；未加入或已离开的群不得出现在响应。每行有 `chat_type`、群的 `team_id/group_id/group_name` 或私聊的 `peer_id`、快照内 `last_message_id`、有限纯文本预览及时间、`unread_count`、`mention_unread_count`。群普通本人消息不计未读，机器人计入；私聊只计对方发给本人。阅读状态沿用已有逐消息记录，离线 ACK 不影响结果。
-- 页面按 `last_message_id DESC` 跨类型分页。上界固定消息集合；后续新消息不进入旧快照。显式已读、离队、撤权仍会使后续页行消失，页面提供刷新从第一页重建，不承诺跨请求数据库事务快照。
+- 页面按 `last_message_id DESC` 跨类型分页。首屏记录当前时刻的 Snowflake 消息 ID 上界，不读取全库最大 ID；通常的新消息不进入旧页。用户选择此轻量语义：较小 ID 的迟提交消息理论上仍可能进入后页，不承诺跨请求固定行集或数据库事务快照。显式已读、离队、撤权仍会使后续页行消失，页面提供刷新从第一页重建。
 - Gateway `GET /api/v1/messages/unread-conversations` 使用同名蛇形查询参数和 Bearer，转发 IM，按已有 User `BatchGetConversationDisplayNames` 仅为本页私聊补显示名。所有整数 ID 和计数以字符串返回，空列表是成功；IM/User 错误不伪装成“全部已读”。`mentions_only=1` 只用于结构化提及未读群。
 - IM 查询不能在仅已加载目录上循环 N 次现有 `/unread` 冒充总览。真实 MySQL 执行计划和索引选择须在迁移前另审；本批先用已有消息/阅读索引和有限页，上线前实测查询计划。
 
