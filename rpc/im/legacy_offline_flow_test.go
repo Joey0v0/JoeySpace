@@ -165,6 +165,8 @@ func TestLegacyOfflineHTTPProductionRPCPreservesStringIDsAndBotCard(t *testing.T
 	mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(groupID, int64(42), 1).
 		WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
 	expectTeamGroupReadFence(mock, groupID, 42, 200, nil, true)
+	mock.ExpectQuery("SELECT message_id, mentioned_user_id FROM `im_group_message_mentions`").WithArgs(int64(9007199254740995)).
+		WillReturnRows(sqlmock.NewRows([]string{"message_id", "mentioned_user_id"}))
 	teamCalls := 0
 	impl.teamClient = teamCheckFunc(func(ctx context.Context, req *userpb.CheckTeamMemberRequest) error {
 		teamCalls++
@@ -212,6 +214,8 @@ func TestLegacyOfflineHTTPFiltersRevokedTeamAndRestoresRetainedMessage(t *testin
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(int64(200)))
 		if pull == 1 {
 			expectTeamGroupReadFence(mock, 302, 42, 200, nil, true)
+			mock.ExpectQuery("SELECT message_id, mentioned_user_id FROM `im_group_message_mentions`").WithArgs(int64(11)).
+				WillReturnRows(sqlmock.NewRows([]string{"message_id", "mentioned_user_id"}))
 		}
 		response, _ := flow.request(t, http.MethodGet, "/api/v1/message/offline", "", true)
 		messages := legacyOfflineFlowMessages(t, response)

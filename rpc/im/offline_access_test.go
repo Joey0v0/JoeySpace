@@ -53,6 +53,13 @@ func TestOfflinePullFiltersRevokedGroupsAndRechecksAfterRejoin(t *testing.T) {
 		if pull != 1 {
 			expectTeamGroupReadFence(mock, 302, 42, 200, nil, true)
 		}
+		mentionQuery := mock.ExpectQuery("SELECT message_id, mentioned_user_id FROM `im_group_message_mentions`")
+		if pull == 1 {
+			mentionQuery.WithArgs(int64(11))
+		} else {
+			mentionQuery.WithArgs(int64(11), int64(13), int64(14))
+		}
+		mentionQuery.WillReturnRows(sqlmock.NewRows([]string{"message_id", "mentioned_user_id"}))
 		result, err := s.ListOfflineMessages(ctx, &pb.ListOfflineMessagesRequest{})
 		want := 4
 		if pull == 1 {

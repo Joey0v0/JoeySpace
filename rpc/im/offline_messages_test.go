@@ -33,6 +33,8 @@ func TestListOfflineMessagesRPCIsReadOnlyAndScopedToTokenUser(t *testing.T) {
 				AddRow(int64(9007199254740993), "m1", int64(9007199254740994), 2, int64(9007199254740995), int64(300), 2, model.MessageContentTaskCard, cardContent, now))
 		mock.ExpectQuery(regexp.QuoteMeta(memberQuery)).WithArgs(int64(300), int64(42), 1).
 			WillReturnRows(sqlmock.NewRows([]string{"team_id"}).AddRow(nil))
+		mock.ExpectQuery("SELECT message_id, mentioned_user_id FROM `im_group_message_mentions`").WithArgs(int64(9007199254740993)).
+			WillReturnRows(sqlmock.NewRows([]string{"message_id", "mentioned_user_id"}))
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

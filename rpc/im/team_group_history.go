@@ -49,6 +49,14 @@ func (s *imServer) ListTeamGroupMessages(ctx context.Context, req *pb.ListTeamGr
 		rows = rows[:limit]
 		result.NextBeforeMessageId = rows[len(rows)-1].ID
 	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	mentions, err := loadGroupMentionIDs(ctx, s.db, ids)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
 		if row.SenderType == 0 {
 			row.SenderType = model.MessageSenderUser
@@ -57,6 +65,7 @@ func (s *imServer) ListTeamGroupMessages(ctx context.Context, req *pb.ListTeamGr
 			Id: row.ID, MsgId: row.MsgID, FromId: row.FromID,
 			SenderType: int32(row.SenderType), InitiatorId: row.InitiatorID,
 			ContentType: int32(row.ContentType), Content: row.Content, CreatedAtUnixMs: row.CreatedAt.UnixMilli(),
+			MentionedUserIds: mentions[row.ID],
 		})
 	}
 	return result, nil

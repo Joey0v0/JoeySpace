@@ -63,6 +63,19 @@ func (s *imServer) ListOfflineMessages(ctx context.Context, _ *pb.ListOfflineMes
 			Content: message.Content, CreatedAt: timestamppb.New(message.CreatedAt),
 		})
 	}
+	ids := make([]int64, 0, len(result.Messages))
+	for _, message := range result.Messages {
+		if message.GetChatType() == 2 {
+			ids = append(ids, message.GetId())
+		}
+	}
+	mentions, err := loadGroupMentionIDs(ctx, s.db, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, message := range result.Messages {
+		message.MentionedUserIds = mentions[message.GetId()]
+	}
 	return result, nil
 }
 

@@ -16,7 +16,7 @@ import (
 // database query. A conversation's position is its latest message within the
 // fixed upper bound, including messages the reader already acknowledged.
 const unreadConversationCandidatesSQL = `SELECT c.chat_type, c.team_id, c.group_id, c.peer_id, c.group_name,
- c.last_message_id, c.unread_count, c.closed_generation, m.content, m.content_type, m.created_at
+ c.last_message_id, c.unread_count, c.mention_unread_count, c.closed_generation, m.content, m.content_type, m.created_at
 FROM (
  SELECT 1 AS chat_type, 0 AS team_id, 0 AS group_id,
   IF(m.from_id = ?, m.to_id, m.from_id) AS peer_id, '' AS group_name,
@@ -24,7 +24,7 @@ FROM (
   SUM(IF(m.to_id = ? AND NOT EXISTS (
    SELECT 1 FROM im_direct_message_reads AS r
    WHERE r.user_id = ? AND r.peer_id = m.from_id AND r.message_id = m.id), 1, 0)) AS unread_count,
-  0 AS closed_generation
+  0 AS mention_unread_count, 0 AS closed_generation
  FROM messages AS m
  WHERE m.chat_type = 1 AND m.id <= ? AND
   ((m.from_id = ? AND m.to_id > 0 AND m.to_id <> ?) OR
@@ -36,30 +36,35 @@ FROM (
   SUM(IF(NOT (m.sender_type IN (0, 1) AND m.from_id = ?) AND NOT EXISTS (
    SELECT 1 FROM im_group_message_reads AS r
    WHERE r.user_id = ? AND r.group_id = g.id AND r.message_id = m.id), 1, 0)) AS unread_count,
+  SUM(IF(mm.message_id IS NOT NULL AND NOT (m.sender_type IN (0, 1) AND m.from_id = ?) AND NOT EXISTS (
+   SELECT 1 FROM im_group_message_reads AS r
+   WHERE r.user_id = ? AND r.group_id = g.id AND r.message_id = m.id), 1, 0)) AS mention_unread_count,
   COALESCE(f.closed_through_generation, 0) AS closed_generation
  FROM group_members AS gm
  JOIN ` + "`groups`" + ` AS g ON g.id = gm.group_id AND g.team_id > 0
  JOIN messages AS m ON m.chat_type = 2 AND m.to_id = g.id AND m.id <= ?
+ LEFT JOIN im_group_message_mentions AS mm ON mm.message_id = m.id AND mm.group_id = g.id AND mm.mentioned_user_id = ?
  LEFT JOIN im_team_group_fences AS f ON f.team_id = g.team_id AND f.user_id = gm.user_id
  WHERE gm.user_id = ?
  GROUP BY g.team_id, g.id, g.name, f.closed_through_generation HAVING unread_count > 0
 ) AS c
 JOIN messages AS m ON m.id = c.last_message_id
-WHERE (? = 0 OR c.last_message_id < ?)
+WHERE (? = 0 OR c.mention_unread_count > 0) AND (? = 0 OR c.last_message_id < ?)
 ORDER BY c.last_message_id DESC LIMIT ?`
 
 type unreadConversationCandidate struct {
-	ChatType         int32
-	TeamID           int64
-	GroupID          int64
-	PeerID           int64
-	GroupName        string
-	LastMessageID    int64
-	UnreadCount      int64
-	ClosedGeneration int64
-	Content          string
-	ContentType      int32
-	CreatedAt        time.Time
+	ChatType           int32
+	TeamID             int64
+	GroupID            int64
+	PeerID             int64
+	GroupName          string
+	LastMessageID      int64
+	UnreadCount        int64
+	MentionUnreadCount int64
+	ClosedGeneration   int64
+	Content            string
+	ContentType        int32
+	CreatedAt          time.Time
 }
 
 func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMyUnreadConversationsRequest) (*pb.ListMyUnreadConversationsResponse, error) {
@@ -74,9 +79,6 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 	userID, authorization, err := s.authenticatedUser(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if req.GetMentionsOnly() {
-		return nil, status.Error(codes.Unavailable, "mention unread listing is not enabled")
 	}
 	upper := req.GetSnapshotUpperMessageId()
 	if upper == 0 {
@@ -107,22 +109,27 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 	before := req.GetBeforeLastMessageId()
 	for {
 		var rows []unreadConversationCandidate
+		mentionFilter := 0
+		if req.GetMentionsOnly() {
+			mentionFilter = 1
+		}
 		if err := s.db.WithContext(ctx).Raw(unreadConversationCandidatesSQL,
 			userID, userID, userID, upper, userID, userID, userID, userID,
-			userID, userID, upper, userID, before, before, 51).Scan(&rows).Error; err != nil {
+			userID, userID, userID, userID, upper, userID, userID,
+			mentionFilter, before, before, 51).Scan(&rows).Error; err != nil {
 			return nil, groupUnreadDBError(ctx)
 		}
 		if len(rows) == 0 {
 			break
 		}
 		for _, row := range rows {
-			if row.LastMessageID <= 0 || row.UnreadCount <= 0 || row.LastMessageID > upper ||
+			if row.LastMessageID <= 0 || row.UnreadCount <= 0 || row.MentionUnreadCount < 0 || row.MentionUnreadCount > row.UnreadCount || row.LastMessageID > upper ||
 				(before > 0 && row.LastMessageID >= before) {
 				return nil, groupUnreadDBError(ctx)
 			}
 			before = row.LastMessageID
 			if row.ChatType == 2 {
-				if row.TeamID <= 0 || row.GroupID <= 0 || row.PeerID != 0 || row.GroupName == "" || row.ClosedGeneration < 0 {
+				if row.TeamID <= 0 || row.GroupID <= 0 || row.PeerID != 0 || row.GroupName == "" || row.ClosedGeneration < 0 || req.GetMentionsOnly() && row.MentionUnreadCount == 0 {
 					return nil, groupUnreadDBError(ctx)
 				}
 				state, known := teams[row.TeamID]
@@ -140,7 +147,7 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 				if !state.allowed || state.generation <= row.ClosedGeneration {
 					continue
 				}
-			} else if row.ChatType != 1 || row.PeerID <= 0 || row.GroupID != 0 || row.TeamID != 0 || row.GroupName != "" {
+			} else if row.ChatType != 1 || row.PeerID <= 0 || row.GroupID != 0 || row.TeamID != 0 || row.GroupName != "" || row.MentionUnreadCount != 0 || req.GetMentionsOnly() {
 				return nil, groupUnreadDBError(ctx)
 			}
 			if len(result.Conversations) == limit {
@@ -152,6 +159,7 @@ func (s *imServer) ListMyUnreadConversations(ctx context.Context, req *pb.ListMy
 				PeerId: row.PeerID, GroupName: row.GroupName, LastMessageId: row.LastMessageID,
 				LastMessageTimeUnixMs: row.CreatedAt.UnixMilli(),
 				Preview:               unreadPreview(row.Content, row.ContentType), UnreadCount: row.UnreadCount,
+				MentionUnreadCount: row.MentionUnreadCount,
 			})
 		}
 		if result.NextBeforeLastMessageId > 0 || len(rows) < 51 {

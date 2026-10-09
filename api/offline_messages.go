@@ -23,16 +23,17 @@ type offlineMessagesResponse struct {
 }
 
 type offlineMessageData struct {
-	ID          int64     `json:"id,string"`
-	MsgID       string    `json:"msg_id"`
-	FromID      int64     `json:"from_id,string"`
-	SenderType  int32     `json:"sender_type"`
-	InitiatorID int64     `json:"initiator_id,string"`
-	ToID        int64     `json:"to_id,string"`
-	ChatType    int32     `json:"chat_type"`
-	ContentType int32     `json:"content_type"`
-	Content     string    `json:"content"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID               int64     `json:"id,string"`
+	MsgID            string    `json:"msg_id"`
+	FromID           int64     `json:"from_id,string"`
+	SenderType       int32     `json:"sender_type"`
+	InitiatorID      int64     `json:"initiator_id,string"`
+	ToID             int64     `json:"to_id,string"`
+	ChatType         int32     `json:"chat_type"`
+	ContentType      int32     `json:"content_type"`
+	Content          string    `json:"content"`
+	CreatedAt        time.Time `json:"created_at"`
+	MentionedUserIDs []string  `json:"mentioned_user_ids,omitempty"`
 }
 
 type offlineAckRequest struct {
@@ -75,6 +76,11 @@ func listOfflineMessagesHandler(client pb.IMClient) http.HandlerFunc {
 		}
 		messages := make([]offlineMessageData, 0, len(result.GetMessages()))
 		for _, message := range result.GetMessages() {
+			mentioned, valid := mentionIDStrings(message.GetMentionedUserIds())
+			if !valid {
+				httpx.WriteJson(w, http.StatusBadGateway, offlineMessagesResponse{Code: errcode.ErrInternal, Msg: "invalid IM service response"})
+				return
+			}
 			senderType := message.GetSenderType()
 			if senderType == 0 {
 				senderType = 1 // Compatibility with IM RPC before sender metadata.
@@ -84,6 +90,7 @@ func listOfflineMessagesHandler(client pb.IMClient) http.HandlerFunc {
 				SenderType: senderType, InitiatorID: message.GetInitiatorId(),
 				ChatType: message.GetChatType(), ContentType: message.GetContentType(),
 				Content: message.GetContent(), CreatedAt: message.GetCreatedAt().AsTime(),
+				MentionedUserIDs: mentioned,
 			})
 		}
 		httpx.WriteJson(w, http.StatusOK, offlineMessagesResponse{Code: errcode.Success, Msg: "success", Data: &messages})

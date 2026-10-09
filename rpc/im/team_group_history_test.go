@@ -50,6 +50,8 @@ func TestListTeamGroupMessagesPage(t *testing.T) {
 			AddRow(int64(500), "msg-500", int64(42), 2, int64(9007199254740995), model.MessageContentTaskCard, cardContent, now).
 			AddRow(int64(490), "msg-490", int64(43), 1, 0, int8(1), "world", now).
 			AddRow(int64(480), "msg-480", int64(42), 1, 0, int8(1), "older", now))
+	mock.ExpectQuery("SELECT message_id, mentioned_user_id FROM `im_group_message_mentions`").WithArgs(int64(500), int64(490)).
+		WillReturnRows(sqlmock.NewRows([]string{"message_id", "mentioned_user_id"}).AddRow(int64(490), int64(42)))
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +77,9 @@ func TestListTeamGroupMessagesPage(t *testing.T) {
 	}
 	if result.GetMessages()[0].GetContentType() != int32(model.MessageContentTaskCard) || result.GetMessages()[0].GetContent() != cardContent {
 		t.Fatalf("history lost card content: %v", result)
+	}
+	if len(result.GetMessages()[0].GetMentionedUserIds()) != 0 || len(result.GetMessages()[1].GetMentionedUserIds()) != 1 || result.GetMessages()[1].GetMentionedUserIds()[0] != 42 {
+		t.Fatalf("history mention relation lost: %v", result)
 	}
 }
 

@@ -27,14 +27,31 @@ type teamGroupHistoryData struct {
 }
 
 type teamGroupHistoryMessage struct {
-	ID              int64  `json:"id,string"`
-	MsgID           string `json:"msg_id"`
-	FromID          int64  `json:"from_id,string"`
-	SenderType      int32  `json:"sender_type"`
-	InitiatorID     int64  `json:"initiator_id,string"`
-	ContentType     int32  `json:"content_type"`
-	Content         string `json:"content"`
-	CreatedAtUnixMs int64  `json:"created_at_unix_ms"`
+	ID               int64    `json:"id,string"`
+	MsgID            string   `json:"msg_id"`
+	FromID           int64    `json:"from_id,string"`
+	SenderType       int32    `json:"sender_type"`
+	InitiatorID      int64    `json:"initiator_id,string"`
+	ContentType      int32    `json:"content_type"`
+	Content          string   `json:"content"`
+	CreatedAtUnixMs  int64    `json:"created_at_unix_ms"`
+	MentionedUserIDs []string `json:"mentioned_user_ids,omitempty"`
+}
+
+func mentionIDStrings(ids []int64) ([]string, bool) {
+	if len(ids) > 10 {
+		return nil, false
+	}
+	values := make([]string, 0, len(ids))
+	seen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if id <= 0 || seen[id] {
+			return nil, false
+		}
+		seen[id] = true
+		values = append(values, strconv.FormatInt(id, 10))
+	}
+	return values, true
 }
 
 func listTeamGroupMessagesHandler(client pb.IMClient) http.HandlerFunc {
@@ -106,6 +123,11 @@ func listTeamGroupMessagesHandler(client pb.IMClient) http.HandlerFunc {
 		}
 		data := &teamGroupHistoryData{Messages: make([]teamGroupHistoryMessage, 0, len(result.GetMessages())), NextBeforeMessageID: result.GetNextBeforeMessageId()}
 		for _, message := range result.GetMessages() {
+			mentioned, valid := mentionIDStrings(message.GetMentionedUserIds())
+			if !valid {
+				httpx.WriteJson(w, http.StatusBadGateway, teamGroupHistoryResponse{Code: errcode.ErrInternal, Msg: "invalid IM service response"})
+				return
+			}
 			senderType := message.GetSenderType()
 			if senderType == 0 {
 				senderType = 1 // Older IM RPC responses are ordinary user messages.
@@ -114,6 +136,7 @@ func listTeamGroupMessagesHandler(client pb.IMClient) http.HandlerFunc {
 				ID: message.GetId(), MsgID: message.GetMsgId(), FromID: message.GetFromId(),
 				SenderType: senderType, InitiatorID: message.GetInitiatorId(),
 				ContentType: message.GetContentType(), Content: message.GetContent(), CreatedAtUnixMs: message.GetCreatedAtUnixMs(),
+				MentionedUserIDs: mentioned,
 			})
 		}
 		httpx.WriteJson(w, http.StatusOK, teamGroupHistoryResponse{Code: errcode.Success, Msg: "success", Data: data})
