@@ -17,6 +17,8 @@
 
 前端 F3 第二批启动（2026-10-09）：用户审查通过第一批并要求继续，主 agent 固定[F10/F11 共享契约](frontend-f3-overview-contract.md)和 F10 IM 协议。核对真实链路发现聊天由 Push 消费 Kafka 后落库；用户确认 F11 保留 Push 写入链，改为 Push 受控调用 IM 校验提及、同事务写消息和关系，不迁移整条消息写入链。[架构记录](architecture-decisions.md#前端-f09f11f3-真实聊天契约用户已定2026-10-09)与[独立分工](worktree-collaboration-plan.md#前端-f3-第二批-f10-分工2026-10-09)已更新。当前只到共同契约，不把 F10/F11 标记完成。
 
+前端 F3 第二批本地集成（2026-10-09）：F10 IM/Gateway/Vue 权威跨会话未读与 F11 Push→IM 结构化提及写入、历史/实时/离线读取及 `@我` 筛选已在隔离分支实现。用户选定按消息 ID 上界分页，不保证迟提交小 ID 的严格固定行集。全仓 `go test ./... -count=1`、前端 `npm test` 59/59、生产构建通过；036 与 Compose 仅静态检查，真实 MySQL/Redis/Kafka、mTLS、两账号浏览器及查询计划未验。完整九步、文件与边界见[第二批审查](frontend-f3-second-review.md)。本地能力待用户审查，F3 不记作已部署或端到端验收；main 未合并、推送或部署。
+
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 
 前端 F2 方案待审查（2026-10-09）：从 F1 提交 `e75c322` 建立独立 `codex/frontend-f2-navigation` 工作区，完成现有 User/IM/Gateway 接口的只读核对，并写成[真实登录与会话导航设计](frontend-f2-navigation-design.md)和[八任务实施计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)。推荐复用现有 Bearer 登录、按本标签页保存会话；User/IM 分属目录数据，Gateway 组合有限显示名；F2 先交付真实导航，完整消息阅读、未读/@我和主群配置后续单独接线。这些涉及身份保存、资料读取和跨服务读契约，[F06—F08](architecture-decisions.md#前端设计记录2026-10-09)仍待用户审查确认。当前 F2 仅有文档，未修改产品代码、协议或数据库；F1/main 均未合并或部署。
