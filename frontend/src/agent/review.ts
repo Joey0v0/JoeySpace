@@ -32,9 +32,11 @@ export interface AgentReviewState {
   textInput: { index: number; title: string; description: string } | null
   writeBusy: boolean
   writeError: string
+  creatingReadyIndex: number | null
+  replyRetryReadyIndex: number | null
 }
 export function initialAgentReviewState(): AgentReviewState {
-  return { mode: 'closed', group: null, source: null, question: '', answer: '', askBusy: false, askError: '', trigger: null, triggerBusy: false, triggerError: '', collection: null, collectionBusy: false, collectionError: '', selectedIndex: null, itemBusy: false, itemError: '', counts: { waiting: 0, created: 0, skipped: 0 }, textInput: null, writeBusy: false, writeError: '' }
+  return { mode: 'closed', group: null, source: null, question: '', answer: '', askBusy: false, askError: '', trigger: null, triggerBusy: false, triggerError: '', collection: null, collectionBusy: false, collectionError: '', selectedIndex: null, itemBusy: false, itemError: '', counts: { waiting: 0, created: 0, skipped: 0 }, textInput: null, writeBusy: false, writeError: '', creatingReadyIndex: null, replyRetryReadyIndex: null }
 }
 
 const realClock: Clock = {
@@ -94,6 +96,8 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
     state.itemBusy = false
     state.writeBusy = false
     state.writeError = ''
+    state.creatingReadyIndex = null
+    state.replyRetryReadyIndex = null
     state.counts = { waiting: 0, created: 0, skipped: 0 }
   }
   function recount(items: DraftItem[]) {
@@ -169,7 +173,7 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
   }
   async function loadCollection() {
     const scope = currentRun()
-    if (!scope || collectionPending) return
+    if (!scope || collectionPending || itemPending || writePending) return
     const epoch = generation, version = identity.version(), dataEpoch = dataGeneration
     collectionPending = true
     state.collectionBusy = true
@@ -183,6 +187,8 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
       const selectedIndex = state.selectedIndex !== null && state.selectedIndex < result.items.length ? state.selectedIndex : 0
       state.collection = result
       state.selectedIndex = selectedIndex
+      state.creatingReadyIndex = null
+      state.replyRetryReadyIndex = null
       if (!dirty) state.textInput = { index: selectedIndex, title: result.items[selectedIndex]!.draft.title, description: result.items[selectedIndex]!.draft.description }
       recount(result.items)
     } catch (error) {
@@ -209,9 +215,9 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
     state.writeError = ''
     return true
   }
-  async function reloadItem(index: number) {
+  async function reloadItem(index: number, internalRecheck = false) {
     const scope = currentRun()
-    if (!scope || !state.collection || !Number.isInteger(index) || index < 0 || index >= state.collection.items.length || itemPending) return
+    if (!scope || !state.collection || !Number.isInteger(index) || index < 0 || index >= state.collection.items.length || itemPending || collectionPending || (writePending && !internalRecheck)) return
     const epoch = generation, version = identity.version(), dataEpoch = dataGeneration
     itemPending = true
     state.itemBusy = true
@@ -223,6 +229,8 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
       const replaceCleanInput = state.textInput?.index === index && !hasUnsavedText()
       state.collection = { ...state.collection, items: state.collection.items.map((item, i) => i === index ? result : item) }
       if (replaceCleanInput) state.textInput = { index, title: result.draft.title, description: result.draft.description }
+      state.creatingReadyIndex = result.status === 'creating' ? index : null
+      state.replyRetryReadyIndex = result.status === 'succeeded' && ['not_started', 'pending'].includes(result.reply_status) ? index : null
       recount(state.collection.items)
     } catch (error) {
       if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
@@ -234,7 +242,7 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
   }
   async function writeItem(index: number, operation: (scope: AgentScope, item: DraftItem) => Promise<DraftItem>, resetText = false) {
     const scope = currentRun(), item = state.collection?.items[index]
-    if (!scope || !item || item.status !== 'waiting_confirmation' || !Number.isInteger(index) || index < 0 || index > 4 || writePending || itemPending) return
+    if (!scope || !item || item.status !== 'waiting_confirmation' || !Number.isInteger(index) || index < 0 || index > 4 || writePending || itemPending || collectionPending) return
     const epoch = generation, version = identity.version(), dataEpoch = dataGeneration
     const submittedInput = state.textInput, replaceCleanInput = !hasUnsavedText()
     writePending = true
@@ -246,12 +254,14 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
       if (result.item_index !== index) throw new ApiError(502, 'AI 草稿项无效')
       state.collection = { ...state.collection, items: state.collection.items.map((row, i) => i === index ? result : row) }
       if (state.textInput === submittedInput && submittedInput?.index === index && (resetText || replaceCleanInput)) state.textInput = { index, title: result.draft.title, description: result.draft.description }
+      state.creatingReadyIndex = null
+      state.replyRetryReadyIndex = null
       recount(state.collection.items)
     } catch (error) {
       if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
       if (error instanceof ApiError && (error.status === 403 || error.status === 404)) { close(); return }
       if (!(error instanceof ApiError && error.status === 400)) {
-        await reloadItem(index)
+        await reloadItem(index, true)
         if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
         state.writeError = state.itemError ? '保存结果未确认，重新核对失败，请稍后重试' : '已重新核对草稿项，请对照保存状态和本地输入'
       } else state.writeError = error.message
@@ -272,11 +282,60 @@ export function createAgentReview(api: AgentApi, identity: Identity, state: Agen
   function editDeadline(index: number, dueAtUnixMs: number) {
     return writeItem(index, (scope, item) => api.editDeadline(scope, index, { due_at_unix_ms: dueAtUnixMs, expected_revision: item.draft.revision }))
   }
+  function decisionItem(index: number) {
+    return Number.isInteger(index) && index >= 0 && index <= 4 && currentRun() ? state.collection?.items[index] : undefined
+  }
+  function canConfirm(index: number) {
+    const item = decisionItem(index)
+    if (!item || writePending || itemPending || collectionPending || hasUnsavedText() || ['not_found', 'ambiguous', 'truncated'].includes(item.draft.assignee_resolution) || item.draft.deadline.resolution === 'needs_input') return false
+    return item.status === 'waiting_confirmation' || (item.status === 'creating' && state.creatingReadyIndex === index)
+  }
+  function canSkip(index: number) {
+    return decisionItem(index)?.status === 'waiting_confirmation' && !writePending && !itemPending && !collectionPending && !hasUnsavedText()
+  }
+  function canRetryReply(index: number) {
+    const item = decisionItem(index)
+    return !!item && item.status === 'succeeded' && state.replyRetryReadyIndex === index && ['not_started', 'pending'].includes(item.reply_status) && !writePending && !itemPending && !collectionPending
+  }
+  async function decide(index: number, kind: 'confirm' | 'skip' | 'reply') {
+    if (!(kind === 'confirm' ? canConfirm(index) : kind === 'skip' ? canSkip(index) : canRetryReply(index))) return
+    const scope = currentRun()!, item = state.collection!.items[index]!
+    const epoch = generation, version = identity.version(), dataEpoch = dataGeneration
+    writePending = true
+    state.writeBusy = true
+    state.writeError = ''
+    state.creatingReadyIndex = null
+    state.replyRetryReadyIndex = null
+    try {
+      const result = kind === 'confirm' ? await api.confirm(scope, index, {
+        expected_title: item.draft.title, expected_description: item.draft.description,
+        expected_revision: item.draft.revision, expected_assignee_id: item.draft.assignee_id,
+        expected_due_at_unix_ms: item.draft.due_at_unix_ms, expected_deadline_resolution: item.draft.deadline.resolution,
+      }) : kind === 'skip' ? await api.skip(scope, index, { expected_revision: item.draft.revision }) : await api.retryReply(scope, index)
+      if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope) || !state.collection) return
+      if (result.item_index !== index) throw new ApiError(502, 'AI 草稿项无效')
+      state.collection = { ...state.collection, items: state.collection.items.map((row, i) => i === index ? result : row) }
+      recount(state.collection.items)
+    } catch (error) {
+      if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) { close(); return }
+      if (!(error instanceof ApiError && error.status === 400)) {
+        await reloadItem(index, true)
+        if (!current(epoch, version) || dataEpoch !== dataGeneration || !sameRun(scope)) return
+        state.writeError = state.itemError ? '操作结果未确认，重读本项失败，请稍后重试' : '已重读本项，请核对任务与回帖状态后再操作'
+      } else state.writeError = error.message
+    } finally {
+      if (current(epoch, version) && dataEpoch === dataGeneration) { writePending = false; state.writeBusy = false }
+    }
+  }
+  const confirm = (index: number) => decide(index, 'confirm')
+  const skip = (index: number) => decide(index, 'skip')
+  const retryReply = (index: number) => decide(index, 'reply')
   function dispose() {
     if (disposed) return
     disposed = true
     subscribed()
     close()
   }
-  return { openAsk, ask, openTrigger, refreshTrigger, loadCollection, selectItem, reloadItem, updateText, hasUnsavedText, editText, selectAssignee, editDeadline, close, dispose }
+  return { openAsk, ask, openTrigger, refreshTrigger, loadCollection, selectItem, reloadItem, updateText, hasUnsavedText, editText, selectAssignee, editDeadline, canConfirm, canSkip, canRetryReply, confirm, skip, retryReply, close, dispose }
 }

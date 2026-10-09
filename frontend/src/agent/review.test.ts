@@ -18,6 +18,7 @@ function harness() {
   const collections: Array<{ resolve: (value: DraftCollection) => void; reject: (error: unknown) => void }> = []
   const items: Array<{ index: number; resolve: (value: DraftItem) => void; reject: (error: unknown) => void }> = []
   const writes: Array<{ kind: string; index: number; body: unknown; resolve: (value: DraftItem) => void; reject: (error: unknown) => void }> = []
+  const decisions: Array<{ kind: string; index: number; body: unknown; resolve: (value: DraftItem) => void; reject: (error: unknown) => void }> = []
   let now = 0
   let nextTimer = 0
   const timers = new Map<number, { due: number; callback: () => void }>()
@@ -29,6 +30,9 @@ function harness() {
     editText: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { writes.push({ kind: 'text', index, body, resolve, reject }) }),
     selectAssignee: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { writes.push({ kind: 'assignee', index, body, resolve, reject }) }),
     editDeadline: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { writes.push({ kind: 'deadline', index, body, resolve, reject }) }),
+    confirm: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { decisions.push({ kind: 'confirm', index, body, resolve, reject }) }),
+    skip: (_scope: unknown, index: number, body: unknown) => new Promise<DraftItem>((resolve, reject) => { decisions.push({ kind: 'skip', index, body, resolve, reject }) }),
+    retryReply: (_scope: unknown, index: number) => new Promise<DraftItem>((resolve, reject) => { decisions.push({ kind: 'reply', index, body: null, resolve, reject }) }),
   } as unknown as ReturnType<typeof createAgentApi>
   const review = createAgentReview(api, identity, state, {
     now: () => now,
@@ -44,7 +48,7 @@ function harness() {
     }
     now = target
   }
-  return { identity, state, asks, triggers, collections, items, writes, timers, review, advance }
+  return { identity, state, asks, triggers, collections, items, writes, decisions, timers, review, advance }
 }
 
 const draftItem = (item_index: number, status: DraftItem['status'] = 'waiting_confirmation'): DraftItem => ({
@@ -294,5 +298,120 @@ test('collection refresh preserves the selected item and unsaved text for the sa
   assert.equal(h.state.selectedIndex, 1)
   assert.equal(h.state.textInput?.title, '稍后保存')
   assert.equal(h.review.hasUnsavedText(), true)
+  h.review.dispose()
+})
+
+test('confirm sends all saved fields once and separates created task from reply status', async () => {
+  const h = harness(); await loadedReview(h)
+  h.review.updateText('未保存', '')
+  await h.review.confirm(0)
+  assert.equal(h.decisions.length, 0)
+  h.review.updateText('任务', '')
+  const pending = h.review.confirm(0)
+  assert.deepEqual(h.decisions[0]?.body, { expected_title: '任务', expected_description: '', expected_revision: '1', expected_assignee_id: '0', expected_due_at_unix_ms: 0, expected_deadline_resolution: 'none' })
+  await h.review.skip(1)
+  assert.equal(h.decisions.length, 1)
+  h.decisions[0]!.resolve({ ...draftItem(0, 'succeeded'), reply_status: 'not_started' }); await pending
+  assert.equal(h.state.collection?.items[0]?.task_id, '12')
+  assert.equal(h.state.collection?.items[0]?.reply_status, 'not_started')
+  assert.deepEqual(h.state.counts, { waiting: 1, created: 1, skipped: 0 })
+  h.review.dispose()
+})
+
+test('unresolved assignee or deadline blocks confirm while skip uses current revision', async () => {
+  const h = harness()
+  const unresolved = { ...draftItem(0), draft: { ...draftItem(0).draft, assignee_resolution: 'ambiguous' as const, assignee_name: '小张', deadline: { ...draftItem(0).draft.deadline, resolution: 'needs_input' as const } } }
+  await loadedReview(h, [unresolved, draftItem(1)])
+  await h.review.confirm(0)
+  assert.equal(h.decisions.length, 0)
+  const skipped = h.review.skip(0)
+  assert.deepEqual(h.decisions[0]?.body, { expected_revision: '1' })
+  h.decisions[0]!.resolve({ ...unresolved, status: 'skipped', reply_status: 'disabled' }); await skipped
+  assert.equal(h.state.counts.skipped, 1)
+  await h.review.confirm(0)
+  assert.equal(h.decisions.length, 1)
+  h.review.dispose()
+})
+
+test('409 and uncertain confirm or skip reread only original item and never automatically repeat writes', async () => {
+  const h = harness(); await loadedReview(h)
+  const confirm = h.review.confirm(0)
+  h.decisions[0]!.reject(new ApiError(409, 'conflict'))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(h.items[0]?.index, 0)
+  h.items[0]!.resolve({ ...draftItem(0), draft: { ...draftItem(0).draft, revision: '2' } }); await confirm
+  assert.equal(h.decisions.length, 1)
+  assert.equal(h.state.collection?.items[0]?.draft.revision, '2')
+  const skip = h.review.skip(1)
+  h.decisions[1]!.reject(new ApiError(504, 'timeout'))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(h.items[1]?.index, 1)
+  h.items[1]!.resolve({ ...draftItem(1), status: 'skipped' }); await skip
+  assert.equal(h.decisions.length, 2)
+  assert.equal(h.state.collection?.items[1]?.status, 'skipped')
+  assert.match(h.state.writeError, /核对/)
+  h.review.dispose()
+})
+
+test('creating is frozen until same item recheck, then explicit retry uses stored values', async () => {
+  const h = harness(); await loadedReview(h, [draftItem(0, 'creating')])
+  await h.review.editText(0)
+  await h.review.skip(0)
+  await h.review.confirm(0)
+  assert.equal(h.decisions.length, 0)
+  const recheck = h.review.reloadItem(0)
+  h.items[0]!.resolve(draftItem(0, 'creating')); await recheck
+  const retry = h.review.confirm(0)
+  assert.equal(h.decisions[0]?.kind, 'confirm')
+  h.decisions[0]!.resolve(draftItem(0, 'succeeded')); await retry
+  assert.equal(h.state.collection?.items[0]?.status, 'succeeded')
+  h.review.dispose()
+})
+
+test('reply retry requires reread succeeded item and never retries unknown or accepted', async () => {
+  const h = harness(); await loadedReview(h, [{ ...draftItem(0, 'succeeded'), reply_status: 'not_started' }])
+  await h.review.retryReply(0)
+  assert.equal(h.decisions.length, 0)
+  const check = h.review.reloadItem(0)
+  h.items[0]!.resolve({ ...draftItem(0, 'succeeded'), reply_status: 'pending', reply_msg_id: 'bot-task:7' }); await check
+  const retry = h.review.retryReply(0)
+  assert.equal(h.decisions[0]?.kind, 'reply')
+  h.decisions[0]!.resolve({ ...draftItem(0, 'succeeded'), reply_status: 'accepted', reply_msg_id: 'bot-task:7' }); await retry
+  await h.review.retryReply(0)
+  assert.equal(h.decisions.length, 1)
+  const unknownCheck = h.review.reloadItem(0)
+  h.items[1]!.resolve({ ...draftItem(0, 'succeeded'), reply_status: 'unknown' }); await unknownCheck
+  await h.review.retryReply(0)
+  assert.equal(h.decisions.length, 1)
+  h.review.dispose()
+})
+
+test('client abort rechecks the same decision and old result cannot cross identity', async () => {
+  const h = harness(); await loadedReview(h)
+  const skip = h.review.skip(0)
+  h.decisions[0]!.reject(new DOMException('abort', 'AbortError'))
+  await Promise.resolve(); await Promise.resolve()
+  h.items[0]!.resolve(draftItem(0)); await skip
+  assert.equal(h.decisions.length, 1)
+  const old = h.review.confirm(0)
+  h.identity.setSession('two')
+  h.decisions[1]!.resolve(draftItem(0, 'succeeded')); await old
+  assert.equal(h.state.collection, null)
+  h.review.dispose()
+})
+
+test('ordinary collection and item reads cannot race an in-flight decision', async () => {
+  const h = harness(); await loadedReview(h)
+  const pending = h.review.confirm(0)
+  void h.review.loadCollection()
+  void h.review.reloadItem(0)
+  assert.equal(h.collections.length, 1)
+  assert.equal(h.items.length, 0)
+  h.decisions[0]!.resolve(draftItem(0, 'succeeded')); await pending
+  assert.equal(h.state.collection?.items[0]?.status, 'succeeded')
+  const loading = h.review.loadCollection()
+  void h.review.skip(1)
+  assert.equal(h.decisions.length, 1)
+  h.collections[1]!.resolve(draftCollection([draftItem(0, 'succeeded'), draftItem(1)])); await loading
   h.review.dispose()
 })

@@ -626,3 +626,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 ## 61. 前端 F5 任务 5 逐项编辑（2026-10-10）
 
 主 agent 在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-ai-draft`、分支 `codex/frontend-f5-ai-draft` 按已确认计划直接实施；仅修改 `frontend/src/agent/review.ts`、`review.test.ts`，新增 `AgentPanel.vue`，并维护本节及项目进度。先新增文字未保存/冲突、负责人和期限版本、超时重读、账号切换测试，见 4 项失败，再实现编辑；另见集合刷新覆盖当前选中项的失败测试并修复。实际验证：F5 聚焦 27/27、现有前端 95/95、TypeScript 和生产构建通过。表单目前由 Vue 类型检查覆盖，尚未接入页面进行浏览器交互验收；确认/跳过和回帖留待任务 6，群聊接线与视觉检查留待任务 7。未改后端、协议、迁移、依赖；未合 main、推送或部署。
+
+## 62. 前端 F5 任务 6 单项决策与回帖（2026-10-10）
+
+主 agent 继续在 `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f5-ai-draft` 实施，仅修改 `frontend/src/agent/review.ts`、`review.test.ts`、`AgentPanel.vue`，并由主 agent 维护本节及项目进度。先见确认/跳过/回帖六项新增测试失败，再实现共用单项在途锁、服务端保存字段确认、结果不明重读、`creating`/回帖状态重读门槛和任务详情入口；自审另见普通读取与写入竞争测试失败并修复。最终 F5 聚焦 34/34、现有前端 95/95、类型检查与生产构建通过。Vue 面板尚未挂入群聊页面，浏览器真实交互与组合链留待任务 7—8；未修改 Go、协议、迁移、依赖，未合 main、推送或部署。

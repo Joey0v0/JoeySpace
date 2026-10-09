@@ -66,6 +66,15 @@ function saveDeadline() {
 function clearDeadline() {
   if (selected.value) { formError.value = ''; void props.review.editDeadline(selected.value.item_index, 0) }
 }
+function confirmItem() {
+  if (selected.value && !hasUnsavedInput.value) void props.review.confirm(selected.value.item_index)
+}
+function skipItem() {
+  if (selected.value && !hasUnsavedInput.value) void props.review.skip(selected.value.item_index)
+}
+function retryReply() {
+  if (selected.value) void props.review.retryReply(selected.value.item_index)
+}
 </script>
 
 <template>
@@ -111,7 +120,27 @@ function clearDeadline() {
             <button type="button" :disabled="!editable || !dueLocal" @click="saveDeadline">保存截止时间</button>
             <button type="button" :disabled="!editable" @click="clearDeadline">明确选择不设期限</button>
           </section>
+          <div class="task-form-actions">
+            <button type="button" class="primary-link" :disabled="hasUnsavedInput || !review.canConfirm(selected.item_index)" @click="confirmItem">确认创建第 {{ selected.item_index + 1 }} 项</button>
+            <button type="button" class="task-secondary" :disabled="hasUnsavedInput || !review.canSkip(selected.item_index)" @click="skipItem">跳过第 {{ selected.item_index + 1 }} 项</button>
+          </div>
         </div>
+        <div v-if="selected.status === 'creating'">
+          <p role="status">任务创建结果正在核对；当前项暂不能编辑或跳过。</p>
+          <button type="button" :disabled="state.itemBusy || state.writeBusy" @click="review.reloadItem(selected.item_index)">重读第 {{ selected.item_index + 1 }} 项创建状态</button>
+          <button v-if="state.creatingReadyIndex === selected.item_index" type="button" :disabled="!review.canConfirm(selected.item_index)" @click="confirmItem">继续确认同一项</button>
+        </div>
+        <div v-if="selected.status === 'succeeded'">
+          <p>任务已创建：<RouterLink :to="{ name: 'task-detail', params: { teamId: state.group?.teamId, taskId: selected.task_id } }">查看任务 {{ selected.task_id }}</RouterLink></p>
+          <p v-if="selected.reply_status === 'accepted'" role="status">群回帖已由 IM 受理；送达和已读状态尚未确认。</p>
+          <p v-else-if="selected.reply_status === 'unknown'" role="status">群回帖结果未确认，请核对；页面不会自动重发。</p>
+          <p v-else-if="selected.reply_status === 'pending'" role="status">群回帖处理中，尚未确认 IM 受理。</p>
+          <p v-else-if="selected.reply_status === 'not_started'" role="status">群回帖尚未开始，任务已独立创建。</p>
+          <p v-else>当前任务不需要群回帖。</p>
+          <button v-if="['not_started', 'pending', 'unknown'].includes(selected.reply_status)" type="button" :disabled="state.itemBusy || state.writeBusy" @click="review.reloadItem(selected.item_index)">核对第 {{ selected.item_index + 1 }} 项回帖状态</button>
+          <button v-if="review.canRetryReply(selected.item_index)" type="button" @click="retryReply">重试第 {{ selected.item_index + 1 }} 项群回帖</button>
+        </div>
+        <p v-if="selected.status === 'skipped'" role="status">本项已跳过，不会创建任务或发送群回帖。</p>
         <p v-if="state.writeBusy" role="status">正在保存当前草稿项…</p>
         <p v-if="state.writeError" role="alert">{{ state.writeError }}</p>
         <p v-if="state.itemError" role="alert">{{ state.itemError }} <button type="button" @click="review.reloadItem(selected.item_index)">重读本项</button></p>
