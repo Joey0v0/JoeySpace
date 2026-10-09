@@ -10,7 +10,7 @@ export function initialDirectoryState() {
   return { teams: page<Team>(), groups: {} as Record<string, Page<Group>>, directs: page<Direct>(), snapshot: '0', current: null as Selection | null, selectedKey: undefined as string | undefined, detailLoading: false, detailError: '', joining: false }
 }
 type State = ReturnType<typeof initialDirectoryState>
-type Request = (path: string, options?: RequestInit) => Promise<any>
+type Request = (path: string, options?: RequestInit, authenticated?: boolean, expectData?: boolean) => Promise<any>
 function cursor(value: unknown): value is string { return value === '0' || isId(value) }
 function invalid() { throw new ApiError(502, '目录数据无效，请重试') }
 const isTeam = (item: Team) => item && isId(item.team_id) && typeof item.name === 'string' && typeof item.role === 'number'
@@ -106,7 +106,7 @@ export function createDirectory(request: Request, identity: ReturnType<typeof cr
     const epoch = scope; const ticket = detail
     state.joining = true; state.detailError = ''
     try {
-      await request('/teams/' + current.teamId + '/groups/' + current.groupId + '/join', { method: 'POST' })
+      await request('/teams/' + current.teamId + '/groups/' + current.groupId + '/join', { method: 'POST' }, true, false)
       if (epoch === scope && ticket === detail) await select(current.key)
     } catch (error) {
       if (epoch !== scope || ticket !== detail || error instanceof StaleRequestError) return

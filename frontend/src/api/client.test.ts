@@ -90,3 +90,7 @@ test('registration rejects invalid Unicode lengths and bcrypt byte overflow befo
   await client.register('三字名', '中'.repeat(24), '')
   assert.equal(requests, 1)
 })
+test('directory reads still reject success envelopes missing data', async () => {
+  const client = createApiClient(createSession(), async () => new Response(JSON.stringify({ code: 0, msg: 'success' })))
+  await assert.rejects(client.request('/teams'), (error: unknown) => error instanceof ApiError && error.status === 502)
+})

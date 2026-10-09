@@ -103,3 +103,23 @@ test('group directory revocation clears the selected group from that team', asyn
   assert.equal(directory.state.current, null)
   assert.equal(directory.state.detailError, '已离队')
 })
+test('explicit join accepts gateway success without data and rechecks membership', async () => {
+  const session = createSession()
+  let joined = false
+  const paths: string[] = []
+  const { createApiClient } = await import('../api/client.ts')
+  const client = createApiClient(session, async (url, options) => {
+    paths.push(String(url))
+    if (options?.method === 'POST') {
+      joined = true
+      return new Response(JSON.stringify({ code: 0, msg: 'success' }))
+    }
+    return new Response(JSON.stringify({ code: 0, msg: 'success', data: { group: { group_id: '4', owner_id: '1', name: '讨论', joined } } }))
+  })
+  const directory = createDirectory(client.request, session)
+  await directory.select('group:3:4')
+  await directory.joinCurrent()
+  assert.equal(directory.state.detailError, '')
+  assert.equal(directory.state.current?.joined, true)
+  assert.deepEqual(paths, ['/api/v1/teams/3/groups/4', '/api/v1/teams/3/groups/4/join', '/api/v1/teams/3/groups/4'])
+})
