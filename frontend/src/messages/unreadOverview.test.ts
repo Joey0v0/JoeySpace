@@ -83,3 +83,25 @@ test('malformed IDs, counts and failed refresh cannot overwrite a successful pag
   assert.match(state.error, /无效/)
   overview.dispose()
 })
+
+test('@me filter uses mention counts and rejects a stale all-unread response', async () => {
+  const identity = createSession(); identity.setSession('first')
+  let resolveAll!: (value: unknown) => void
+  const pendingAll = new Promise<unknown>(resolve => { resolveAll = resolve })
+  const paths: string[] = []
+  const state = initialUnreadOverviewState()
+  const mentioned = { ...group('8'), mention_unread_count: '2' }
+  const overview = createUnreadOverview(path => {
+    paths.push(path)
+    return paths.length === 1 ? pendingAll : Promise.resolve({ conversations: [mentioned], snapshot_upper_message_id: '8', next_before_last_message_id: '0' })
+  }, identity, state)
+  const old = overview.load()
+  overview.setFilter('mentions')
+  await new Promise(resolve => setTimeout(resolve, 0))
+  resolveAll({ conversations: [direct('9')], snapshot_upper_message_id: '9', next_before_last_message_id: '0' })
+  await old
+  assert.equal(state.filter, 'mentions')
+  assert.deepEqual(state.items, [mentioned])
+  assert.match(paths[1], /mentions_only=1$/)
+  overview.dispose()
+})

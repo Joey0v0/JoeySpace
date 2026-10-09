@@ -12,8 +12,9 @@ export interface TextChat {
   chatType: 1 | 2
   content: string
   createdAt: string
+  mentionedUserIds?: string[]
 }
-export interface TextSend { msgId: string; toId: string; chatType: 1 | 2; content: string }
+export interface TextSend { msgId: string; toId: string; chatType: 1 | 2; content: string; mentionedUserIds?: string[] }
 export interface RealtimeIdentity {
   token(): string | null
   version(): number
@@ -46,6 +47,8 @@ const decimalId = (value: unknown, allowZero = false): value is string =>
 const msgIdValid = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= 64 &&
   /^[!-~]+$/.test(value) && !value.toLowerCase().startsWith('bot-task:')
+const mentionIdsValid = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.length <= 10 && value.every(item => decimalId(item)) && new Set(value).size === value.length
 
 function parseTextChat(raw: unknown): TextChat | null {
   if (!raw || typeof raw !== 'object') return null
@@ -56,10 +59,12 @@ function parseTextChat(raw: unknown): TextChat | null {
       (data.chat_type !== 1 && data.chat_type !== 2) || data.content_type !== 1 ||
       typeof data.content !== 'string' || typeof data.created_at !== 'string' ||
       !Number.isFinite(Date.parse(data.created_at))) return null
+  if (data.mentioned_user_ids !== undefined && (!mentionIdsValid(data.mentioned_user_ids) || data.chat_type !== 2 && data.mentioned_user_ids.length > 0)) return null
   return {
     id: data.id, msgId: data.msg_id, fromId: data.from_id, toId: data.to_id,
     senderType: data.sender_type, initiatorId: data.initiator_id,
     chatType: data.chat_type, content: data.content, createdAt: data.created_at,
+    ...(data.mentioned_user_ids === undefined ? {} : { mentionedUserIds: data.mentioned_user_ids }),
   }
 }
 
@@ -225,10 +230,12 @@ export function createRealtimeClient(options: RealtimeOptions) {
     if (disposed || state !== 'connected' || !socket || socket.readyState !== 1 || pending !== null ||
         !msgIdValid(input.msgId) || !decimalId(input.toId) ||
         (input.chatType !== 1 && input.chatType !== 2) ||
-        typeof input.content !== 'string' || !input.content.trim()) return false
+        typeof input.content !== 'string' || !input.content.trim() ||
+        (input.mentionedUserIds !== undefined && (!mentionIdsValid(input.mentionedUserIds) || input.chatType !== 2 && input.mentionedUserIds.length > 0))) return false
     const frame = JSON.stringify({ type: 'chat', data: {
       msg_id: input.msgId, to_id: input.toId, chat_type: input.chatType,
       content_type: 1, content: input.content,
+      ...(input.mentionedUserIds?.length ? { mentioned_user_ids: input.mentionedUserIds } : {}),
     } })
     if (new TextEncoder().encode(frame).length > 4096) return false
     pending = input.msgId

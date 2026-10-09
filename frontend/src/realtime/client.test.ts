@@ -105,6 +105,19 @@ test('oversized UTF-8 frame is rejected before socket send', async () => {
   f.client.dispose()
 })
 
+test('structured mentions stay exact string IDs across send and incoming chat', async () => {
+  const f = fixture()
+  f.client.connect(); await tick(); f.sockets[0].open()
+  const ids = ['9007199254740993', '9007199254740995']
+  assert.equal(f.client.send({ msgId: 'mention-1', toId: '8', chatType: 2, content: '@同事 请看', mentionedUserIds: ids }), true)
+  assert.deepEqual((JSON.parse(f.sockets[0].sent[0]) as { data: { mentioned_user_ids: string[] } }).data.mentioned_user_ids, ids)
+  f.sockets[0].receive({ ...exampleChat('mention-in'), data: { ...exampleChat('mention-in').data, mentioned_user_ids: ids } })
+  assert.deepEqual(f.chats[0]?.mentionedUserIds, ids)
+  f.sockets[0].receive({ ...exampleChat('bad-mention'), data: { ...exampleChat('bad-mention').data, mentioned_user_ids: [ids[0], ids[0]] } })
+  assert.equal(f.chats.length, 1)
+  f.client.dispose()
+})
+
 test('persisted chat before ACK releases pending send and ignores late ACK', async () => {
   const f = fixture()
   f.client.connect(); await tick(); f.sockets[0].open()

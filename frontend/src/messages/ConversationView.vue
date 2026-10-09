@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { nextTick, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { api, isId } from '../api/client.ts'
 import { session } from '../auth/session.ts'
 import type { Selection } from './directory.ts'
 import { createHistory, initialHistoryState, type ChatMessage } from './history.ts'
 import type { ConnectionState, SendStatus, TextChat } from '../realtime/client.ts'
-const props = defineProps<{ conversation: Selection; joining: boolean; error: string; ownId: string; connection: ConnectionState; draft: string; outgoing: (SendStatus & { text: string })[]; notice: string; offlineNotice: string }>()
-const emit = defineEmits<{ join: []; revoked: []; 'update:draft': [text: string]; send: []; retry: [msgId: string]; offline: [] }>()
+interface MentionTarget { id: string; name: string }
+const props = defineProps<{ conversation: Selection; joining: boolean; error: string; ownId: string; connection: ConnectionState; draft: string; mentions: MentionTarget[]; outgoing: (SendStatus & { text: string })[]; notice: string; offlineNotice: string }>()
+const emit = defineEmits<{ join: []; revoked: []; 'update:draft': [text: string]; 'update:mentions': [targets: MentionTarget[]]; send: []; retry: [msgId: string]; offline: [] }>()
 const history = createHistory(api.request, session, props.ownId, reactive(initialHistoryState()))
 const list = history.state
 const scrollElement = ref<HTMLElement | null>(null)
@@ -14,11 +15,17 @@ const composing = ref(false)
 const hasNew = ref(false)
 let initialScrolled = false
 const memberNames = reactive<Record<string, string>>({})
+const memberCursor = ref('0')
+const membersLoading = ref(false)
+const membersError = ref('')
+const memberSearch = ref('')
+const pickerOpen = ref(false)
+const candidates = computed(() => Object.entries(memberNames).filter(([id, name]) => id !== props.ownId && !props.mentions.some(target => target.id === id) && name.toLocaleLowerCase().includes(memberSearch.value.trim().toLocaleLowerCase())).slice(0, 30))
 let namesScope = 0
-const clearNames = session.subscribe(() => { namesScope++; for (const id of Object.keys(memberNames)) delete memberNames[id] })
-async function loadMemberNames(teamId: string, epoch: number) {
-  let after = '0'
-  for (let page = 0; page < 5; page++) {
+const clearNames = session.subscribe(() => { namesScope++; for (const id of Object.keys(memberNames)) delete memberNames[id]; memberCursor.value = '0'; pickerOpen.value = false })
+async function loadMemberNames(teamId: string, epoch: number, after = '0') {
+  if (membersLoading.value) return
+  membersLoading.value = true; membersError.value = ''
     try {
       const data = await api.request<{ members: { user_id: string; username: string; nickname: string }[]; next_after_user_id: string }>('/teams/' + teamId + '/members?after_user_id=' + after + '&limit=100')
       if (epoch !== namesScope) return
@@ -27,15 +34,27 @@ async function loadMemberNames(teamId: string, epoch: number) {
         if (isId(member.user_id)) memberNames[member.user_id] = member.nickname?.trim() || member.username?.trim() || '成员 ' + member.user_id
       }
       const next = data.next_after_user_id
-      if (next === '0' || !isId(next) || BigInt(next) <= BigInt(after)) return
-      after = next
-    } catch { return } // Names are optional; history still shows stable sender IDs.
-  }
+      if (next !== '0' && (!isId(next) || BigInt(next) <= BigInt(after))) return
+      memberCursor.value = next
+    } catch { if (epoch === namesScope) membersError.value = '成员目录暂时不可用，可稍后重试' }
+    finally { if (epoch === namesScope) membersLoading.value = false }
+}
+function selectMember(id: string, name: string) {
+  if (props.mentions.length >= 10 || props.mentions.some(target => target.id === id)) return
+  emit('update:mentions', [...props.mentions, { id, name }])
+  memberSearch.value = ''
+}
+function removeMember(id: string) {
+  emit('update:mentions', props.mentions.filter(target => target.id !== id))
+}
+function loadMoreMembers() {
+  if (props.conversation.kind === 'group' && isId(props.conversation.teamId)) void loadMemberNames(props.conversation.teamId, namesScope, memberCursor.value)
 }
 watch(() => [props.conversation.key, props.conversation.joined], () => {
   initialScrolled = false; hasNew.value = false; history.select(props.conversation)
   namesScope++
   for (const id of Object.keys(memberNames)) delete memberNames[id]
+  memberCursor.value = '0'; membersLoading.value = false; membersError.value = ''; pickerOpen.value = false
   if (props.conversation.kind === 'group' && props.conversation.joined && isId(props.conversation.teamId)) void loadMemberNames(props.conversation.teamId, namesScope)
 }, { immediate: true })
 watch(() => list.loaded, async loaded => {
@@ -123,13 +142,17 @@ function displayTime(ms: number) { return new Date(ms).toLocaleString('zh-CN', {
         <div v-if="list.loaded && list.messages.length" class="chat-messages">
           <article v-for="item in list.messages" :key="item.id" class="chat-message" :class="{ 'is-own': item.from_id === ownId && item.sender_type !== 2 }">
             <div class="message-avatar" :class="{ 'is-bot': item.sender_type === 2 }" aria-hidden="true">{{ item.sender_type === 2 ? '✦' : sender(item).slice(0, 1) }}</div>
-            <div class="message-content"><div class="message-byline"><strong>{{ sender(item) }}</strong><span v-if="item.sender_type === 2" class="bot-badge">BOT</span><time :datetime="new Date(item.created_at_unix_ms).toISOString()">{{ displayTime(item.created_at_unix_ms) }}</time></div><p>{{ displayContent(item) }}</p></div>
+            <div class="message-content"><div class="message-byline"><strong>{{ sender(item) }}</strong><span v-if="item.sender_type === 2" class="bot-badge">BOT</span><span v-if="item.mentioned_user_ids?.includes(ownId)" class="mention-mark">提及了你</span><time :datetime="new Date(item.created_at_unix_ms).toISOString()">{{ displayTime(item.created_at_unix_ms) }}</time></div><p>{{ displayContent(item) }}</p></div>
           </article>
         </div>
       </template>
     </div>
     <button v-if="hasNew" class="new-message-jump" type="button" @click="scrollToNew">有新消息 · 查看最新</button>
     <div v-if="(conversation.kind !== 'group' || conversation.joined) && !list.denied" class="composer-area">
+      <div v-if="conversation.kind === 'group'" class="mention-composer">
+        <div class="mention-selected"><button type="button" class="mention-trigger" :aria-expanded="pickerOpen" @click="pickerOpen = !pickerOpen">@ 提及成员 {{ mentions.length ? `(${mentions.length}/10)` : '' }}</button><button v-for="target in mentions" :key="target.id" type="button" class="mention-chip" :aria-label="`移除提及 ${target.name}`" @click="removeMember(target.id)">@{{ target.name }} ×</button></div>
+        <div v-if="pickerOpen" class="mention-picker"><input v-model="memberSearch" aria-label="查找团队成员" placeholder="在已加载成员中查找" /><p>仅当前群成员可被提及，发送时由服务端核验。</p><div class="mention-candidates"><button v-for="[id, name] in candidates" :key="id" type="button" :disabled="mentions.length >= 10" @click="selectMember(id, name)">{{ name }}</button><span v-if="!candidates.length">当前列表没有匹配成员</span></div><button v-if="memberCursor !== '0'" type="button" :disabled="membersLoading" @click="loadMoreMembers">{{ membersLoading ? '正在加载…' : '加载更多成员' }}</button><button v-if="membersError" type="button" @click="loadMoreMembers">{{ membersError }} · 重试</button></div>
+      </div>
       <div class="composer-surface"><textarea :value="draft" aria-label="输入消息" placeholder="输入消息，Enter 发送，Shift+Enter 换行" rows="3" @input="emit('update:draft', ($event.target as HTMLTextAreaElement).value)" @keydown="keydown" @compositionstart="composing = true" @compositionend="composing = false" /></div>
       <div class="composer-actions" style="max-width:850px;margin:auto">
         <span>阅读消息不会自动标记已读</span>

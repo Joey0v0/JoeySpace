@@ -20,6 +20,7 @@ interface UnreadPage {
   next_before_last_message_id: string
 }
 export interface UnreadOverviewState {
+  filter: 'all' | 'mentions'
   items: UnreadConversation[]
   snapshot: string
   cursor: string
@@ -53,7 +54,7 @@ function validPage(value: unknown): value is UnreadPage {
 }
 
 export function initialUnreadOverviewState(): UnreadOverviewState {
-  return { items: [], snapshot: '0', cursor: '0', loaded: false, loading: false, error: '' }
+  return { filter: 'all', items: [], snapshot: '0', cursor: '0', loaded: false, loading: false, error: '' }
 }
 export function conversationKey(item: UnreadConversation): string {
   return item.chat_type === 1 ? `direct:${item.peer_id}` : `group:${item.team_id}:${item.group_id}`
@@ -76,10 +77,11 @@ export function createUnreadOverview(request: Request, identity: ReturnType<type
     state.loading = true
     state.error = ''
     try {
-      const result = await request(`/messages/unread-conversations?snapshot_upper_message_id=${snapshot}&before_last_message_id=${before}&limit=20`)
+      const result = await request(`/messages/unread-conversations?snapshot_upper_message_id=${snapshot}&before_last_message_id=${before}&limit=20${state.filter === 'mentions' ? '&mentions_only=1' : ''}`)
       if (ticket !== scope) return
       if (!validPage(result)) invalid()
-      if ((before !== '0' && result.snapshot_upper_message_id !== snapshot)
+      if ((state.filter === 'mentions' && result.conversations.some(item => item.chat_type !== 2 || item.mention_unread_count === '0'))
+        || (before !== '0' && result.snapshot_upper_message_id !== snapshot)
         || (before !== '0' && result.next_before_last_message_id !== '0' && BigInt(result.next_before_last_message_id) >= BigInt(before))) invalid()
       const existing = refresh ? [] : state.items
       const seen = new Set(existing.map(conversationKey))
@@ -93,5 +95,11 @@ export function createUnreadOverview(request: Request, identity: ReturnType<type
       state.error = errorText(error)
     } finally { if (ticket === scope) state.loading = false }
   }
-  return { state, load, retry: () => load(failedRefresh), dispose: () => { scope++; unsubscribe() } }
+  function setFilter(filter: 'all' | 'mentions') {
+    if (state.filter === filter) return
+    scope++
+    Object.assign(state, initialUnreadOverviewState(), { filter })
+    void load()
+  }
+  return { state, load, setFilter, retry: () => load(failedRefresh), dispose: () => { scope++; unsubscribe() } }
 }

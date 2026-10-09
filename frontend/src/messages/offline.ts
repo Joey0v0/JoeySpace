@@ -12,6 +12,7 @@ export interface OfflineMessage {
   content_type: number
   content: string
   created_at: string
+  mentioned_user_ids?: string[]
 }
 type Request = (path: string, options?: RequestInit) => Promise<unknown>
 const decimal = (value: unknown, zero = false): value is string =>
@@ -23,7 +24,8 @@ function validMessage(item: unknown): item is OfflineMessage {
     decimal(value.from_id) && decimal(value.to_id) && decimal(value.initiator_id, true) &&
     (value.sender_type === 1 || value.sender_type === 2) &&
     (value.chat_type === 1 || value.chat_type === 2) && Number.isInteger(value.content_type) &&
-    typeof value.content === 'string' && typeof value.created_at === 'string' && Number.isFinite(Date.parse(value.created_at))
+    typeof value.content === 'string' && typeof value.created_at === 'string' && Number.isFinite(Date.parse(value.created_at)) &&
+    (value.mentioned_user_ids === undefined || (Array.isArray(value.mentioned_user_ids) && value.mentioned_user_ids.length <= 10 && value.mentioned_user_ids.every(item => decimal(item)) && new Set(value.mentioned_user_ids).size === value.mentioned_user_ids.length && (value.chat_type === 2 || value.mentioned_user_ids.length === 0)))
 }
 
 export function createOfflineInbox(request: Request, identity: ReturnType<typeof createSession>, onMessages: (items: OfflineMessage[]) => void | Promise<void>) {

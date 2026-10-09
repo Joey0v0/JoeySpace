@@ -13,6 +13,7 @@ export interface ChatMessage {
   content_type: number
   content: string
   created_at_unix_ms: number
+  mentioned_user_ids?: string[]
 }
 type Request = (path: string, options?: RequestInit) => Promise<any>
 export function initialHistoryState() {
@@ -21,7 +22,7 @@ export function initialHistoryState() {
 type State = ReturnType<typeof initialHistoryState>
 const decimal = (value: unknown) => value === '0' || isId(value)
 const count = (value: unknown) => typeof value === 'string' && /^\d+$/.test(value)
-const message = (item: any): item is ChatMessage => item && isId(item.id) && typeof item.msg_id === 'string' && isId(item.from_id) && (item.to_id === undefined || isId(item.to_id)) && (item.sender_type === undefined || Number.isInteger(item.sender_type)) && (item.initiator_id === undefined || decimal(item.initiator_id)) && Number.isInteger(item.content_type) && typeof item.content === 'string' && Number.isSafeInteger(item.created_at_unix_ms) && item.created_at_unix_ms >= 0 && item.created_at_unix_ms <= 8640000000000000
+const message = (item: any): item is ChatMessage => item && isId(item.id) && typeof item.msg_id === 'string' && isId(item.from_id) && (item.to_id === undefined || isId(item.to_id)) && (item.sender_type === undefined || Number.isInteger(item.sender_type)) && (item.initiator_id === undefined || decimal(item.initiator_id)) && Number.isInteger(item.content_type) && typeof item.content === 'string' && Number.isSafeInteger(item.created_at_unix_ms) && item.created_at_unix_ms >= 0 && item.created_at_unix_ms <= 8640000000000000 && (item.mentioned_user_ids === undefined || (Array.isArray(item.mentioned_user_ids) && item.mentioned_user_ids.length <= 10 && item.mentioned_user_ids.every(isId) && new Set(item.mentioned_user_ids).size === item.mentioned_user_ids.length))
 const newestFirst = (a: ChatMessage, b: ChatMessage) => BigInt(a.id) > BigInt(b.id) ? -1 : BigInt(a.id) < BigInt(b.id) ? 1 : 0
 export function conversationPath(conversation: Selection) {
   return conversation.kind === 'group' ? '/teams/' + conversation.teamId + '/groups/' + conversation.groupId : '/direct/' + conversation.key.slice('direct:'.length)
@@ -98,7 +99,7 @@ export function createHistory(request: Request, identity: ReturnType<typeof crea
         ? chat.chatType === 2 && chat.toId === selected.groupId
         : chat.chatType === 1 && ((chat.fromId === ownId && chat.toId === selected.key.slice('direct:'.length)) || (chat.toId === ownId && chat.fromId === selected.key.slice('direct:'.length)))
       if (!inScope) continue
-      const item: ChatMessage = { id: chat.id, msg_id: chat.msgId, from_id: chat.fromId, to_id: chat.toId, sender_type: chat.senderType, initiator_id: chat.initiatorId, content_type: 1, content: chat.content, created_at_unix_ms: Date.parse(chat.createdAt) }
+      const item: ChatMessage = { id: chat.id, msg_id: chat.msgId, from_id: chat.fromId, to_id: chat.toId, sender_type: chat.senderType, initiator_id: chat.initiatorId, content_type: 1, content: chat.content, created_at_unix_ms: Date.parse(chat.createdAt), ...(chat.mentionedUserIds === undefined ? {} : { mentioned_user_ids: chat.mentionedUserIds }) }
       if (message(item)) items.push(item)
     }
     if (!items.length) return false
