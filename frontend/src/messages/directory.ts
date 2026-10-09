@@ -43,7 +43,8 @@ export function createDirectory(request: Request, identity: ReturnType<typeof cr
     } catch (error) {
       if (epoch !== scope || error instanceof StaleRequestError) return
       if (error instanceof ApiError && (error.status === 403 || error.status === 404)) { target.items = []; target.loaded = false; target.cursor = '0' }
-      if (error instanceof ApiError && error.status === 403 && state.current?.kind === 'group' && path.startsWith('/teams/' + state.current.teamId + '/groups?')) {
+      const selected = state.selectedKey?.split(':')
+      if (error instanceof ApiError && error.status === 403 && selected?.[0] === 'group' && path.startsWith('/teams/' + selected[1] + '/groups?')) {
         detail++
         state.current = null
         state.detailLoading = false

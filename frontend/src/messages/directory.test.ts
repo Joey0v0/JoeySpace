@@ -123,3 +123,30 @@ test('explicit join accepts gateway success without data and rechecks membership
   assert.equal(directory.state.current?.joined, true)
   assert.deepEqual(paths, ['/api/v1/teams/3/groups/4', '/api/v1/teams/3/groups/4/join', '/api/v1/teams/3/groups/4'])
 })
+test('team group list revocation invalidates a pending same-team detail success', async () => {
+  let complete!: (data: unknown) => void
+  const directory = createDirectory((path: string) => {
+    if (path.includes('?')) return Promise.reject(new ApiError(403, '团队资格已撤销'))
+    return new Promise(resolve => { complete = resolve })
+  }, createSession())
+  const selection = directory.select('group:3:4')
+  await directory.loadGroups('3')
+  complete({ group: { group_id: '4', owner_id: '1', name: '讨论', joined: true } })
+  await selection
+  assert.equal(directory.state.current, null)
+  assert.equal(directory.state.detailLoading, false)
+  assert.equal(directory.state.detailError, '团队资格已撤销')
+})
+test('team group list revocation does not invalidate another team pending detail', async () => {
+  let complete!: (data: unknown) => void
+  const directory = createDirectory((path: string) => {
+    if (path.includes('?')) return Promise.reject(new ApiError(403, '团队资格已撤销'))
+    return new Promise(resolve => { complete = resolve })
+  }, createSession())
+  const selection = directory.select('group:30:4')
+  await directory.loadGroups('3')
+  complete({ group: { group_id: '4', owner_id: '1', name: '另一个团队讨论', joined: true } })
+  await selection
+  assert.equal(directory.state.current?.key, 'group:30:4')
+  assert.equal(directory.state.detailError, '')
+})
