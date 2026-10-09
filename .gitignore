@@ -43,6 +43,7 @@ build/
 
 # Independent Git worktrees managed by the coordinating agent
 .worktrees/
+.superpowers/
 
 # Vue frontend
 frontend/node_modules/

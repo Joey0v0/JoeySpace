@@ -19,20 +19,22 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	User_GetUserInfo_FullMethodName                = "/user.User/GetUserInfo"
-	User_GetMyInfo_FullMethodName                  = "/user.User/GetMyInfo"
-	User_Login_FullMethodName                      = "/user.User/Login"
-	User_Register_FullMethodName                   = "/user.User/Register"
-	User_CreateTeam_FullMethodName                 = "/user.User/CreateTeam"
-	User_AddTeamMember_FullMethodName              = "/user.User/AddTeamMember"
-	User_ListTeamMembers_FullMethodName            = "/user.User/ListTeamMembers"
-	User_SetTeamMemberRole_FullMethodName          = "/user.User/SetTeamMemberRole"
-	User_AuthorizeTeamGroupCreation_FullMethodName = "/user.User/AuthorizeTeamGroupCreation"
-	User_CheckTeamMember_FullMethodName            = "/user.User/CheckTeamMember"
-	User_CheckTeamMemberByID_FullMethodName        = "/user.User/CheckTeamMemberByID"
-	User_ResolveTeamMember_FullMethodName          = "/user.User/ResolveTeamMember"
-	User_LeaveTeam_FullMethodName                  = "/user.User/LeaveTeam"
-	User_GetTeamLeaveOperation_FullMethodName      = "/user.User/GetTeamLeaveOperation"
+	User_GetUserInfo_FullMethodName                      = "/user.User/GetUserInfo"
+	User_GetMyInfo_FullMethodName                        = "/user.User/GetMyInfo"
+	User_Login_FullMethodName                            = "/user.User/Login"
+	User_Register_FullMethodName                         = "/user.User/Register"
+	User_CreateTeam_FullMethodName                       = "/user.User/CreateTeam"
+	User_AddTeamMember_FullMethodName                    = "/user.User/AddTeamMember"
+	User_ListTeamMembers_FullMethodName                  = "/user.User/ListTeamMembers"
+	User_SetTeamMemberRole_FullMethodName                = "/user.User/SetTeamMemberRole"
+	User_AuthorizeTeamGroupCreation_FullMethodName       = "/user.User/AuthorizeTeamGroupCreation"
+	User_CheckTeamMember_FullMethodName                  = "/user.User/CheckTeamMember"
+	User_CheckTeamMemberByID_FullMethodName              = "/user.User/CheckTeamMemberByID"
+	User_ResolveTeamMember_FullMethodName                = "/user.User/ResolveTeamMember"
+	User_LeaveTeam_FullMethodName                        = "/user.User/LeaveTeam"
+	User_GetTeamLeaveOperation_FullMethodName            = "/user.User/GetTeamLeaveOperation"
+	User_ListMyTeams_FullMethodName                      = "/user.User/ListMyTeams"
+	User_BatchGetConversationDisplayNames_FullMethodName = "/user.User/BatchGetConversationDisplayNames"
 )
 
 // UserClient is the client API for User service.
@@ -67,6 +69,10 @@ type UserClient interface {
 	LeaveTeam(ctx context.Context, in *LeaveTeamRequest, opts ...grpc.CallOption) (*TeamLeaveOperationResponse, error)
 	// 回包丢失后，本人可按原请求键查询固定退出操作。
 	GetTeamLeaveOperation(ctx context.Context, in *GetTeamLeaveOperationRequest, opts ...grpc.CallOption) (*TeamLeaveOperationResponse, error)
+	// 登录本人分页读取当前活动团队；不能代填 user_id。
+	ListMyTeams(ctx context.Context, in *ListMyTeamsRequest, opts ...grpc.CallOption) (*ListMyTeamsResponse, error)
+	// 仅供 Gateway 对 IM 已核实的私聊对象补有限显示名；不开放任意 HTTP 查询。
+	BatchGetConversationDisplayNames(ctx context.Context, in *BatchGetConversationDisplayNamesRequest, opts ...grpc.CallOption) (*BatchGetConversationDisplayNamesResponse, error)
 }
 
 type userClient struct {
@@ -217,6 +223,26 @@ func (c *userClient) GetTeamLeaveOperation(ctx context.Context, in *GetTeamLeave
 	return out, nil
 }
 
+func (c *userClient) ListMyTeams(ctx context.Context, in *ListMyTeamsRequest, opts ...grpc.CallOption) (*ListMyTeamsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMyTeamsResponse)
+	err := c.cc.Invoke(ctx, User_ListMyTeams_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) BatchGetConversationDisplayNames(ctx context.Context, in *BatchGetConversationDisplayNamesRequest, opts ...grpc.CallOption) (*BatchGetConversationDisplayNamesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchGetConversationDisplayNamesResponse)
+	err := c.cc.Invoke(ctx, User_BatchGetConversationDisplayNames_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServer is the server API for User service.
 // All implementations must embed UnimplementedUserServer
 // for forward compatibility.
@@ -249,6 +275,10 @@ type UserServer interface {
 	LeaveTeam(context.Context, *LeaveTeamRequest) (*TeamLeaveOperationResponse, error)
 	// 回包丢失后，本人可按原请求键查询固定退出操作。
 	GetTeamLeaveOperation(context.Context, *GetTeamLeaveOperationRequest) (*TeamLeaveOperationResponse, error)
+	// 登录本人分页读取当前活动团队；不能代填 user_id。
+	ListMyTeams(context.Context, *ListMyTeamsRequest) (*ListMyTeamsResponse, error)
+	// 仅供 Gateway 对 IM 已核实的私聊对象补有限显示名；不开放任意 HTTP 查询。
+	BatchGetConversationDisplayNames(context.Context, *BatchGetConversationDisplayNamesRequest) (*BatchGetConversationDisplayNamesResponse, error)
 	mustEmbedUnimplementedUserServer()
 }
 
@@ -300,6 +330,12 @@ func (UnimplementedUserServer) LeaveTeam(context.Context, *LeaveTeamRequest) (*T
 }
 func (UnimplementedUserServer) GetTeamLeaveOperation(context.Context, *GetTeamLeaveOperationRequest) (*TeamLeaveOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTeamLeaveOperation not implemented")
+}
+func (UnimplementedUserServer) ListMyTeams(context.Context, *ListMyTeamsRequest) (*ListMyTeamsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListMyTeams not implemented")
+}
+func (UnimplementedUserServer) BatchGetConversationDisplayNames(context.Context, *BatchGetConversationDisplayNamesRequest) (*BatchGetConversationDisplayNamesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BatchGetConversationDisplayNames not implemented")
 }
 func (UnimplementedUserServer) mustEmbedUnimplementedUserServer() {}
 func (UnimplementedUserServer) testEmbeddedByValue()              {}
@@ -574,6 +610,42 @@ func _User_GetTeamLeaveOperation_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_ListMyTeams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMyTeamsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ListMyTeams(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ListMyTeams_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ListMyTeams(ctx, req.(*ListMyTeamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_BatchGetConversationDisplayNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchGetConversationDisplayNamesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).BatchGetConversationDisplayNames(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_BatchGetConversationDisplayNames_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).BatchGetConversationDisplayNames(ctx, req.(*BatchGetConversationDisplayNamesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // User_ServiceDesc is the grpc.ServiceDesc for User service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -636,6 +708,14 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTeamLeaveOperation",
 			Handler:    _User_GetTeamLeaveOperation_Handler,
+		},
+		{
+			MethodName: "ListMyTeams",
+			Handler:    _User_ListMyTeams_Handler,
+		},
+		{
+			MethodName: "BatchGetConversationDisplayNames",
+			Handler:    _User_BatchGetConversationDisplayNames_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

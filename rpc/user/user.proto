@@ -33,6 +33,39 @@ service User {
   rpc LeaveTeam(LeaveTeamRequest) returns (TeamLeaveOperationResponse);
   // 回包丢失后，本人可按原请求键查询固定退出操作。
   rpc GetTeamLeaveOperation(GetTeamLeaveOperationRequest) returns (TeamLeaveOperationResponse);
+  // 登录本人分页读取当前活动团队；不能代填 user_id。
+  rpc ListMyTeams(ListMyTeamsRequest) returns (ListMyTeamsResponse);
+  // 仅供 Gateway 对 IM 已核实的私聊对象补有限显示名；不开放任意 HTTP 查询。
+  rpc BatchGetConversationDisplayNames(BatchGetConversationDisplayNamesRequest) returns (BatchGetConversationDisplayNamesResponse);
+}
+
+message ListMyTeamsRequest {
+  int64 after_team_id = 1;
+  int32 limit = 2;
+}
+
+message MyTeam {
+  int64 team_id = 1;
+  string name = 2;
+  int32 role = 3;
+}
+
+message ListMyTeamsResponse {
+  repeated MyTeam teams = 1;
+  int64 next_after_team_id = 2;
+}
+
+message BatchGetConversationDisplayNamesRequest {
+  repeated int64 user_ids = 1; // 最多 100 个正 ID。
+}
+
+message ConversationDisplayName {
+  int64 user_id = 1;
+  string display_name = 2; // 昵称优先、用户名兜底；无可用资料时不返回该 ID。
+}
+
+message BatchGetConversationDisplayNamesResponse {
+  repeated ConversationDisplayName users = 1;
 }
 
 message LeaveTeamRequest {

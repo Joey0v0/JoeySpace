@@ -15,6 +15,8 @@ service IM {
   rpc CreateTeamGroup(CreateTeamGroupRequest) returns (CreateTeamGroupResponse);
   // 团队成员分页查看所属团队的群。
   rpc ListTeamGroups(ListTeamGroupsRequest) returns (ListTeamGroupsResponse);
+  // 当前团队成员按 ID 定位群目录项，群资格由 joined 表示。
+  rpc GetTeamGroup(GetTeamGroupRequest) returns (GetTeamGroupResponse);
   // 当前团队成员自行加入所属团队的群；用户身份从 authorization 获取。
   rpc JoinTeamGroup(JoinTeamGroupRequest) returns (JoinTeamGroupResponse);
   // 团队群成员按消息 ID 倒序读取历史消息。
@@ -25,6 +27,10 @@ service IM {
   rpc MarkTeamGroupMessagesRead(MarkTeamGroupMessagesReadRequest) returns (MarkTeamGroupMessagesReadResponse);
   // 本人和指定对方的单聊历史，按消息 ID 倒序分页。
   rpc ListDirectMessages(ListDirectMessagesRequest) returns (ListDirectMessagesResponse);
+  // 本人持久单聊对象目录；不能用离线投递记录代替。
+  rpc ListMyDirectConversations(ListMyDirectConversationsRequest) returns (ListMyDirectConversationsResponse);
+  // 本人按已持久化单聊关系定位指定对象。
+  rpc GetMyDirectConversation(GetMyDirectConversationRequest) returns (GetMyDirectConversationResponse);
   // 本人收到该对方消息的未读数；读取不标已读。
   rpc GetDirectUnread(GetDirectUnreadRequest) returns (GetDirectUnreadResponse);
   // 本人显式确认该对方发来的具体消息。
@@ -112,11 +118,21 @@ message TeamGroup {
   int64 group_id = 1;
   string name = 2;
   int64 owner_id = 3;
+  bool joined = 4; // 当前团队代际内的群成员资格；看见目录不代表已加入。
 }
 
 message ListTeamGroupsResponse {
   repeated TeamGroup groups = 1;
   int64 next_after_group_id = 2;
+}
+
+message GetTeamGroupRequest {
+  int64 team_id = 1;
+  int64 group_id = 2;
+}
+
+message GetTeamGroupResponse {
+  TeamGroup group = 1;
 }
 
 message CreateTeamGroupRequest {
@@ -184,6 +200,31 @@ message DirectMessage {
 message ListDirectMessagesResponse {
   repeated DirectMessage messages = 1;
   int64 next_before_message_id = 2;
+}
+
+message ListMyDirectConversationsRequest {
+  int64 snapshot_upper_message_id = 1; // 首页面传 0，后续原样回传。
+  int64 before_last_message_id = 2; // 首页面传 0，后续传上一页游标。
+  int32 limit = 3;
+}
+
+message DirectConversation {
+  int64 peer_id = 1;
+  int64 last_message_id = 2; // 快照上界以内该会话最新持久消息。
+}
+
+message ListMyDirectConversationsResponse {
+  repeated DirectConversation conversations = 1;
+  int64 snapshot_upper_message_id = 2;
+  int64 next_before_last_message_id = 3;
+}
+
+message GetMyDirectConversationRequest {
+  int64 peer_id = 1;
+}
+
+message GetMyDirectConversationResponse {
+  DirectConversation conversation = 1;
 }
 
 message GetDirectUnreadRequest { int64 peer_id = 1; }

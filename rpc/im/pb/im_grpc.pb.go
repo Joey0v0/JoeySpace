@@ -23,11 +23,14 @@ const (
 	IM_CheckTeamGroupAccess_FullMethodName      = "/im.IM/CheckTeamGroupAccess"
 	IM_CreateTeamGroup_FullMethodName           = "/im.IM/CreateTeamGroup"
 	IM_ListTeamGroups_FullMethodName            = "/im.IM/ListTeamGroups"
+	IM_GetTeamGroup_FullMethodName              = "/im.IM/GetTeamGroup"
 	IM_JoinTeamGroup_FullMethodName             = "/im.IM/JoinTeamGroup"
 	IM_ListTeamGroupMessages_FullMethodName     = "/im.IM/ListTeamGroupMessages"
 	IM_GetTeamGroupUnread_FullMethodName        = "/im.IM/GetTeamGroupUnread"
 	IM_MarkTeamGroupMessagesRead_FullMethodName = "/im.IM/MarkTeamGroupMessagesRead"
 	IM_ListDirectMessages_FullMethodName        = "/im.IM/ListDirectMessages"
+	IM_ListMyDirectConversations_FullMethodName = "/im.IM/ListMyDirectConversations"
+	IM_GetMyDirectConversation_FullMethodName   = "/im.IM/GetMyDirectConversation"
 	IM_GetDirectUnread_FullMethodName           = "/im.IM/GetDirectUnread"
 	IM_MarkDirectMessagesRead_FullMethodName    = "/im.IM/MarkDirectMessagesRead"
 	IM_CheckTeamGroupMessage_FullMethodName     = "/im.IM/CheckTeamGroupMessage"
@@ -47,6 +50,8 @@ type IMClient interface {
 	CreateTeamGroup(ctx context.Context, in *CreateTeamGroupRequest, opts ...grpc.CallOption) (*CreateTeamGroupResponse, error)
 	// 团队成员分页查看所属团队的群。
 	ListTeamGroups(ctx context.Context, in *ListTeamGroupsRequest, opts ...grpc.CallOption) (*ListTeamGroupsResponse, error)
+	// 当前团队成员按 ID 定位群目录项，群资格由 joined 表示。
+	GetTeamGroup(ctx context.Context, in *GetTeamGroupRequest, opts ...grpc.CallOption) (*GetTeamGroupResponse, error)
 	// 当前团队成员自行加入所属团队的群；用户身份从 authorization 获取。
 	JoinTeamGroup(ctx context.Context, in *JoinTeamGroupRequest, opts ...grpc.CallOption) (*JoinTeamGroupResponse, error)
 	// 团队群成员按消息 ID 倒序读取历史消息。
@@ -57,6 +62,10 @@ type IMClient interface {
 	MarkTeamGroupMessagesRead(ctx context.Context, in *MarkTeamGroupMessagesReadRequest, opts ...grpc.CallOption) (*MarkTeamGroupMessagesReadResponse, error)
 	// 本人和指定对方的单聊历史，按消息 ID 倒序分页。
 	ListDirectMessages(ctx context.Context, in *ListDirectMessagesRequest, opts ...grpc.CallOption) (*ListDirectMessagesResponse, error)
+	// 本人持久单聊对象目录；不能用离线投递记录代替。
+	ListMyDirectConversations(ctx context.Context, in *ListMyDirectConversationsRequest, opts ...grpc.CallOption) (*ListMyDirectConversationsResponse, error)
+	// 本人按已持久化单聊关系定位指定对象。
+	GetMyDirectConversation(ctx context.Context, in *GetMyDirectConversationRequest, opts ...grpc.CallOption) (*GetMyDirectConversationResponse, error)
 	// 本人收到该对方消息的未读数；读取不标已读。
 	GetDirectUnread(ctx context.Context, in *GetDirectUnreadRequest, opts ...grpc.CallOption) (*GetDirectUnreadResponse, error)
 	// 本人显式确认该对方发来的具体消息。
@@ -117,6 +126,16 @@ func (c *iMClient) ListTeamGroups(ctx context.Context, in *ListTeamGroupsRequest
 	return out, nil
 }
 
+func (c *iMClient) GetTeamGroup(ctx context.Context, in *GetTeamGroupRequest, opts ...grpc.CallOption) (*GetTeamGroupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTeamGroupResponse)
+	err := c.cc.Invoke(ctx, IM_GetTeamGroup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *iMClient) JoinTeamGroup(ctx context.Context, in *JoinTeamGroupRequest, opts ...grpc.CallOption) (*JoinTeamGroupResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(JoinTeamGroupResponse)
@@ -161,6 +180,26 @@ func (c *iMClient) ListDirectMessages(ctx context.Context, in *ListDirectMessage
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListDirectMessagesResponse)
 	err := c.cc.Invoke(ctx, IM_ListDirectMessages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iMClient) ListMyDirectConversations(ctx context.Context, in *ListMyDirectConversationsRequest, opts ...grpc.CallOption) (*ListMyDirectConversationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMyDirectConversationsResponse)
+	err := c.cc.Invoke(ctx, IM_ListMyDirectConversations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iMClient) GetMyDirectConversation(ctx context.Context, in *GetMyDirectConversationRequest, opts ...grpc.CallOption) (*GetMyDirectConversationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMyDirectConversationResponse)
+	err := c.cc.Invoke(ctx, IM_GetMyDirectConversation_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +268,8 @@ type IMServer interface {
 	CreateTeamGroup(context.Context, *CreateTeamGroupRequest) (*CreateTeamGroupResponse, error)
 	// 团队成员分页查看所属团队的群。
 	ListTeamGroups(context.Context, *ListTeamGroupsRequest) (*ListTeamGroupsResponse, error)
+	// 当前团队成员按 ID 定位群目录项，群资格由 joined 表示。
+	GetTeamGroup(context.Context, *GetTeamGroupRequest) (*GetTeamGroupResponse, error)
 	// 当前团队成员自行加入所属团队的群；用户身份从 authorization 获取。
 	JoinTeamGroup(context.Context, *JoinTeamGroupRequest) (*JoinTeamGroupResponse, error)
 	// 团队群成员按消息 ID 倒序读取历史消息。
@@ -239,6 +280,10 @@ type IMServer interface {
 	MarkTeamGroupMessagesRead(context.Context, *MarkTeamGroupMessagesReadRequest) (*MarkTeamGroupMessagesReadResponse, error)
 	// 本人和指定对方的单聊历史，按消息 ID 倒序分页。
 	ListDirectMessages(context.Context, *ListDirectMessagesRequest) (*ListDirectMessagesResponse, error)
+	// 本人持久单聊对象目录；不能用离线投递记录代替。
+	ListMyDirectConversations(context.Context, *ListMyDirectConversationsRequest) (*ListMyDirectConversationsResponse, error)
+	// 本人按已持久化单聊关系定位指定对象。
+	GetMyDirectConversation(context.Context, *GetMyDirectConversationRequest) (*GetMyDirectConversationResponse, error)
 	// 本人收到该对方消息的未读数；读取不标已读。
 	GetDirectUnread(context.Context, *GetDirectUnreadRequest) (*GetDirectUnreadResponse, error)
 	// 本人显式确认该对方发来的具体消息。
@@ -271,6 +316,9 @@ func (UnimplementedIMServer) CreateTeamGroup(context.Context, *CreateTeamGroupRe
 func (UnimplementedIMServer) ListTeamGroups(context.Context, *ListTeamGroupsRequest) (*ListTeamGroupsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTeamGroups not implemented")
 }
+func (UnimplementedIMServer) GetTeamGroup(context.Context, *GetTeamGroupRequest) (*GetTeamGroupResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTeamGroup not implemented")
+}
 func (UnimplementedIMServer) JoinTeamGroup(context.Context, *JoinTeamGroupRequest) (*JoinTeamGroupResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method JoinTeamGroup not implemented")
 }
@@ -285,6 +333,12 @@ func (UnimplementedIMServer) MarkTeamGroupMessagesRead(context.Context, *MarkTea
 }
 func (UnimplementedIMServer) ListDirectMessages(context.Context, *ListDirectMessagesRequest) (*ListDirectMessagesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListDirectMessages not implemented")
+}
+func (UnimplementedIMServer) ListMyDirectConversations(context.Context, *ListMyDirectConversationsRequest) (*ListMyDirectConversationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListMyDirectConversations not implemented")
+}
+func (UnimplementedIMServer) GetMyDirectConversation(context.Context, *GetMyDirectConversationRequest) (*GetMyDirectConversationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMyDirectConversation not implemented")
 }
 func (UnimplementedIMServer) GetDirectUnread(context.Context, *GetDirectUnreadRequest) (*GetDirectUnreadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDirectUnread not implemented")
@@ -394,6 +448,24 @@ func _IM_ListTeamGroups_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IM_GetTeamGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTeamGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMServer).GetTeamGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IM_GetTeamGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMServer).GetTeamGroup(ctx, req.(*GetTeamGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _IM_JoinTeamGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(JoinTeamGroupRequest)
 	if err := dec(in); err != nil {
@@ -480,6 +552,42 @@ func _IM_ListDirectMessages_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(IMServer).ListDirectMessages(ctx, req.(*ListDirectMessagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IM_ListMyDirectConversations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMyDirectConversationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMServer).ListMyDirectConversations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IM_ListMyDirectConversations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMServer).ListMyDirectConversations(ctx, req.(*ListMyDirectConversationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IM_GetMyDirectConversation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMyDirectConversationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMServer).GetMyDirectConversation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IM_GetMyDirectConversation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMServer).GetMyDirectConversation(ctx, req.(*GetMyDirectConversationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -598,6 +706,10 @@ var IM_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _IM_ListTeamGroups_Handler,
 		},
 		{
+			MethodName: "GetTeamGroup",
+			Handler:    _IM_GetTeamGroup_Handler,
+		},
+		{
 			MethodName: "JoinTeamGroup",
 			Handler:    _IM_JoinTeamGroup_Handler,
 		},
@@ -616,6 +728,14 @@ var IM_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListDirectMessages",
 			Handler:    _IM_ListDirectMessages_Handler,
+		},
+		{
+			MethodName: "ListMyDirectConversations",
+			Handler:    _IM_ListMyDirectConversations_Handler,
+		},
+		{
+			MethodName: "GetMyDirectConversation",
+			Handler:    _IM_GetMyDirectConversation_Handler,
 		},
 		{
 			MethodName: "GetDirectUnread",

@@ -15,6 +15,14 @@ import (
 
 type userClientFunc func(context.Context, *pb.GetUserInfoRequest) (*pb.GetUserInfoResponse, error)
 
+func (f userClientFunc) ListMyTeams(context.Context, *pb.ListMyTeamsRequest, ...grpc.CallOption) (*pb.ListMyTeamsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not used in demo tests")
+}
+
+func (f userClientFunc) BatchGetConversationDisplayNames(context.Context, *pb.BatchGetConversationDisplayNamesRequest, ...grpc.CallOption) (*pb.BatchGetConversationDisplayNamesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "not used in demo tests")
+}
+
 func (f userClientFunc) LeaveTeam(context.Context, *pb.LeaveTeamRequest, ...grpc.CallOption) (*pb.TeamLeaveOperationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "not used in demo tests")
 }
