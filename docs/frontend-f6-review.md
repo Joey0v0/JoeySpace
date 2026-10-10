@@ -2,7 +2,7 @@
 
 ## 阶段判断
 
-正式 Vue 入口已在阿里云 `/opt/JoeySpace` 以同源 Nginx 和回环 `127.0.0.1:18083` 运行，浏览器需经 SSH 隧道访问。F6 任务 6—11 的已测业务链路均有真实浏览器通过样本；维护窗口中的 Push 进程停止/恢复专项也通过。任务 9 早期 Ask 连续 503，另一条指令耗尽预算，模型稳定性尚未证实。跳过 409 已定向修复并复验。**F6 暂不标记为无条件完成，公网入口未开放**。用户已将截至 `2a32296` 的成果合并并推送到 `main`，本续报仍在 F6 隔离分支。逐项证据见[验收清单](frontend-f6-acceptance-checklist.md)，服务端变更和回退见[部署记录](frontend-f6-deployment-runbook.md)。
+正式 Vue 入口已在阿里云 `/opt/JoeySpace` 以同源 Nginx 和回环 `127.0.0.1:18083` 运行，浏览器需经 SSH 隧道访问。F6 任务 6—11 的已测业务链路均有真实浏览器通过样本；维护窗口中的 Push 进程停止/恢复专项也通过。任务 9 早期 Ask 连续 503，另一条指令耗尽预算，模型稳定性尚未证实。跳过 409 已定向修复并复验。**F6 暂不标记为无条件完成，公网入口未开放**。本续报撰写时，用户已将截至 `2a32296` 的成果合并并推送到 `main`，后续验收文档仍在 F6 隔离分支。逐项证据见[验收清单](frontend-f6-acceptance-checklist.md)，服务端变更和回退见[部署记录](frontend-f6-deployment-runbook.md)。
 
 ## 目标与调用链
 
@@ -24,7 +24,7 @@
 - 服务器代码 `864468da190403ad68afc73353a7ce0335f23bee`，工作树干净；`deploy` 七份 Compose 覆盖、12 个容器运行，同源路由 5/5。当前 Agent 镜像 `sha256:1f96ae5fe89849b1d52eccc9a780a63b93fc5d84897b5f32c8f2a9194ae10a19`、WS 镜像 `sha256:d8ce184ebfa1aebb56081062f637b9a0ed985136f4df27d5cc48c106bdc62ed2`；本次 Agent 旧镜像 ID 留在服务器 `/tmp/joeyspace-f6-ask-timeout-old-agent-image.txt`，WS 上一镜像留在 `/tmp/joeyspace-f6-user-lock-old-ws-image.txt`。前端镜像仍为 `sha256:58cb7c446a0c85dfb6334bf3e5622033e043301617db8eb9a91521fecf0231fa`。
 - MySQL 备份 `/opt/joeyspace-backups/go_im-20261010T060712Z.sql` 的 SHA-256 为 `c9f9039247f726ca887d927825b1862cd69dd83e55c4ec8e404d3515b9e98490`，已在隔离 MySQL 8.0 恢复演练；迁移不做自动 `DROP`。
 - `864468d` 后 `go test ./... -count=1` 通过；Ask 模型超时测试先失败后通过，普通模型故障仍保持脱敏 `Unavailable`。此前前端 `npm test` 133/133、`npm run typecheck`、`npm run build` 通过。本轮正式入口匿名路由检查 5/5，新 Agent 镜像下真实 Vue Ask HTTP 200 并准确引用已保存消息；最终 WS 镜像下双浏览器完整聊天回归与 Vue 草稿跳过此前已通过。本机缺少 GCC，`go test -race` 未运行；一次性脚本和桌面截图留在本地忽略目录 `.superpowers/sdd/2026-10-10-frontend-f6-acceptance/`。真实模型超时与完整服务器故障演练未做。
-- 本地隔离分支 `codex/frontend-f6-acceptance`；服务器代码与 Agent 镜像对应 `864468d`，本地后续验收文档比服务器新。用户后续已将截至 `2a32296` 的 F6 成果快进到本地与 GitHub `main`，本续报尚未合并或推送；公网入口未开放。
+- 本续报撰写时位于本地隔离分支 `codex/frontend-f6-acceptance`；服务器代码与 Agent 镜像对应 `864468d`，本地后续验收文档比服务器新。当时用户已将截至 `2a32296` 的 F6 成果快进到本地与 GitHub `main`，续报尚未合并或推送；公网入口未开放。集成后的实际提交以 Git 历史为准。
 
 ## 本阶段实际修改文件
 
