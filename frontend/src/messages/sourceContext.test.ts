@@ -14,6 +14,11 @@ test('source context strictly validates order, exact target, cap and large ids',
   assert.equal(decodeSourceContext({ messages: [message('1', { sender_type: 2, initiator_id: '0' })], target_message_id: '1' }, '1'), null)
 })
 
+test('source context accepts omitted empty mentions from the real IM response', () => {
+  const { mentioned_user_ids: _unused, ...withoutMentions } = message('8')
+  assert.deepEqual(decodeSourceContext({ messages: [withoutMentions], target_message_id: '8' }, '8')?.messages[0]?.mentioned_user_ids, [])
+})
+
 test('context clears on denied, route clear and account change, with stale response isolation', async () => {
   const identity = createSession(); identity.setSession('a'); const state = initialSourceContextState()
   let resolve!: (value: unknown) => void

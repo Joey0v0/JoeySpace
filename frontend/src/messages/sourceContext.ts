@@ -12,8 +12,10 @@ function decodeMessage(value: unknown): SourceMessage | null {
     || !nonNegative(item.initiator_id) || (item.sender_type === 2 ? item.initiator_id === '0' : item.initiator_id !== '0')
     || !Number.isInteger(item.content_type) || (item.content_type as number) < 0 || typeof item.content !== 'string'
     || !nonNegative(item.created_at_unix_ms) || !safeTime(item.created_at_unix_ms)
-    || !Array.isArray(item.mentioned_user_ids) || item.mentioned_user_ids.length > 10 || !item.mentioned_user_ids.every(isId) || new Set(item.mentioned_user_ids).size !== item.mentioned_user_ids.length) return null
-  return item as unknown as SourceMessage
+    || (item.mentioned_user_ids !== undefined && (!Array.isArray(item.mentioned_user_ids) || item.mentioned_user_ids.length > 10 || !item.mentioned_user_ids.every(isId) || new Set(item.mentioned_user_ids).size !== item.mentioned_user_ids.length))) return null
+  const mentions = item.mentioned_user_ids ?? []
+  if (new Set(mentions as string[]).size !== (mentions as string[]).length) return null
+  return { ...item, mentioned_user_ids: mentions } as SourceMessage
 }
 export function decodeSourceContext(value: unknown, expectedTarget: string): SourceContext | null {
   if (!value || typeof value !== 'object' || !isId(expectedTarget)) return null
