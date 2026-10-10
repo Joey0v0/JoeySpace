@@ -9,7 +9,7 @@
 | 源代码 | `codex/frontend-f6-acceptance`；当前 F6 提交以本地 `git rev-parse HEAD` 为准 | 用户在服务器核对：`main` / `c9eb885a5aaca43771470271dc49afdb00173b14`，工作树无未提交条目；本地 Git 确认该提交是 F6 的祖先 |
 | 入口 | 新增 `Dockerfile.frontend`、`frontend-nginx.conf`、`docker-compose.frontend.yaml`；回环 18083 | 用户回传 `ss` 结果中 18083 无监听；Docker 容器在运行，daemon 版本未核对 |
 | Compose | 拟用基础 + bot + trigger + notifications + team-leave + mentions + frontend，`--profile agent` | 项目名 `deploy`；实际覆盖为基础 + bot + trigger + notifications + team-leave，共 11 个运行容器；mentions/frontend 尚未启用 |
-| 数据 | 本地 036 建 `im_group_message_mentions`；037 给 `tasks` 增复合索引 | 用户在运行中的 `deploy-mysql-1` 核对：036 表和 037 索引均不存在；035 `idx_messages_direct_pair` 已存在。数据卷 `deploy_mysql_data`，MySQL 目录约 200 MB，宿主机 `/opt`、`/tmp` 所在分区可用约 19 GB；备份“没有或不确定”，恢复未演练 |
+| 数据 | 本地 036 建 `im_group_message_mentions`；037 给 `tasks` 增复合索引 | 用户在运行中的 `deploy-mysql-1` 核对：036 表和 037 索引均不存在；035 `idx_messages_direct_pair` 已存在。`go_im` 的 23 张表均为 InnoDB。数据卷 `deploy_mysql_data`，MySQL 目录约 200 MB，宿主机 `/opt`、`/tmp` 所在分区可用约 19 GB；备份“没有或不确定”，恢复未演练 |
 | 私有配置 | 本地隔离 worktree 无 `deploy/.env`、`deploy/docker-config.local.yaml`；未读取凭证 | 用户只读检查：`IM_MENTION_CERT_DIR`、`PUSH_IM_MENTION_CERT_DIR` 均未设置；对应证书与私有开关待准备/核对 |
 | 运行验证 | Vue 构建、Node 测试与 Compose 静态解析另记本批结果 | 镜像、Nginx、API/WS 和真实浏览器：**NOT RUN** |
 
@@ -17,7 +17,7 @@
 
 连接补充（2026-10-10）：用户已提供目标 SSH 地址；服务器命令确认仓库目录为 `/opt/JoeySpace`。对目标地址执行 `BatchMode=yes`、主机密钥严格校验的只读 `pwd` 探测，SSH 返回 `Permission denied (publickey,password)`，远程命令未执行。后续由用户在服务器运行单行只读命令并回传脱敏结果；不索取密码或私钥。
 
-用户只读回传已确认 `/opt/JoeySpace`、服务器 SHA、干净工作树、活动 Compose 项目/覆盖及容器状态；`18083` 无监听。有效单行 SQL 查询确认 035 索引已存在、036 表和 037 索引均不存在；F11 两个证书目录变量均未设置。用户称可恢复的 `go_im` 备份“没有或不确定”；运行库使用 `deploy_mysql_data`，目录约 200 MB，宿主机可用约 19 GB。此前多行命令被终端合并，其错误输出不作为环境事实。仍待核对其余前置迁移、证书签发、备份和私有开关，不执行同步或重建。
+用户只读回传已确认 `/opt/JoeySpace`、服务器 SHA、干净工作树、活动 Compose 项目/覆盖及容器状态；`18083` 无监听。有效单行 SQL 查询确认 035 索引已存在、036 表和 037 索引均不存在；`go_im` 的 23 张表均为 InnoDB；F11 两个证书目录变量均未设置。用户称可恢复的 `go_im` 备份“没有或不确定”；运行库使用 `deploy_mysql_data`，目录约 200 MB，宿主机可用约 19 GB。此前多行命令被终端合并及一次错误转义 SQL 的失败输出不作为环境事实。仍待核对其余前置迁移、证书签发、备份和私有开关，不执行同步或重建。
 
 服务器审计前不得根据仓库的 `init.sql` 推断旧数据卷已升级，也不得运行 `down -v`。以下所有命令中的 `<SERVER>`、`<REPO>`、`<OLD_SHA>`、`<F6_SHA>`、`<BACKUP>` 必须在只读核对后替换为审查过的真实值；这些占位符未填写时，命令不可执行。
 
@@ -57,6 +57,35 @@ SQL
 035 索引和 030、033、034 对应表已从只读输出确认；其余 031—032 和 Agent/通知链的实际迁移状态仍须按对象核对，不能仅凭表名认定全链可运行。F11 两个变量缺失；按 `deploy/README.md` 由现有自管 CA 在仓库外签发两份不同私钥的证书，IM 服务端 DNS SAN 为 `im.go-im.internal`，Push 客户端 DNS SAN 为 `push.go-im.internal`，分别核对服务端/客户端用途、CA、有效期和目录权限。首次安装脚本不负责这两份证书，不能重跑它覆盖现有凭证。核对私有 YAML 开关与 `.env` 追加 Origin；只记录布尔结果和到期日，不展示密钥。拟新增的 mentions/frontend 覆盖已与当前五份覆盖列表比对，启用仍须先满足迁移、证书和备份条件。
 
 ## 3. 拟执行的同步、备份与迁移（用户审查后）
+
+### 3.1 先备份并隔离恢复（拟执行，尚未运行）
+
+本机审计确认旧库使用 `deploy_mysql_data`，数据目录约 200 MB，宿主机可用约 19 GB，但这不是备份成功的证据。以下命令在服务器 `/opt/JoeySpace/deploy` 运行；输出只保留文件名、大小、校验和、恢复退出码及恢复库的表名，不展示 SQL 内容。备份目录位于仓库和 Docker 卷之外，权限为仅 root 可读；失败时保留 `.partial` 供排查，不把它当作可恢复备份。执行前核对目录不存在同名文件，并安排数据库活动较少的时段。
+
+```sh
+cd /opt/JoeySpace/deploy || exit 1
+umask 077
+install -d -m 700 /opt/joeyspace-backups
+backup=/opt/joeyspace-backups/go_im-$(date -u +%Y%m%dT%H%M%SZ).sql
+docker exec deploy-mysql-1 sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction --quick --routines --triggers --events --set-gtid-purged=OFF --databases go_im' > "$backup.partial" && test -s "$backup.partial" && mv "$backup.partial" "$backup" && sha256sum "$backup" && ls -lh "$backup"
+```
+
+只读引擎查询已确认当前 23 张表均为 InnoDB；`--single-transaction` 仍要求备份期间没有 DDL 才能保证在线一致性。仍须检查命令退出码，若任一命令失败立即停止。恢复演练使用临时 MySQL 8.0 容器，不映射端口、不接入生产 Compose 网络或数据卷，不修改生产库。执行前确认临时容器名未被占用，给临时库随机密码，导入上面的同一备份文件并核对 `go_im` 的关键表；演练通过后才删除临时容器。若恢复失败，停止部署并保留备份排查。
+
+```sh
+test -s "$backup" || exit 1
+docker container inspect joeyspace-f6-restore-check >/dev/null 2>&1 && { echo 'temporary_name_in_use'; exit 1; }
+restore_pw=$(openssl rand -hex 24)
+docker run -d --name joeyspace-f6-restore-check --network none -e MYSQL_ROOT_PASSWORD="$restore_pw" mysql:8.0
+for i in $(seq 1 60); do docker exec joeyspace-f6-restore-check sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin ping -uroot --silent' >/dev/null 2>&1 && break; sleep 2; done
+docker exec joeyspace-f6-restore-check sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin ping -uroot --silent'
+docker exec -i joeyspace-f6-restore-check sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot' < "$backup"
+docker exec joeyspace-f6-restore-check sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e "SHOW TABLES" go_im' | grep -E '^(messages|tasks|im_group_message_reads)$' | wc -l | grep '^3$'
+docker rm -f joeyspace-f6-restore-check
+unset restore_pw
+```
+
+上述为人工顺序步骤，不适合把多行压成一个命令粘贴；尤其必须核对导入命令退出码后才删除临时容器。恢复演练不能代替数据库故障恢复预案；迁移回退若要恢复整库，会覆盖备份之后的新写入，需另行确定停写窗口。备份文件及校验和只保存在服务器私有目录，不发送 SQL 文件。
 
 本地冻结 `<F6_SHA>` 后，可建立仅含 Git 跟踪文件的 bundle；它不包含被忽略的私有 `.env`、YAML 和证书。服务器工作树必须干净、旧提交 `<OLD_SHA>` 已记录，才在服务器获取 bundle 并切换到独立 F6 分支。传输目标与 SSH 身份以目标环境实际值填写：
 
