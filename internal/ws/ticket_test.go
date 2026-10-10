@@ -59,6 +59,13 @@ type ticketTestRedis struct{ repository.RedisRepository }
 
 func (ticketTestRedis) SetOnline(context.Context, int64, string, time.Duration) error { return nil }
 func (ticketTestRedis) DelOnline(context.Context, int64) error                        { return nil }
+func (ticketTestRedis) SetOnlineLease(context.Context, int64, string, string, time.Duration) error {
+	return nil
+}
+func (ticketTestRedis) RefreshOnlineLease(context.Context, int64, string, time.Duration) (bool, error) {
+	return true, nil
+}
+func (ticketTestRedis) DelOnlineLease(context.Context, int64, string) error { return nil }
 
 func TestWSTicketSingleUseAndOrigin(t *testing.T) {
 	const secret = "ticket-test-secret"

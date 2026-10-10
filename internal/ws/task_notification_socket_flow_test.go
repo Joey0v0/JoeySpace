@@ -31,6 +31,13 @@ type notificationSocketFlowRedis struct{ repository.RedisRepository }
 func (notificationSocketFlowRedis) SetOnline(context.Context, int64, string, time.Duration) error {
 	return nil
 }
+func (notificationSocketFlowRedis) SetOnlineLease(context.Context, int64, string, string, time.Duration) error {
+	return nil
+}
+func (notificationSocketFlowRedis) RefreshOnlineLease(context.Context, int64, string, time.Duration) (bool, error) {
+	return true, nil
+}
+func (notificationSocketFlowRedis) DelOnlineLease(context.Context, int64, string) error { return nil }
 
 type notificationSocketFlow struct {
 	event       model.TaskNotificationEvent

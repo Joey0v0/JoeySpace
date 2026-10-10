@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -55,8 +56,9 @@ type Client struct {
 	// redisRepo 用于 Redis 操作
 	redisRepo repository.RedisRepository
 	// wsRPCAddr WS 网关的内部 RPC 地址
-	wsRPCAddr string
-	imClient  groupMemberChecker
+	wsRPCAddr   string
+	onlineLease string
+	imClient    groupMemberChecker
 }
 
 type groupMemberChecker interface {
@@ -93,17 +95,37 @@ func NewClient(userID int64, token string, conn *websocket.Conn, hub *Hub, kafka
 
 // Start 启动客户端的读写 Goroutine
 func (c *Client) Start() {
+	leaseBytes := make([]byte, 16)
+	if _, err := rand.Read(leaseBytes); err != nil {
+		c.logger.Error("create online lease failed", zap.Int64("user_id", c.UserID), zap.Error(err))
+		c.hub.Unregister(c)
+		c.Close()
+		return
+	}
+	c.onlineLease = hex.EncodeToString(leaseBytes)
 	go c.readPump()
 	go c.writePump()
 
 	// 注册在线状态
 	ctx := context.Background()
-	if err := c.redisRepo.SetOnline(ctx, c.UserID, c.wsRPCAddr, onlineTTL); err != nil {
+	if err := c.setOnline(ctx); err != nil {
 		c.logger.Error("set online status failed",
 			zap.Int64("user_id", c.UserID),
 			zap.Error(err),
 		)
 	}
+}
+
+func (c *Client) setOnline(ctx context.Context) error {
+	return c.redisRepo.SetOnlineLease(ctx, c.UserID, c.wsRPCAddr, c.onlineLease, onlineTTL)
+}
+
+func (c *Client) refreshOnline(ctx context.Context) (bool, error) {
+	return c.redisRepo.RefreshOnlineLease(ctx, c.UserID, c.onlineLease, onlineTTL)
+}
+
+func (c *Client) clearOnline(ctx context.Context) error {
+	return c.redisRepo.DelOnlineLease(ctx, c.UserID, c.onlineLease)
 }
 
 // Close 关闭连接
@@ -143,7 +165,7 @@ func (c *Client) readPump() {
 		c.Close()
 		// 清除在线状态
 		ctx := context.Background()
-		if err := c.redisRepo.DelOnline(ctx, c.UserID); err != nil {
+		if err := c.clearOnline(ctx); err != nil {
 			c.logger.Error("delete online status failed",
 				zap.Int64("user_id", c.UserID),
 				zap.Error(err),
@@ -209,11 +231,15 @@ func (c *Client) writePump() {
 		case <-heartbeat.C:
 			// 定期刷新在线状态
 			ctx := context.Background()
-			if err := c.redisRepo.SetOnline(ctx, c.UserID, c.wsRPCAddr, onlineTTL); err != nil {
+			current, err := c.refreshOnline(ctx)
+			if err != nil {
 				c.logger.Error("refresh online status failed",
 					zap.Int64("user_id", c.UserID),
 					zap.Error(err),
 				)
+			} else if !current {
+				c.Close()
+				return
 			}
 
 		case <-c.closeCh:

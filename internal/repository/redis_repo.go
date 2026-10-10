@@ -15,6 +15,7 @@ import (
 // 在线状态键前缀
 const (
 	keyOnline       = "online:%d"        // online:{user_id} -> ws_rpc_addr
+	keyOnlineOwner  = "online_owner:%d"  // online_owner:{user_id} -> connection lease
 	keyMsgDedup     = "msg_dedup:%s"     // msg_dedup:{msg_id} -> pending:<owner>:<fingerprint> or sent:<fingerprint>
 	keyGroupMembers = "group:members:%d" // group:members:{group_id} -> SET of user_ids
 )
@@ -34,6 +35,9 @@ type RedisRepository interface {
 	SetOnline(ctx context.Context, userID int64, wsAddr string, ttl time.Duration) error
 	GetOnline(ctx context.Context, userID int64) (string, error)
 	DelOnline(ctx context.Context, userID int64) error
+	SetOnlineLease(ctx context.Context, userID int64, wsAddr, lease string, ttl time.Duration) error
+	RefreshOnlineLease(ctx context.Context, userID int64, lease string, ttl time.Duration) (bool, error)
+	DelOnlineLease(ctx context.Context, userID int64, lease string) error
 
 	// 消息防重
 	ReserveMsg(ctx context.Context, msgID, fingerprint string, ttl time.Duration) (MsgDedupState, string, error)
@@ -75,6 +79,41 @@ func (r *redisRepository) GetOnline(ctx context.Context, userID int64) (string, 
 func (r *redisRepository) DelOnline(ctx context.Context, userID int64) error {
 	key := fmt.Sprintf(keyOnline, userID)
 	return r.rdb.Del(ctx, key).Err()
+}
+
+// A route and its owning connection are written atomically. Closing an older
+// socket must not delete a replacement socket's route.
+func (r *redisRepository) SetOnlineLease(ctx context.Context, userID int64, wsAddr, lease string, ttl time.Duration) error {
+	if userID <= 0 || wsAddr == "" || lease == "" || ttl.Milliseconds() <= 0 {
+		return fmt.Errorf("invalid online lease")
+	}
+	const script = `redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[3])
+redis.call('SET', KEYS[2], ARGV[2], 'PX', ARGV[3])
+return 1`
+	return r.rdb.Eval(ctx, script, []string{fmt.Sprintf(keyOnline, userID), fmt.Sprintf(keyOnlineOwner, userID)}, wsAddr, lease, ttl.Milliseconds()).Err()
+}
+
+func (r *redisRepository) RefreshOnlineLease(ctx context.Context, userID int64, lease string, ttl time.Duration) (bool, error) {
+	if userID <= 0 || lease == "" || ttl.Milliseconds() <= 0 {
+		return false, fmt.Errorf("invalid online lease")
+	}
+	const script = `if redis.call('GET', KEYS[2]) ~= ARGV[1] or redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+redis.call('PEXPIRE', KEYS[2], ARGV[2])
+return 1`
+	result, err := r.rdb.Eval(ctx, script, []string{fmt.Sprintf(keyOnline, userID), fmt.Sprintf(keyOnlineOwner, userID)}, lease, ttl.Milliseconds()).Int()
+	return result == 1, err
+}
+
+func (r *redisRepository) DelOnlineLease(ctx context.Context, userID int64, lease string) error {
+	if userID <= 0 || lease == "" {
+		return fmt.Errorf("invalid online lease")
+	}
+	const script = `if redis.call('GET', KEYS[2]) == ARGV[1] then
+  redis.call('DEL', KEYS[1], KEYS[2])
+end
+return 1`
+	return r.rdb.Eval(ctx, script, []string{fmt.Sprintf(keyOnline, userID), fmt.Sprintf(keyOnlineOwner, userID)}, lease).Err()
 }
 
 func (r *redisRepository) ReserveMsg(ctx context.Context, msgID, fingerprint string, ttl time.Duration) (MsgDedupState, string, error) {
