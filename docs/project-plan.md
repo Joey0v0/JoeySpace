@@ -63,6 +63,8 @@
 
 前端 F6 WS 复审续报（2026-10-10）：审查 `db191c4` 发现 Redis 发布在线租约期间持有全局 Hub 锁，单用户慢 Redis 会阻塞其他用户查找/注册。`33defb7` 改为按用户引用计数锁，Redis I/O 不持有全局锁，拿到同用户锁后限制写入为 5 秒；跨用户非阻塞测试先失败后通过，定向与全仓 Go 测试通过，只读复审未发现该路径新的阻塞竞态。本机缺少 GCC，`go test -race` 未运行。服务器最终镜像与复验结果见[验收清单](frontend-f6-acceptance-checklist.md)和[部署记录](frontend-f6-deployment-runbook.md)。
 
+前端 F6 Ask 复测续报（2026-10-10）：SSH 隧道恢复后，以三个独立一次性团队先确认群讨论消息落库，再从真实 Vue 页面发起 Ask，3/3 返回 HTTP 200，约 14、14、9 秒且回答准确引用讨论；同源路由检查 5/5。排查发现 Agent Ask 上限 20 秒、方舟客户端上限 15 秒，而现有 Ask 模型错误分支把上下文尚未结束时的所有模型错误归为 `Unavailable`，故早期 HTTP 503 不能仅据状态码归因于上游故障或 SDK 超时。现有日志也不含早期 Ask 的原始上游错误；本次未改产品代码、模型参数或云端镜像。F6 的模型稳定性、共享 Push 停机专项仍未完成，阶段继续保留有条件验收状态；详见[验收清单](frontend-f6-acceptance-checklist.md)与[阶段审查](frontend-f6-review.md)。
+
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 
 前端 F2 方案待审查（2026-10-09）：从 F1 提交 `e75c322` 建立独立 `codex/frontend-f2-navigation` 工作区，完成现有 User/IM/Gateway 接口的只读核对，并写成[真实登录与会话导航设计](frontend-f2-navigation-design.md)和[八任务实施计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)。推荐复用现有 Bearer 登录、按本标签页保存会话；User/IM 分属目录数据，Gateway 组合有限显示名；F2 先交付真实导航，完整消息阅读、未读/@我和主群配置后续单独接线。这些涉及身份保存、资料读取和跨服务读契约，[F06—F08](architecture-decisions.md#前端设计记录2026-10-09)仍待用户审查确认。当前 F2 仅有文档，未修改产品代码、协议或数据库；F1/main 均未合并或部署。
