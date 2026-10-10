@@ -17,7 +17,7 @@
 
 本地准备证据（不计入下方真实验收）：`verify-frontend-routes.test.cjs` 的 5 项替身检查通过；`verify-vue-browser.cjs` 在真实 Chrome 与临时 HTTP/WS 替身上完成 Vue 登录、消息刷新、群/任务深链及同源 API/WS 观察，跨源注入按预期失败。临时替身不是 Nginx 或真实业务服务，故下方仍为 `NOT RUN`。
 
-第 6 步部署前只读审计（2026-10-10）：**BLOCKED**。服务器 `/opt/JoeySpace` 为干净的 `main`，SHA `c9eb885`；Compose 项目 `deploy` 有 11 个运行容器，活动覆盖为基础、bot、trigger、notifications、team-leave；`18083` 无监听。运行库 `go_im` 的 23 张表均为 InnoDB，035 消息索引已存在，036 提及关系表和 037 任务索引缺失；F11 两个专用证书目录变量均未设置。数据卷为 `deploy_mysql_data`，数据库目录约 200 MB，宿主机可用约 19 GB；用户称可恢复的数据库备份“没有或不确定”。其余前置迁移和私有开关仍待核对。当前会话免交互 SSH 认证失败，远程事实由用户在服务器执行只读命令取得；没有同步文件、构建镜像、执行迁移、重建容器或创建业务测试数据。具体待核对项见[部署操作单](frontend-f6-deployment-runbook.md)。
+第 6 步部署前审计（2026-10-10）：**BLOCKED**。服务器 `/opt/JoeySpace` 为干净的 `main`，SHA `c9eb885`；Compose 项目 `deploy` 有 11 个运行容器，活动覆盖为基础、bot、trigger、notifications、team-leave；`18083` 无监听。运行库 `go_im` 的 23 张表均为 InnoDB，031—035 关键对象已核对，036 提及关系表和 037 任务索引缺失；F11 两个专用证书目录变量均未设置。现有 12 个角色证书文件存在，Agent/通知三项私有开关为 `true`。数据卷为 `deploy_mysql_data`；私有 SQL 备份已生成，并在隔离 MySQL 8.0 恢复 23 张表成功，临时容器已清理。用户授权专用公钥后，本机免交互 SSH 已连通；尚未同步文件、构建镜像、执行迁移、生成证书、重建原有容器或创建业务测试数据。具体备份文件和待核对项见[部署操作单](frontend-f6-deployment-runbook.md)。
 
 ## 入口与路由（任务 6）
 
