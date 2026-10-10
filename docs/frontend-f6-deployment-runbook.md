@@ -4,6 +4,8 @@
 
 ## 第 6 步实际执行结果
 
+第 7 步续报（2026-10-10）：真实双浏览器验收发现，切换页面时旧 WS 连接可在新连接建立后无条件删除同一用户的 Redis `online:<user_id>`；Push 随后将已在线用户视为离线，群/私聊历史仍能保存。主 agent 为在线路由增加每连接随机租约，Redis 脚本原子设置路由和租约，仅允许当前租约续期或删除。全仓 `go test ./... -count=1` 通过；修复提交 `475b9857c5ef34973918aece2bbcdd4318982589` 经 Git bundle 哈希校验后在服务器快进，完整 Compose `config --quiet` 通过，只重建并切换 `im-ws` 容器。旧 WS 镜像 ID `sha256:13afb456a1e67592f0a19b1364c40b7542f2d57a4edea358236c7c54c77edb86` 保存在服务器私有 `/tmp/joeyspace-f6-ws-prefixed-old-image.txt`，新镜像 ID 为 `sha256:fd60d88b58475753f33860f6dbf23d294a5e79236789193344f969d0911da24f`。迁移与前端镜像未重新构建。修复后的双浏览器群/私聊双向在线投递及 IM 历史 ID、未读/@我、显式已读、分页和离线补拉均通过；证据见[验收清单](frontend-f6-acceptance-checklist.md)。
+
 服务器旧提交为 `c9eb885a5aaca43771470271dc49afdb00173b14`，已切换到干净的 `codex/frontend-f6-acceptance`，部署提交为 `ee4fcd89999bcf16b59ffb69ebdc26b8a94bdd5b`。本地 Git bundle 与服务器文件 SHA-256 同为 `d399f62bcc8a2928fef0457a0a08877d5ee2002773acf18c96224f0dab7d8a68`，双方 `git bundle verify` 通过；没有传输私有 `.env`、YAML、证书或密钥。服务器原有五份 Compose 覆盖加 mentions/frontend 覆盖在同一 `deploy` 项目中 `config --quiet` 通过。
 
 迁移前再次核对已演练的 SQL 备份 SHA-256 为 `c9f9039247f726ca887d927825b1862cd69dd83e55c4ec8e404d3515b9e98490`；036 和 037 依次执行退出码均为 0。生产库中 `im_group_message_mentions` 为 1 张表；`idx_tasks_assignee_team_status_due` 的五列依次为 `assignee_id,team_id,status,due_at_unix_ms,id`。未对旧数据卷做删除或整库恢复。
