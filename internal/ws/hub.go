@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -12,6 +13,7 @@ type Hub struct {
 	// clients 存储所有在线客户端，key 为 userID
 	clients map[int64]*Client
 	mu      sync.RWMutex
+	locks   map[int64]*userPublishLock
 
 	// unregister 注销通道
 	unregister chan *Client
@@ -19,10 +21,16 @@ type Hub struct {
 	logger *zap.Logger
 }
 
+type userPublishLock struct {
+	mu   sync.Mutex
+	refs int
+}
+
 // NewHub 创建连接管理器
 func NewHub(logger *zap.Logger) *Hub {
 	return &Hub{
 		clients:    make(map[int64]*Client),
+		locks:      make(map[int64]*userPublishLock),
 		unregister: make(chan *Client, 256),
 		logger:     logger,
 	}
@@ -56,6 +64,8 @@ func (h *Hub) GetClient(userID int64) (*Client, bool) {
 
 // Register 注册客户端
 func (h *Hub) Register(client *Client) {
+	unlockUser := h.lockUser(client.UserID)
+	defer unlockUser()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if old, ok := h.clients[client.UserID]; ok {
@@ -68,9 +78,12 @@ func (h *Hub) Register(client *Client) {
 
 // PublishOnline serializes lease publication with connection replacement.
 func (h *Hub) PublishOnline(ctx context.Context, client *Client) (bool, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.clients[client.UserID] != client {
+	unlockUser := h.lockUser(client.UserID)
+	defer unlockUser()
+	h.mu.RLock()
+	current := h.clients[client.UserID] == client
+	h.mu.RUnlock()
+	if !current {
 		return false, nil
 	}
 	select {
@@ -78,7 +91,33 @@ func (h *Hub) PublishOnline(ctx context.Context, client *Client) (bool, error) {
 		return false, nil
 	default:
 	}
-	return true, client.setOnline(ctx)
+	publishCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return true, client.setOnline(publishCtx)
+}
+
+// lockUser orders registration and publication for one user without holding
+// the Hub's client-map lock during Redis I/O. References keep a queued lock
+// alive until every waiter has finished.
+func (h *Hub) lockUser(userID int64) func() {
+	h.mu.Lock()
+	lock := h.locks[userID]
+	if lock == nil {
+		lock = &userPublishLock{}
+		h.locks[userID] = lock
+	}
+	lock.refs++
+	h.mu.Unlock()
+	lock.mu.Lock()
+	return func() {
+		lock.mu.Unlock()
+		h.mu.Lock()
+		lock.refs--
+		if lock.refs == 0 {
+			delete(h.locks, userID)
+		}
+		h.mu.Unlock()
+	}
 }
 
 // Unregister 注销客户端

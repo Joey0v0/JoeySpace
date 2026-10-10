@@ -100,3 +100,48 @@ func TestLateOldSocketCannotPublishOverReplacement(t *testing.T) {
 		t.Fatalf("new route overwritten by stale socket: %q", owner)
 	}
 }
+
+type blockingLeaseFake struct {
+	onlineLeaseFake
+	started chan struct{}
+	release chan struct{}
+}
+
+func (r *blockingLeaseFake) SetOnlineLease(ctx context.Context, userID int64, addr, owner string, ttl time.Duration) error {
+	close(r.started)
+	select {
+	case <-r.release:
+		return r.onlineLeaseFake.SetOnlineLease(ctx, userID, addr, owner, ttl)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func TestSlowLeasePublishDoesNotBlockAnotherUser(t *testing.T) {
+	repo := &blockingLeaseFake{started: make(chan struct{}), release: make(chan struct{})}
+	hub := NewHub(zap.NewNop())
+	first := &Client{UserID: 42, redisRepo: repo, wsRPCAddr: "im-ws:9091", onlineLease: "first", closeCh: make(chan struct{})}
+	other := &Client{UserID: 43, redisRepo: repo, wsRPCAddr: "im-ws:9091", onlineLease: "other", closeCh: make(chan struct{})}
+	hub.Register(first)
+	published := make(chan struct{})
+	go func() {
+		defer close(published)
+		hub.PublishOnline(context.Background(), first)
+	}()
+	<-repo.started
+	defer func() {
+		close(repo.release)
+		<-published
+	}()
+	done := make(chan struct{})
+	go func() {
+		hub.Register(other)
+		_, _ = hub.GetClient(other.UserID)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("another user's registration or lookup waited for Redis")
+	}
+}
