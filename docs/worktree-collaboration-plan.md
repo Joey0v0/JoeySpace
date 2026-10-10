@@ -658,3 +658,7 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 | Vue 浏览器执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-browser`，`codex/frontend-f6-browser` | 仅 `deploy/verify-vue-browser.cjs`；提交 `2415a75`、修复 `7b8f6b3`，主分支集成 `c00f6a8`、`8dc4eb6` |
 
 Task 1 静态规格与质量审查通过，前端依赖安装/构建通过，但 Docker daemon 不可用，镜像和 Nginx 运行检查标 `BLOCKED`。Task 2 的占位 Compose 合并解析通过。Task 3 先写失败测试，修复审查发现的匿名 204 漏检后 5/5 通过。Task 4 真实 Chrome 与临时 HTTP/WS 替身通过登录、刷新、深链与同源观察；跨源负例和环境阻断分类也通过，脚本审查发现的 Chrome 启动分类问题已定向修复。Task 5 的本地 Go/前端回归、占位 Compose 静态解析与操作单已准备，目标服务器只读审计因缺少云端访问而标 `BLOCKED`；真实入口和业务验收留任务 6—12。本批不合 main、不推送、不部署。
+
+## 68. 前端 F6 第 6 步只读预审计（2026-10-10）
+
+用户要求继续后，主 agent 在同一 F6 worktree 仅核对本地仓库、SSH 配置存在性和回环端口，没有执行远程命令。目标服务器地址及仓库目录仍待提供，本机没有现成隧道；服务器当前提交、活动 Compose 覆盖、迁移、证书和备份均无可验证结果。主 agent 只更新 `docs/frontend-f6-deployment-runbook.md`、`docs/frontend-f6-acceptance-checklist.md`、`docs/project-plan.md` 和本节，把第 6 步预审计标为 `BLOCKED`，并列出脱敏只读命令。后续只有取得目标事实、填实部署差异与回退命令后才进入远程同步或业务写入；本轮未合 main、推送、部署或修改业务代码。

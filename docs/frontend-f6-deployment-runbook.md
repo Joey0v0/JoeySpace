@@ -13,6 +13,8 @@
 | 私有配置 | 本地隔离 worktree 无 `deploy/.env`、`deploy/docker-config.local.yaml`；未读取凭证 | 私有 `.env`、YAML、F11 两份专用证书和模型额度：**BLOCKED** |
 | 运行验证 | Vue 构建、Node 测试与 Compose 静态解析另记本批结果 | 镜像、Nginx、API/WS 和真实浏览器：**NOT RUN** |
 
+第 6 步只读审计更新（2026-10-10）：本机没有 SSH Host 别名，仓库文档没有可执行的服务器地址或仓库绝对路径；`127.0.0.1:18083`、`18082`、`18081` 均无监听。尚无目标环境连接，因此本节右栏继续为 `BLOCKED/NOT RUN`。本地 `main` 到 F6 分支的差异覆盖 `api/`、`rpc/user/`、`rpc/im/`、`rpc/task/`、`rpc/agent/`、`internal/push/`、`internal/ws/`、`cmd/push/`、`cmd/ws/`，并含 036/037 迁移；这只是**本地参考差异**，目标服务器旧 SHA 未知，不能据此直接生成服务重建清单。当前 F6 SHA：`440ae24711cca0ee3573ceccf74843177338e3a5`。
+
 服务器审计前不得根据仓库的 `init.sql` 推断旧数据卷已升级，也不得运行 `down -v`。以下所有命令中的 `<SERVER>`、`<REPO>`、`<OLD_SHA>`、`<F6_SHA>`、`<BACKUP>` 必须在只读核对后替换为审查过的真实值；这些占位符未填写时，命令不可执行。
 
 ## 2. 部署前只读核对
@@ -21,19 +23,31 @@
 
 ```sh
 cd <REPO>
+pwd
 git rev-parse HEAD
+git branch --show-current
 git status --short
 docker compose ls
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 docker compose --env-file deploy/.env -f deploy/docker-compose.yaml ps --all
 docker version --format '{{.Server.Version}}'
 ss -ltn '( sport = :18083 )'
 ```
 
+可回传的最小脱敏结果是上述命令输出、`information_schema` 的表/索引结果，以及“备份已存在且可恢复、证书目录与开关齐备”的逐项真假；不要回传 `.env`、私有 YAML 正文、数据库密码、Token、证书或密钥。`docker compose ls` 与基础文件的 `ps` 若对应不同项目，应以实际运行容器标签核对项目名后重写后续命令。
+
 按现有 Compose 项目名和数据卷核对正在使用的 MySQL 容器，先确认备份方式和可恢复性。使用该容器内已有凭证做只读结构查询；只有表/索引、前置迁移和备份结果均确认后，才决定是否执行 036/037：
 
 ```sh
 docker compose --env-file deploy/.env -f deploy/docker-compose.yaml exec -T mysql \
-  sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --batch go_im -e "SHOW CREATE TABLE im_group_message_mentions; SHOW INDEX FROM tasks;"'
+  sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --batch --skip-column-names information_schema' <<'SQL'
+SELECT TABLE_NAME FROM TABLES
+WHERE TABLE_SCHEMA='go_im' AND TABLE_NAME='im_group_message_mentions';
+SELECT INDEX_NAME,COLUMN_NAME,SEQ_IN_INDEX FROM STATISTICS
+WHERE TABLE_SCHEMA='go_im' AND TABLE_NAME='tasks'
+  AND INDEX_NAME='idx_tasks_assignee_team_status_due'
+ORDER BY SEQ_IN_INDEX;
+SQL
 ```
 
 还须确认 030、031—035 和 Agent/通知链的实际迁移状态，不能只凭 036/037 的对象存在就认定全链可运行。核对私有目录是否存在、证书用途/DNS SAN/有效期及 `.env` 追加 Origin；只记录布尔结果和到期日，不展示密钥。若目标当前覆盖列表与拟用列表不同，先改写本操作单并重新审查。
@@ -82,7 +96,7 @@ compose up -d --no-deps frontend-web
 compose ps frontend-web im-ws api-gateway
 ```
 
-如果 F1—F5 后端新代码尚未在目标环境，需在变更清单中逐项列出需构建/重启的 Gateway、IM、Push、Task、Agent 等服务及依赖顺序，完成迁移/证书核对后再单独执行；不能仅重建前端宣称整链可用。在当前 `<REPO>/deploy` 目录执行 `node verify-frontend-routes.cjs` 核对匿名路由；再从开发者电脑建立 `ssh -L 18083:127.0.0.1:18083 <SERVER>`，在开发者电脑的仓库根目录执行 `node deploy/verify-vue-browser.cjs` 与[逐项清单](frontend-f6-acceptance-checklist.md)。有效/重放 WS 票据、双账号业务和持久事实仍按清单人工核对。任一基础路由或权限失败，停止后续业务验收。
+如果 F1—F5 后端新代码尚未在目标环境，需在变更清单中逐项列出需构建/重启的 Gateway、IM、Push、Task、Agent 等服务及依赖顺序，完成迁移/证书核对后再单独执行；不能仅重建前端宣称整链可用。从开发者电脑建立 `ssh -N -L 18083:127.0.0.1:18083 <SERVER>`；在开发者电脑的 F6 仓库根目录运行 `node deploy/verify-frontend-routes.cjs`，再运行 `node deploy/verify-vue-browser.cjs` 并填写[逐项清单](frontend-f6-acceptance-checklist.md)。这样无需假定服务器安装 Node。有效/重放 WS 票据、双账号业务和持久事实仍按清单人工核对。任一基础路由或权限失败，停止后续业务验收。
 
 回退入口时，在**同一个已核实的 Compose 项目和完整覆盖列表**下先移除新增服务，再切回旧提交：
 

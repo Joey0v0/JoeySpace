@@ -17,6 +17,8 @@
 
 本地准备证据（不计入下方真实验收）：`verify-frontend-routes.test.cjs` 的 5 项替身检查通过；`verify-vue-browser.cjs` 在真实 Chrome 与临时 HTTP/WS 替身上完成 Vue 登录、消息刷新、群/任务深链及同源 API/WS 观察，跨源注入按预期失败。临时替身不是 Nginx 或真实业务服务，故下方仍为 `NOT RUN`。
 
+第 6 步部署前只读审计（2026-10-10）：**BLOCKED**。本机无目标服务器 SSH 地址/仓库绝对路径、无现成隧道；目标 Git SHA、实际 Compose 项目和覆盖、迁移、私有证书及备份均未取得只读证据。尚未同步文件、构建镜像、执行迁移、重建容器或创建业务测试数据。具体待核对项见[部署操作单](frontend-f6-deployment-runbook.md)。
+
 ## 入口与路由（任务 6）
 
 | 检查 | 预期 | 结果与证据 |
