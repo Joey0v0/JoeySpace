@@ -9,7 +9,7 @@ const detail = (status: 0 | 1 | 2): TaskDetail => ({ task: { task_id: '9', team_
 
 test('status submits expected status and rereads detail and list after success', async () => {
   const bodies: unknown[] = [], applied: number[] = []; let refreshed = 0
-  const mutation = createStatusMutation(async (_p, options) => { bodies.push(JSON.parse(String(options?.body))); return {} }, async () => detail(1), createSession(), initialStatusMutationState(), { apply: value => applied.push(value.task.status), clear: () => {}, refresh: async () => { refreshed++ } })
+  const mutation = createStatusMutation(async (_p, options, authenticated, expectData) => { assert.equal(authenticated, true); assert.equal(expectData, false); bodies.push(JSON.parse(String(options?.body))); return undefined }, async () => detail(1), createSession(), initialStatusMutationState(), { apply: value => applied.push(value.task.status), clear: () => {}, refresh: async () => { refreshed++ } })
   await mutation.update(detail(0), 1)
   assert.deepEqual(bodies, [{ status: 1, expected_status: 0 }]); assert.deepEqual(applied, [1]); assert.equal(refreshed, 1)
   mutation.dispose()

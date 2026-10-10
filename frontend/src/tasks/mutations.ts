@@ -5,7 +5,7 @@ import { decodeTaskDetail, type TaskDetail, type TaskStatus } from './model.ts'
 export type StatusPhase = 'idle' | 'submitting' | 'rechecking' | 'success' | 'retryable' | 'uncertain' | 'conflict' | 'error'
 export function initialStatusMutationState() { return { phase: 'idle' as StatusPhase, error: '', status: '', target: null as TaskStatus | null, expected: null as TaskStatus | null } }
 type State = ReturnType<typeof initialStatusMutationState>
-type Request = (path: string, options?: RequestInit) => Promise<unknown>
+type Request = (path: string, options?: RequestInit, authenticated?: boolean, expectData?: boolean) => Promise<unknown>
 interface Hooks { apply(detail: TaskDetail): void; clear(): void; refresh(): Promise<unknown> | unknown }
 
 export function createStatusMutation(request: Request, getTask: (teamId: string, taskId: string) => Promise<TaskDetail | unknown>, identity: ReturnType<typeof createSession>, state: State = initialStatusMutationState(), hooks: Hooks) {
@@ -34,7 +34,7 @@ export function createStatusMutation(request: Request, getTask: (teamId: string,
     if (!selection || state.target === null || state.expected === null) return
     state.phase = 'submitting'; state.status = '正在更新任务状态…'; state.error = ''
     try {
-      await request(`/teams/${selection.teamId}/tasks/${selection.taskId}/status`, { method: 'PUT', body: JSON.stringify({ status: state.target, expected_status: state.expected }) })
+      await request(`/teams/${selection.teamId}/tasks/${selection.taskId}/status`, { method: 'PUT', body: JSON.stringify({ status: state.target, expected_status: state.expected }) }, true, false)
       if (ticket !== scope) return
       await read(ticket, false)
     } catch (error) {
