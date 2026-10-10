@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/cloudwego/eino/components/model"
@@ -77,5 +79,25 @@ func TestEinoGeneratorMasksModelFailure(t *testing.T) {
 	answer, err := generator.Generate(context.Background(), "Summarize", nil, nil)
 	if answer != "" || status.Code(err) != codes.Unavailable || status.Convert(err).Message() != "model unavailable" {
 		t.Fatalf("model failure = %q, %v", answer, err)
+	}
+}
+
+func TestEinoGeneratorClassifiesModelTimeoutWithoutLeakingDetails(t *testing.T) {
+	for name, modelErr := range map[string]error{
+		"deadline": fmt.Errorf("provider secret: %w", context.DeadlineExceeded),
+		"network":  fmt.Errorf("provider secret: %w", &net.DNSError{Err: "private endpoint", IsTimeout: true}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			generator, err := NewEinoGroupReplyGenerator(context.Background(), chatModelFunc(func(context.Context, []*schema.Message) (*schema.Message, error) {
+				return nil, modelErr
+			}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			answer, err := generator.Generate(context.Background(), "Summarize", nil, nil)
+			if answer != "" || status.Code(err) != codes.DeadlineExceeded || status.Convert(err).Message() != "model request timed out" {
+				t.Fatalf("model timeout = %q, %v", answer, err)
+			}
+		})
 	}
 }

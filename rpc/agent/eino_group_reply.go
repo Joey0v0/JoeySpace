@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net"
 	"strings"
 
 	"github.com/cloudwego/eino/components/model"
@@ -73,7 +75,7 @@ func (g *EinoGroupReplyGenerator) Generate(ctx context.Context, question string,
 		return "", status.FromContextError(ctx.Err()).Err()
 	}
 	if err != nil {
-		return "", status.Error(codes.Unavailable, "model unavailable")
+		return "", groupModelError(err)
 	}
 	return textAnswer(answer)
 }
@@ -96,7 +98,7 @@ func (g *EinoGroupReplyGenerator) generateWithTaskTool(ctx context.Context, inpu
 		return "", status.FromContextError(ctx.Err()).Err()
 	}
 	if err != nil {
-		return "", status.Error(codes.Unavailable, "model unavailable")
+		return "", groupModelError(err)
 	}
 	if first == nil || first.Role != schema.Assistant {
 		return "", status.Error(codes.Internal, "model returned invalid response")
@@ -131,9 +133,17 @@ func (g *EinoGroupReplyGenerator) generateWithTaskTool(ctx context.Context, inpu
 		return "", status.FromContextError(ctx.Err()).Err()
 	}
 	if err != nil {
-		return "", status.Error(codes.Unavailable, "model unavailable")
+		return "", groupModelError(err)
 	}
 	return textAnswer(final)
+}
+
+func groupModelError(err error) error {
+	var networkError net.Error
+	if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &networkError) && networkError.Timeout() {
+		return status.Error(codes.DeadlineExceeded, "model request timed out")
+	}
+	return status.Error(codes.Unavailable, "model unavailable")
 }
 
 func textAnswer(answer *schema.Message) (string, error) {
