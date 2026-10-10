@@ -1,31 +1,75 @@
-# JoeySpace 前端
+# JoeySpace Web 前端
 
-电脑浏览器优先的消息界面，使用 TypeScript、Vue 3、Vite。Node.js 24 已在本机验证。
+使用 TypeScript、Vue 3、Vue Router 和 Vite 的桌面协作工作区。默认先看消息与团队讨论，再处理自己的任务；AI 草稿审查通过当前群的侧栏进行。页面已接入真实后端，不依赖固定样例数据。
 
-## 本地启动
+[项目首页](../README.md) · [整体架构](../docs/architecture.md) · [交互设计](../docs/frontend-design.md) · [部署指南](../deploy/README.md)
 
-在 `frontend` 目录执行：
+## 当前页面
+
+| 路由 | 功能 |
+| --- | --- |
+| `/login` | 注册、登录与本人身份验证 |
+| `/messages` | 会话导航、跨会话未读、`@我` 筛选 |
+| `/messages/direct/:peerId` | 已有私聊的历史、发送、分页与显式已读 |
+| `/messages/teams/:teamId/groups/:groupId` | 团队群讨论、本人入群、提及、来源定位、Ask 与本人 `@AI` 草稿审查 |
+| `/tasks` | 本人开放/已完成任务、团队筛选、跨团队通知与逐条已读 |
+| `/tasks/new` | 人工创建任务，选择成员、期限及可选消息来源 |
+| `/tasks/teams/:teamId/:taskId` | 任务详情、状态更新与来源讨论 |
+
+团队创建、添加成员、角色和退出目前由[HTTP API](../api/README.md#准备团队与群聊)提供。新账号不会自动加入团队；私聊目录由既有消息形成，页面没有独立的好友管理或发起新私聊界面。图片/文件发送、复杂看板、完整手机适配未纳入当前工作区。
+
+## 本地开发
+
+推荐 Node.js 24，使用仓库提交的 `package-lock.json`：
 
 ```sh
+cd frontend
 npm ci
-npm run dev
+npm run dev -- --port 5173 --strictPort
 ```
 
-打开终端显示的本地地址。`/messages` 是未读总览；点会话可查看讨论，`/tasks` 是任务模块的后续接入说明。
+浏览器打开 **http://127.0.0.1:5173**。Vite 按 [vite.config.ts](vite.config.ts) 代理请求：
 
-## 构建与检查
+| 浏览器路径 | 本地后端目标 |
+| --- | --- |
+| `/api/**` | `http://127.0.0.1:8082`，go-zero Gateway |
+| `/ws-ticket` | `http://127.0.0.1:8081`，WS 票据 |
+| `/ws` | `ws://127.0.0.1:8081`，WebSocket Upgrade |
+
+后端必须运行。WS 的 `WS_ALLOWED_ORIGINS` 需要包含实际页面 Origin，例如 `http://127.0.0.1:5173`；`localhost` 和 `127.0.0.1` 是不同 Origin。使用 Compose 时在私有 `deploy/.env` 设置，并按原有的完整覆盖组合更新 `im-ws`。只启动 Vite 不会启动后端；显示登录页不代表 API 或 WS 可用。
+
+也可保持云端后端，通过本机 SSH 转发 8082 和 8081 接入开发代理；保持相应 Origin 配置一致。正式部署的浏览器无需单独连接两个后端端口，统一经 Nginx 同源代理。
+
+## 检查与构建
+
+在 `frontend` 目录执行：
 
 ```sh
 npm test
 npm run typecheck
 npm run build
-npm run preview
 ```
 
-`build` 会先做类型检查，静态文件输出到 `dist/`。`preview` 需要先运行 `build`。浏览器检查脚本为 `node scripts/check-preview.cjs`，要求本地 Chrome 已用独立 profile 和远程调试端口打开预览页，并设置 `FRONTEND_PREVIEW_URL`（如 `http://127.0.0.1:4173/messages`）和 `FRONTEND_BROWSER_PROFILE`（该 profile 的绝对路径）。检查会在 profile 内写入三个桌面尺寸及一个会话截图。
+测试使用 Node 原生测试运行器覆盖身份、API 解码、会话、请求竞争、任务/通知和 AI 审查逻辑。`build` 自带类型检查，静态文件输出到 `dist/`；Compose 的 [Dockerfile.frontend](../deploy/Dockerfile.frontend) 使用 Node 22 构建并交给 Nginx 托管。
 
-## 当前数据范围
+`npm run preview` 仅供检查构建产物，不自动沿用开发期 API/WS 代理。需要真实业务时使用[正式 Nginx 入口](../deploy/README.md#页面访问)。`scripts/check-preview.cjs` 保留为早期布局检查辅助脚本；正式浏览器验收使用 `deploy/verify-vue-browser.cjs` 和[验收清单](../docs/frontend-f6-acceptance-checklist.md)。
 
-会话、未读数、@我和消息正文均来自固定的本地样例。页面顶部会持续标注“界面样例”。查看会话不会改变未读数；输入与发送已禁用。当前没有登录、真实消息接口、任务列表或服务端 @提及。后续接入这些能力时以 [前端设计](../docs/frontend-design.md) 和现有后端权限、已读契约为准。
+## 代码组织
 
-首批仅有 Vue 和 Vue Router 两个直接运行依赖，`src/` 下 12 个源文件（含模型测试）。本机生产构建输出约 14.2 kB CSS 和 101.6 kB JavaScript，便于后续核对依赖增长。
+```text
+src/
+├── auth/       # 标签页会话、本人核验、注册登录
+├── api/        # 同源 HTTP、错误映射、数据解码
+├── messages/   # 团队/私聊目录、历史、离线、未读、来源
+├── realtime/   # 一次性票据、WS 重连/发送状态、任务提示
+├── tasks/      # 本人列表、创建/详情/状态、通知
+├── agent/      # Ask、原指令状态、草稿读取/编辑/逐项决策
+├── router.ts   # 深链与身份路由守卫
+└── App.vue     # 模块导航与工作区容器
+```
+
+局部状态使用 Vue 自身和业务控制器，没有引入全局状态库或完整 UI 框架。Token 存在当前标签页的 `sessionStorage`；刷新后通过本人 API 复核。切群、退出或换账号后，旧请求结果会被丢弃。
+
+已读必须显式确认；WS ACK、离线 ACK 和读取历史各有不同含义。创建或确认超时后先重读服务端状态，同一创建重试保留请求键；草稿编辑与确认检查版本；普通模型错误、冲突和结果不明分别反馈。
+
+截至 2026-10-10，正式云端 Vue 核心流程已由真实双账号 Chrome 验证，包括消息、任务/通知、AI 成功链与权限恢复；桌面检查覆盖 1280×720、1440×900、1920×1080。模型稳定性与物理中文输入法等限制见[F6 报告](../docs/frontend-f6-review.md)。

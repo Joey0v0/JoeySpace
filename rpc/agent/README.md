@@ -1,3 +1,50 @@
+# Agent：Eino 问答与任务草稿协作
+
+基于 Go 与 Eino 的 AI 协作服务。读取用户有权访问的群讨论，按需调用任务只读工具；群内持久 `@AI` 指令可生成 1—5 项草稿，由发起人在 Vue 中编辑、确认或跳过，确认后调用 Task 创建任务，再通过 IM 机器人回传结果。
+
+[整体架构](../../docs/architecture.md) · [Vue 审查流程](../../docs/frontend-f5-ai-draft-design.md) · [部署](../../deploy/README.md)
+
+## 两条业务流程
+
+| 流程 | 输入与结果 |
+| --- | --- |
+| 当前群 Ask | 原用户 Token 与问题 → IM 授权消息 → Eino / 可选任务工具 → 回答仅返回请求者 |
+| 群内 `@AI` 整理 | 已落库原消息 → Outbox / Kafka / Inbox → 后台租约处理 → 持久草稿 → 人工逐项决策 → Task / 机器人回帖 |
+
+模型不持有用户 Token，也不能自行扩大工具的团队范围。Ask 使用只读工具，不创建任务或群消息；草稿只是建议，只有用户确认才创建任务。
+
+## 状态与边界
+
+Agent 管理运行、逐项草稿、回帖和触发 Inbox 表，通过 RPC 访问 User/IM/Task，不直接读写这些服务的数据。内容编辑检查草稿版本，确认同时检查展示过的字段；重名负责人和模糊时间需要人工选择。任务用固定请求键创建，每项的任务结果和回帖受理状态分别持久保存。
+
+后台触发使用持久 Inbox、租约与有限尝试，失败会进入明确终态；前端从自己的原消息恢复状态。网络或确认结果不明时先重读，回帖失败可单独重试，不重新建任务。云端已跑通真实模型成功链，也出现过 503、超时和预算耗尽，稳定性边界见[F6 报告](../../docs/frontend-f6-review.md)。
+
+## 代码与本地运行
+
+业务包在本目录，协议为 [agent.proto](agent.proto)，**进程入口在 [cmd/agent](../../cmd/agent/main.go)**，不是 `go run ./rpc/agent`。
+
+准备真实数据库、User/IM/Task 与本地环境变量：`AGENT_MYSQL_DSN`、`USER_RPC_ADDR`、`IM_RPC_ADDR`、`TASK_RPC_ADDR`、`ARK_API_KEY`、`ARK_MODEL_ID`；再从仓库根目录运行：
+
+```sh
+go run ./cmd/agent -f rpc/agent/etc/agent.yaml
+go test ./rpc/agent ./cmd/agent
+```
+
+默认监听 `127.0.0.1:9004`，Snowflake 节点默认 5，由 `AGENT_SNOWFLAKE_NODE_ID` 设置。Ask 总预算 20 秒，方舟 Ask 请求上限 15 秒；草稿请求默认 90 秒，可由 `ARK_DRAFT_TIMEOUT_SECONDS` 在 15—180 秒内调整。构造模型不代表模型请求已成功。
+
+Compose 用 `agent` profile 启动，机器人回帖与后台触发另由 bot / trigger 覆盖和独立证书启用。API 密钥、私有 CA 和证书不入库。
+
+## 进一步阅读
+
+[多项草稿设计](../../docs/agent-multi-draft-design.md)、[群内后台触发](../../docs/agent-mention-design.md)、[逐项确认契约](../../docs/multi-draft-confirm-contract.md)、[逐项回帖契约](../../docs/multi-reply-agent-contract.md)、[后台租约](../../docs/trigger-worker-contract.md)。
+
+## 开发过程记录
+
+下面保留早期逐步实现与验证细节，描述当时范围；当前启动方式与能力以上方说明为准。
+
+<details>
+<summary>展开历史实现记录</summary>
+
 # Agent 只读问答基础（阶段 5）
 
 当前已有 `ContextReader`、同步 `Agent.Ask` 的 proto/处理入口、`GroupAnswerer`、Eino 生成器、方舟 ChatModel 构造、按需调用的任务只读工具，以及独立 Agent RPC 的本地和 Compose 启动配置。Gateway 已有显式问答 HTTP 入口和原生演示页操作；尚无真实浏览器、容器或模型调用验证。`Ask` 接收 `team_id`、`group_id`、`question`，从 gRPC `authorization: Bearer <Token>` metadata 取原登录 Token，验证参数并设置 20 秒总处理超时，再交给 `Answerer`。处理入口只检查 Token 格式，不自行验签或判定群权限；未配置答复器时返回 `Unavailable`，不会生成占位答案。
@@ -152,3 +199,5 @@ Confirm的`expected_deadline_resolution`与due/版本在编排和freeze事务二
 Agent 表升级需先核对 [021](../../deploy/mysql/migrations/021_agent_task_reply_items.sql)：默认项 0，主键 `(run_id,item_index)`；原 015 不改、原 msg_id 唯一键保留。旧单项 SELECT/UPDATE 限第 0 项。消息 ID 使用公共 helper，第 0 项 `bot-task:<run>`，其他项 `bot-task:<run>:<index>`。IM 先核对 020 并升级专用方法，Agent/Gateway 协调升级，真实迁移尚未执行。
 
 成功项回帖状态：not_started 为当前没有保存意图；pending 为固定意图已保存但 Agent 尚未保存受理；accepted 为 IM 响应精确匹配并已保存本地受理；unknown 为确认过程中无法确定回帖存储事实，消息 ID 留空，须重读。pending/accepted 携带该 run/index 的规范消息 ID。跳过始终 disabled，无消息 ID。accepted 不代表 Push/历史落库或成员已收到，至少一次重试仍由客户端按 msg_id 去重。多项页面及群内 @AI 后续接线。[共同契约](../../docs/multi-reply-agent-contract.md)、[九步审查与验证限制](../../docs/multi-reply-agent-review.md)。
+
+</details>

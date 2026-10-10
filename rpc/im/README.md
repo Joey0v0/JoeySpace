@@ -1,3 +1,51 @@
+# IM RPC：会话、消息与访问权限
+
+负责团队群与私聊目录、授权消息读取、分页/未读/已读、任务来源核验，以及机器人发送、Agent 后台上下文、群资格关闭和结构化提及等受限内部入口。正式 Vue 通过 Gateway 调用，WS 发送与后台处理继续向 IM 核权。
+
+[整体架构](../../docs/architecture.md) · [HTTP 入口](../../api/README.md) · [部署](../../deploy/README.md)
+
+## 数据与写入链
+
+IM 业务管理群、群成员、消息、离线投递、阅读凭据、普通提及、机器人受理和触发 Outbox 等数据。**聊天消息当前由 Push 消费 Kafka 后落库**；IM 不替代 Push 的整条消息写入链。普通提及经 Push → IM 校验目标，再由 Push 同事务保存消息与关系。
+
+团队目录可见不等于已入群；团队群读写同时复核当前团队资格、群成员与资格关闭版本。读取历史不自动已读，离线 ACK 只确认投递；单聊和团队群都通过具体消息 ID 显式保存本人阅读状态。
+
+## 协议
+
+| 文件 | 范围 |
+| --- | --- |
+| [im.proto](im.proto) | 群创建/加入、目录、历史、未读/已读、来源、私聊与离线 |
+| [bot.proto](bot.proto) | Agent 固定任务结果的机器人受理 |
+| [trigger.proto](trigger.proto) | 后台持久原消息的受限上下文与成员解析 |
+| [leave.proto](leave.proto) | User 固定退出操作对应的群资格关闭 |
+| [mention.proto](mention.proto) | Push 普通提及目标与代际核验 |
+
+专用入口分别鉴别 Agent、User 或 Push 服务身份，不将它们开放为浏览器 API。机器人受理成功不等于每位成员已收到或已读。
+
+## 本地运行
+
+从仓库根目录运行；先设置 `IM_MYSQL_DSN`、`IM_JWT_SECRET`、`USER_RPC_ADDR`，准备数据库并启动 User：
+
+```sh
+go run ./rpc/im -f rpc/im/etc/im.yaml
+go test ./rpc/im ./internal/ws ./internal/push
+```
+
+默认监听 `127.0.0.1:9002`，Snowflake 节点默认 3，由 `IM_SNOWFLAKE_NODE_ID` 覆盖。User 地址本地为 `127.0.0.1:9001`，Compose 内为 `user-rpc:9001`；WS / Agent / Task 的普通 IM 地址分别配置为相应环境的 9002。
+
+完整机器人、触发、退出与提及要启用对应覆盖和独立证书；普通 IM 9002 不包含这些专用服务。已有库须先核对最新迁移，跨会话未读包含 036 提及表的读取依赖。
+
+## 进一步阅读
+
+[前端聊天契约](../../docs/frontend-f3-api-contract.md)、[未读与提及](../../docs/frontend-f3-overview-contract.md)、[单聊已读](../../docs/stage7-direct-unread-contract.md)、[团队群资格](../../docs/stage7-team-group-read-guard-contract.md)、[机器人方案](../../docs/agent-group-reply-design.md)。当前真实验收见[F6 报告](../../docs/frontend-f6-review.md)。
+
+## 开发过程记录
+
+下面保留早期逐步实现与验证细节，描述当时范围；当前启动方式与能力以上方说明为准。
+
+<details>
+<summary>展开历史实现记录</summary>
+
 # IM RPC：群成员查询
 
 `CheckGroupMember(group_id)` 要求调用方把登录 Token 放入 gRPC `authorization: Bearer <Token>` metadata；IM 自行验签，从 Token 得到用户 ID，联查 `group_members` 和 `groups.team_id`。请求不能指定用户 ID。旧群只核对群成员资格；团队群还将原 Token 交给用户与团队 RPC 的 `CheckTeamMember(team_id)` 核对当前团队资格。非成员返回 `PermissionDenied`，凭证无效返回 `Unauthenticated`，数据库或团队 RPC 故障返回 `Unavailable`。团队群访问依赖先执行 `003_group_team_id.sql` 迁移。
@@ -58,3 +106,5 @@ IM 在 [014 迁移](../../deploy/mysql/migrations/014_im_bot_sends.sql)的 `im_b
 升级此版本 IM 前，已有库须完成 [020](../../deploy/mysql/migrations/020_im_bot_send_items.sql)，在原 IM 自有发送表追加默认 0 的项列；014 旧迁移不改，已有消息 ID、内容、时间和受理结果不改。旧 IM 不认识新方法，返回 Unimplemented；调用方不能回退旧入口发送非零项。先持久固定发送依据，再同步 Kafka，失败重试相同消息；accepted 仍不表示历史已落库或群成员送达。
 
 本批只接收端和本机验证，Agent 集合确认尚不自动调用此方法，Agent 逐项回帖记录、独立重试 RPC/HTTP 和多项页面后续接入。[共同契约与修改范围](../../docs/multi-reply-im-contract.md)。真实 MySQL/迁移/Kafka、部署证书及容器未验收。
+
+</details>

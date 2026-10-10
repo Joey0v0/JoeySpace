@@ -1,3 +1,111 @@
+# API Gateway
+
+JoeySpace 的 go-zero HTTP 接入层。Vue 经 Nginx 的 `/api/v1/**` 调用这里；Gateway 校验请求、转发原 Bearer Token、调用 User/IM/Task/Agent RPC，并对当前页数据补充有限显示名，不直接访问业务数据库。
+
+[整体架构](../docs/architecture.md) · [部署](../deploy/README.md) · [前端](../frontend/README.md)
+
+## 入口与协议
+
+默认开发配置 [etc/api.yaml](etc/api.yaml) 监听 `127.0.0.1:8082`；Compose 监听容器端口 8082。正式 Vue 的页面、API 和 WS 由 Nginx 同源代理，WS 票据与连接由 `im-ws` 提供，不由 Gateway 升级。
+
+注册和登录之外的业务请求携带 `Authorization: Bearer <token>`。多数 JSON 响应为 `{"code":0,"msg":"success","data":...}`；部分写入成功只有 `code` / `msg`，不能统一要求 `data`。HTTP 状态与业务 code 都要核对；大整数 ID 和草稿版本用十进制字符串，毫秒时间戳用数字。成功创建的重试复用原 `Idempotency-Key`，状态和草稿操作携带读取到的前提。
+
+| HTTP 状态 | 含义 |
+| --- | --- |
+| 400 | 参数或契约无效 |
+| 401 | 缺少或无效登录身份 |
+| 403 / 404 | 权限拒绝或资源不存在，具体按接口契约 |
+| 409 | 请求键内容冲突、状态或版本变化，应先重读 |
+| 503 / 504 | 服务或模型不可用 / 等待超时；写入结果需按原操作查询确认 |
+
+## 主要 HTTP 接口
+
+下表路径均相对于 `/api/v1`；完整路由以 [main.go](main.go) 为准。
+
+| 模块 | 方法与路径 | 作用 |
+| --- | --- | --- |
+| 身份 | `POST /user/register`、`POST /user/login`、`GET /user/info` | 注册、登录、本人资料 |
+| 团队 | `GET /teams`、`POST /teams` | 本人活动团队目录、创建团队 |
+| 成员 | `GET/POST /teams/{team_id}/members`、`PUT /teams/{team_id}/members/{user_id}/role` | 当前成员列表、拥有者添加已有用户、角色调整 |
+| 退出 | `POST/GET /teams/{team_id}/leave` | 本人发起或按原请求键查询退出操作 |
+| 群目录 | `GET/POST /teams/{team_id}/groups`、`GET /teams/{team_id}/groups/{group_id}` | 创建、分页、本人加入状态 |
+| 本人入群 | `POST /teams/{team_id}/groups/{group_id}/join` | 当前团队成员显式加入群 |
+| 群消息 | `GET /teams/{team_id}/groups/{group_id}/messages`、`GET .../messages/{message_id}/context` | 历史分页、来源上下文 |
+| 群已读 | `GET /teams/{team_id}/groups/{group_id}/unread`、`POST /teams/{team_id}/groups/{group_id}/read` | 未读摘要、本人具体消息已读 |
+| 私聊目录 | `GET /me/direct-conversations`、`GET /me/direct-conversations/{peer_id}` | 从持久消息派生本人会话 |
+| 私聊消息 | `GET /direct/{peer_id}/messages`、`GET /direct/{peer_id}/unread`、`POST /direct/{peer_id}/read` | 历史、未读、显式已读 |
+| 跨会话未读 | `GET /messages/unread-conversations` | 群/私聊汇总、普通提及筛选 |
+| 离线 | `GET /message/offline`、`POST /message/offline/ack` | 本人补拉和投递确认 |
+| 本人任务 | `GET /tasks`、`GET /teams/{team_id}/tasks/{task_id}` | 本人任务分页与详情 |
+| 团队任务 | `GET/POST /teams/{team_id}/tasks`、`PUT .../tasks/{task_id}/status` | 列表、人工创建、带前提的状态更新 |
+| 通知 | `GET /task-notifications`、`GET /teams/{team_id}/task-notifications`、`PUT .../task-notifications/{notification_id}/read` | 本人列表与逐条已读 |
+| 只读问答 | `POST /teams/{team_id}/groups/{group_id}/ask` | 当前群 Ask，不自动写任务或群消息 |
+| 原指令状态 | `GET /teams/{team_id}/groups/{group_id}/agent-triggers/{message_id}` | 本人持久 `@AI` 的处理状态 |
+| 草稿读取 | `GET /agent/runs/{run_id}/drafts`、`GET .../drafts/{item_index}` | 1—5 项集合与指定项 |
+| 草稿编辑 | `PUT .../drafts/{item_index}`、`PUT .../assignee`、`PUT .../deadline` | 版本前提下编辑内容、负责人和时间 |
+| 逐项决策 | `POST .../drafts/{item_index}/confirm`、`POST .../skip`、`POST .../reply/retry` | 确认、跳过、独立回帖重试 |
+
+`...` 表示同一行已给出的路径前缀。保留单项草稿兼容接口与显式生成接口，普通 Vue 工作流程使用群内持久原指令和逐项集合。Ask / 草稿等较慢操作有独立路由等待上限，不统一沿用普通请求超时。
+
+## 准备团队与群聊
+
+Vue 当前没有完整团队管理页，首次体验需用 API 客户端或 curl 准备数据：
+
+1. 两个用户通过 Vue 注册/登录，分别调用 `GET /user/info` 获取本人字符串 ID；API 客户端通过 `POST /user/login` 获取各自 Token。
+2. A 创建团队，记下响应的 `data.team_id`，A 自动成为拥有者。
+3. A 用 B 的用户 ID 添加成员。该接口直接添加已有启用账号，没有邮件邀请或邀请链接。
+4. A 创建团队群，记下 `data.group_id`，创建者自动入群；同一创建重试复用原请求键。
+5. B 用自己的 Token 显式入群，也可在 Vue 团队目录展开群后点击加入；之后两个账号在各自浏览器标签页查看真实目录。
+
+以下 Linux shell 示例假定完整部署已启动；先将变量中的占位值替换为本机获取的值，Token 仅保留在自己的终端：
+
+```sh
+JOEY_API=http://127.0.0.1:18083/api/v1
+JOEY_OWNER_TOKEN='<A 的登录 Token>'
+JOEY_MEMBER_TOKEN='<B 的登录 Token>'
+JOEY_MEMBER_ID='<B 的用户 ID>'
+
+curl -sS -i -X POST "$JOEY_API/teams" \
+  -H "Authorization: Bearer $JOEY_OWNER_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"示例团队"}'
+
+# 从上一步响应填写团队 ID
+JOEY_TEAM_ID='<data.team_id>'
+curl -sS -i -X POST "$JOEY_API/teams/$JOEY_TEAM_ID/members" \
+  -H "Authorization: Bearer $JOEY_OWNER_TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"user_id\":\"$JOEY_MEMBER_ID\"}"
+curl -sS -i -X POST "$JOEY_API/teams/$JOEY_TEAM_ID/groups" \
+  -H "Authorization: Bearer $JOEY_OWNER_TOKEN" -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: example-group-1' -d '{"name":"团队讨论"}'
+
+# 从上一响应填写群 ID，再以 B 的身份加入
+JOEY_GROUP_ID='<data.group_id>'
+curl -sS -i -X POST "$JOEY_API/teams/$JOEY_TEAM_ID/groups/$JOEY_GROUP_ID/join" \
+  -H "Authorization: Bearer $JOEY_MEMBER_TOKEN"
+```
+
+每一步检查 HTTP 状态和业务 `code`，成功后再填下一项。创建另一群时生成新请求键。显示群目录不代表已加入群，团队成员也不能因此读取任意群历史。
+
+## 开发与深入阅读
+
+本地先按服务 README 启动真实 User/IM/Task（使用已准备的数据库和配置），再在仓库根目录运行：
+
+```sh
+go run ./api -f api/etc/api.yaml
+go test ./api
+```
+
+Agent 的进程入口为 `cmd/agent`；未启用模型时 Ask 不提供占位答案。协议文件位于 `rpc/*/*.proto`；[前端导航契约](../docs/frontend-f2-api-contract.md)、[消息契约](../docs/frontend-f3-api-contract.md)、[任务契约](../docs/frontend-f4-api-contract.md)描述请求/响应和权限边界。
+
+`GET /demo/chat` 保留原生 HTML/JavaScript 诊断页；`/demo/user/info` 是固定数据通信示例，不能用于认证或查询真实用户。实际云端结果见[F6 验收](../docs/frontend-f6-review.md)。
+
+## 开发过程记录
+
+下面保留早期逐步实现与验证细节，描述当时范围；当前启动方式与能力以上方说明为准。
+
+<details>
+<summary>展开历史实现记录</summary>
+
 # 最小 API：用 HTTP 调用用户 RPC
 
 Gateway 的 `/demo/chat` 提供同源原生 HTML/JavaScript 演示页。页面复用登录 Token 和团队 ID，可分页查看团队任务、人工创建任务、修改状态、按来源 ID 查看原群消息。创建失败重试会保留请求键；状态和原消息的权限仍由任务/IM RPC 判定。页面逻辑通过本地 Node 测试，尚未做真实浏览器、MySQL 或容器联调。
@@ -318,3 +426,5 @@ Token/团队/群切换会清除多项状态并拒绝旧响应覆盖；同群内�
 `POST /api/v1/teams/{team_id}/leave` 只接收 `{"request_key":"leave-..."}`；`GET /api/v1/teams/{team_id}/leave?request_key=...` 查询同一固定操作。两者只转发 Bearer Token，由 User 服务核实本人；不能指定退出对象。响应的操作 ID、团队 ID、资格版本均为字符串，`status` 为 0 待清理、1 已完成。POST 仅把状态 1 当成功；超时或 503 后应先 GET，再由本人用原键显式重试。演示页的请求键在输入框中保留，刷新页面后须自行填回。
 
 POST 路由预算 7 秒；Gateway 的 UserRPC 客户端预算 5 秒，其他 HTTP 路由仍沿用默认 3 秒。真实启用前，须先执行 031—033 迁移，并配置 User→IM 专用清理与 Push→User 团队资格核权所需的独立证书、地址及监听。当前基础 Compose 未提供这些配置，不能把本地接口测试视为真实退出验收。[本批审查](../docs/stage7-team-leave-gateway-page-contract.md)。
+
+</details>

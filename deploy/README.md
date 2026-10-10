@@ -1,95 +1,247 @@
 # Docker Compose 部署指南
 
-本项目的服务器部署使用 Linux、Docker 和 Docker Compose。部署者提供自己的数据库密码、JWT 密钥、模型接入点和 mTLS 证书；仓库只保存模板。下面是**当前版本的执行顺序**。本文件后半部还保留开发期技术记录，其中“没有 Docker”“尚未接线”等句子只描述当时状态；不要用历史段落替代本节。
+本指南用于部署当前的 Vue 前端和 Go 后端。推荐 Linux、Docker Engine 与 Docker Compose 插件；新环境从私有配置和数据库开始，再准备完整功能所需的模型、机器人和独立 mTLS 证书。项目能力见[首页](../README.md)，服务关系见[架构说明](../docs/architecture.md)。
+
+默认 Vue 入口是服务器回环地址 `127.0.0.1:18083`。本指南不配置公网网站或域名；远程使用通过 SSH 隧道打开正式页面。云端核心链已有真实验收记录，新的安装仍需按自己的配置验证。
 
 ## 从仓库部署当前版本
 
-### F6 Vue 同源入口（配置准备）
+下列 shell 命令默认在仓库的 `deploy` 目录执行。文末折叠部分保留开发期记录；运行当前版本请按这里的顺序操作。
 
-正式 Vue 页面使用独立的 [docker-compose.frontend.yaml](docker-compose.frontend.yaml) 覆盖文件。它构建静态前端，并仅将宿主机 `127.0.0.1:18083` 映射到 Nginx 容器的 80 端口；Nginx 在容器网络内把 `/api/v1/` 转给 `api-gateway`，把 `/ws-ticket` 和 `/ws` 转给 `im-ws`。这份覆盖文件不替代其他功能所需的 Compose 覆盖，也不修改私有 `.env`。
+### 私有配置
 
-在仓库根目录可先静态解析配置并单独构建前端镜像：
-
-```sh
-docker compose --env-file deploy/.env -f deploy/docker-compose.yaml -f deploy/docker-compose.frontend.yaml build frontend-web
-```
-
-正式启动时必须把该环境已启用的其他 Compose 覆盖文件一并列入命令，再按 F6 操作单核对迁移、证书和回退后执行 `up`；不能用上述仅含基础与前端覆盖的示例重建正在运行的 `im-ws`，以免丢失现有证书与通知等配置。
-
-服务器本机访问 `http://127.0.0.1:18083`。从开发者电脑访问服务器回环入口，可先建立 SSH 隧道，再在电脑浏览器打开同一地址：
+Linux shell：
 
 ```sh
-ssh -L 18083:127.0.0.1:18083 <user>@<server>
+test -e .env || cp .env.example .env
+test -e docker-config.local.yaml || cp docker-config.yaml docker-config.local.yaml
 ```
 
-覆盖文件始终保留旧 `/demo/chat` 的两个本机 Origin，并加入 `http://127.0.0.1:18083`。私有 `.env` 的 `WS_ALLOWED_ORIGINS` 可追加其他完整 Origin；以后如启用公网地址或 HTTPS，先核对实际页面 Origin 并另行配置、验证 TLS 与访问范围，不能直接沿用这里的回环地址。
+Windows PowerShell：
 
-F3 WS 来源限制：本机旧 `/demo/chat` 的 Gateway Origin（localhost/127.0.0.1:8082）已在 Compose 默认值中。若从公网地址或 HTTPS 站点打开演示页，先在私有 `.env` 设置该页面的完整 Origin，例如 `WS_ALLOWED_ORIGINS=http://<服务器地址>:8082`，再重建 `im-ws`；否则浏览器 WS 握手会返回 403。正式 Vue 页面通过同源 `/ws-ticket` 与 `/ws` 连接；F6 静态站点及反向代理配置已准备，真实环境联调仍待完成。
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+if (-not (Test-Path docker-config.local.yaml)) { Copy-Item docker-config.yaml docker-config.local.yaml }
+```
 
-F3 第二批本地代码新增跨会话未读及结构化提及。已有数据库在启动该版 IM 前必须先核对并执行 [036 提及关系表](mysql/migrations/036_im_group_message_mentions.sql)，因为未读总览即使查看“全部未读”也会联查该表；新空卷的 `init.sql` 已包含。普通提及的 Push→IM 校验还需显式叠加 [docker-compose.mentions.yaml](docker-compose.mentions.yaml)，且保留 [docker-compose.team-leave.yaml](docker-compose.team-leave.yaml) 的 Push→User 当前团队资格链。两个私有目录 `IM_MENTION_CERT_DIR`、`PUSH_IM_MENTION_CERT_DIR` 各含独立的 `cert.pem/key.pem/ca.pem`，使用同一受信 CA；IM 服务证书 DNS SAN 为 `im.go-im.internal`、服务端用途，Push 客户端证书 DNS SAN 为 `push.go-im.internal`、客户端用途。新证书未纳入首次安装的 `provision-mtls.sh`，需由自管 CA 在仓库外签发并验证；不要重跑首次脚本覆盖现有凭证。先迁移、准备证书并用 `docker compose ... -f docker-compose.team-leave.yaml -f docker-compose.mentions.yaml config --quiet` 核对，再启用覆盖文件。未叠加覆盖时，普通提及校验默认关闭，带提及的发送会拒绝落库。此批未在真实 MySQL、Docker 或云端执行上述步骤。
+| 文件 | 需要填写 / 保留的内容 |
+| --- | --- |
+| `.env` | MySQL 当前密码、JWT 密钥、不同进程的 Snowflake 节点号；完整部署还需模型凭证和证书目录 |
+| `docker-config.local.yaml` | 同一 MySQL 密码和 JWT 密钥，容器网络地址、聊天 Topic 与功能开关 |
+| `.env.example`、`docker-config.yaml` | 可入库的公开模板，不能直接作为实际凭证使用 |
 
-1. **选择数据库路径。** 先确认使用全新空数据卷，还是沿用已有 MySQL 数据卷。已有部署先记录 Compose 项目名和卷名，备份数据库并核对已执行迁移；不要因换目录或项目名意外创建另一套空卷，也不要执行 `down -v`。全新空卷首次启动 MySQL 时会自动运行 [init.sql](mysql/init.sql)；已有卷不会自动升级，必须按实际结构依次执行[增量迁移](mysql/migrations)。迁移编号目前为 001—037；只运行缺失项，每项只执行一次。035 在消息表建索引，036 建提及关系表，037 为个人任务分页增加复合索引，均须按现有表大小安排维护窗口。迁移前提及顺序见[阶段 7 启动核对](../docs/stage7-acceptance.md#3-最终启动前核对全部待执行)。
+私有 YAML 中不能保留 `CHANGE_ME_*`。基础地址为 `mysql:3306`、`redis:6379`、`kafka:19092`；`.env` 的 `JWT_SECRET` 要与 YAML 的 `jwt.secret` 相同。现有 MySQL 数据卷的密码不会因改 `.env` 自动改变。
 
-2. **创建私有配置。** 在本目录执行下列命令，已有私有文件不会被覆盖；Windows PowerShell 的对应命令见[下方配置说明](#凭证与云端原文件的区别)。
+`cmd/api`、`cmd/ws`、`cmd/push` 使用挂载的私有 YAML；RPC 使用 Compose 注入的环境变量和容器配置。旧 YAML 加载器不会自动展开其中的 `${变量}`，请在私有文件内填写实际值。凭证与私钥已从 Git 和 Docker 构建上下文排除，部署时保留在本机和仓库外的私有证书目录。
 
-   ```sh
-   test -e .env || cp .env.example .env
-   test -e docker-config.local.yaml || cp docker-config.yaml docker-config.local.yaml
-   ```
+### 数据库准备
 
-   在 `.env` 填 `MYSQL_ROOT_PASSWORD`、`JWT_SECRET`；已有数据库使用实际密码，已有用户 Token 如需延续则保持原 JWT 密钥。在 `docker-config.local.yaml` 填同一 MySQL 凭证和 `jwt.secret`，检查容器地址为 `mysql:3306`、`redis:6379`、`kafka:19092`。若多实例部署，确保各写入进程 Snowflake 节点号唯一。私有 YAML 中不能保留 `CHANGE_ME_*`。这两个私有文件及证书均不提交 Git；根目录 `config/go-im.yaml` 仅供本机直接运行，不用于此 Compose 部署。
+- **全新空卷**：首次启动 MySQL 自动执行 [init.sql](mysql/init.sql)，包含当前表和索引。
+- **已有卷**：先确认 Compose 项目名、卷名、实际结构和可恢复备份，再按依赖顺序执行缺失的[增量迁移](mysql/migrations)。当前编号为 001—037；不循环盲跑、不重跑 `init.sql`，不执行 `down -v`。
 
-3. **准备完整功能需要的模型和证书。** 在 `.env` 填真实 `ARK_API_KEY`、`ARK_MODEL_ID`，确认火山方舟接入点有可用预算；Agent profile 没有这两项会启动失败。下表每个变量指向部署机上**仓库目录之外**的一个私有绝对路径，目录内均有 `cert.pem`、`key.pem`、`ca.pem`；各服务使用独立私钥，证书的服务/客户端用途、精确 DNS SAN、有效期和 CA 信任必须符合[下方机器人证书说明](#阶段-6-机器人存储与双向-tls-前提)、[后台触发说明](../docs/stage6-runtime-acceptance.md)、[通知说明](#阶段7任务提醒运行接线)及[团队退出说明](../docs/stage7-team-leave-deploy-preflight.md)。
+036 提及表是跨会话未读的读取前置，即使未启用提及发送也需要；037 为本人任务分页增加复合索引。已有表上的索引迁移按数据规模安排。其他迁移前置见[后端启动核对](../docs/stage7-acceptance.md#3-最终启动前核对全部待执行)和[F6 迁移记录](../docs/frontend-f6-deployment-runbook.md)。
 
-   | 覆盖文件 | `.env` 中要填写的证书目录 |
-   | --- | --- |
-   | `docker-compose.bot.yaml` | `IM_BOT_CERT_DIR`、`AGENT_BOT_CERT_DIR` |
-   | `docker-compose.trigger.yaml` | `USER_TRIGGER_CERT_DIR`、`IM_TRIGGER_CERT_DIR`、`IM_TRIGGER_USER_CERT_DIR`、`AGENT_TRIGGER_CERT_DIR` |
-   | `docker-compose.notifications.yaml` | `WS_NOTIFICATION_CERT_DIR`、`PUSH_NOTIFICATION_CERT_DIR` |
-   | `docker-compose.team-leave.yaml` | `USER_LEAVE_CERT_DIR`、`IM_LEAVE_CERT_DIR`、`USER_PUSH_CERT_DIR`、`PUSH_USER_CERT_DIR` |
-   | `docker-compose.mentions.yaml` | `IM_MENTION_CERT_DIR`、`PUSH_IM_MENTION_CERT_DIR`（另行签发） |
+确认 MySQL 容器已运行后，在 Linux shell 中执行一个**已确认缺失**的迁移：
 
-   新单机服务器且尚无私有 mTLS 凭证时，可在本目录运行一次 `sh provision-mtls.sh`。该脚本使用服务器上的 OpenSSL 和 Python 3，在仓库外的 `/opt/joeyspace-secrets` 创建私有 CA 与前四个覆盖文件需要的 12 个**不同私钥**的证书目录，按用途写入固定 DNS SAN，并在本地验证链、用途和名称；F11 的两个目录须另行签发。脚本只将已生成的目录路径写入已有 `.env`。目标目录已存在、`.env` 对应变量已有值或 `.env` 是符号链接时拒绝覆盖；它不会替你启用私有 YAML 开关或重启服务。CA 私钥留在仓库外，仅用于后续签发/轮换，须由部署者私下保管；证书生成后不要把 `.env`、`/opt/joeyspace-secrets` 或完整 `docker compose config` 输出提交/发送。若已有自管 CA 和证书，沿用现有凭证并按上表填写路径，不运行此首次准备脚本。
+```sh
+docker compose --env-file .env -f docker-compose.yaml exec -T mysql \
+  sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot go_im' \
+  < mysql/migrations/NNN_name.sql
+```
 
-   在私有 `docker-config.local.yaml` 将 `kafka.agent_trigger_enabled`、`task_notifications.push.enabled`、`task_notifications.ws.enabled` 设为 `true`，并保持聊天、Agent 触发和任务通知三个 Topic 不同；Task 发布 Topic 要与 Push 通知 Topic 相同。通知证书目录仅被覆盖文件挂载，覆盖文件**不会**自动打开私有 YAML 中的开关。仅运行基础 Compose 可使用聊天、团队和任务的基础入口，但不会启动完整 Agent/机器人/通知/团队退出链。
+`NNN_name.sql` 替换为实际文件名。遇到失败先核对结构和备份，不继续后续升级。
 
-4. **完成数据库准备。** 全新空卷可按第 5 步启动，MySQL 会执行 `init.sql`。已有库应先单独启动或连接**已确认的同一 MySQL 实例**，逐项核对缺失迁移并执行。以下是 Linux shell 中执行**某一个已确认缺失**的迁移文件的示例；将文件名替换为实际缺失项，不能循环盲跑 001—037：
+### 基础后端与 Vue 页面
 
-   ```sh
-   docker compose --env-file .env -f docker-compose.yaml exec -T mysql \
-     sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot go_im' \
-     < mysql/migrations/NNN_name.sql
-   ```
+在前两项准备完成后：
 
-   使用此命令前，MySQL 容器必须已经运行，且 `.env` 密码与该数据卷的当前密码一致。记录每项执行结果；有失败先停止升级，核对表结构与备份，不靠重新运行 `init.sql` 修复。
+```sh
+docker compose --env-file .env \
+  -f docker-compose.yaml -f docker-compose.frontend.yaml config --quiet
+docker compose --env-file .env \
+  -f docker-compose.yaml -f docker-compose.frontend.yaml up -d --build
+docker compose --env-file .env \
+  -f docker-compose.yaml -f docker-compose.frontend.yaml ps
+```
 
-5. **验证配置并启动。** 在本目录执行；`config --quiet` 不输出展开后的密码。只有第 1—4 步完成后才启动全部覆盖：
+这组配置启动数据库、中间件、基础后端与 Nginx 页面，适合先验证注册登录、目录和基础 API。它没有 Agent，也没有团队群投递、提及、机器人、实时任务提示和退出所需的完整内部链。体验团队群收发请先完成下一节的资格证书配置；基础单聊链可由后端验证脚本检查。
 
-   ```sh
-   docker compose --env-file .env --profile agent \
-     -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
-     -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml config --quiet
-   docker compose --env-file .env --profile agent \
-     -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
-     -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml up -d --build
-   docker compose --env-file .env --profile agent \
-     -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
-     -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml ps
-   ```
+## 完整功能部署
 
-6. **验收运行结果。** 打开 `http://<服务器地址>:8082/demo/chat`，准备至少两个普通账号及一个团队，检查注册登录、团队群聊天、任务创建/状态变化、群内 `@AI` 草稿审查与逐项确认/机器人回帖、任务提醒及重连后查询。再按[阶段 7 验收清单](../docs/stage7-acceptance.md)检查未读、离队后的权限与失败恢复。页面可打开只证明 Gateway 正常，不代表其余服务或模型可用；逐项记录实际结果后，才可称该部署环境验收通过。
+### 功能组合
 
-   不想逐条调用接口时，可在服务器的本目录运行一次 `python3 verify-cloud.py`。脚本仅用 Python 标准库，自动创建两名随机测试用户、团队、群和任务，验证跨账号任务/通知及单聊的 WebSocket→Kafka→Push→WebSocket 投递；最后只输出 PASS/FAIL 和测试数据 ID，不输出密码或登录 Token。失败时已创建的数据会保留，重跑会新建另一组测试数据。默认**不**测试团队群投递，因为基础 Compose 缺少 Push→User 专用 mTLS 配置；完整覆盖与证书启用后，可加 `--group-chat` 要求实际群投递通过。启用 Agent RPC 并配置真实模型后，可加 `--agent-ask`，用本轮新建的账号和群发起一次真实模型问答，无需保留终端 Token 变量；它只验证模型回答，不验证机器人回帖或后台触发。
+| 文件 / profile | 启用能力 | 准备条件 |
+| --- | --- | --- |
+| `docker-compose.yaml` | 基础中间件、Gateway、User/IM/Task、WS/Push、Gin 兼容 API | 数据库、JWT、私有 YAML |
+| `--profile agent` | Agent RPC / Eino / 方舟模型 | `ARK_API_KEY`、`ARK_MODEL_ID`，可用模型额度 |
+| `docker-compose.bot.yaml` | Agent → IM 机器人回帖 | 机器人资料，独立双方证书 |
+| `docker-compose.trigger.yaml` | 持久消息 → Kafka → Agent 后台草稿 | 四个证书目录，私有 YAML 触发开关 |
+| `docker-compose.notifications.yaml` | Task Outbox → Push → WS 在线提示 | 两个证书目录，Push/WS 私有 YAML 开关 |
+| `docker-compose.team-leave.yaml` | 本人退出、User → IM 清理、Push 当前资格校验 | 四个证书目录，团队生命周期表 |
+| `docker-compose.mentions.yaml` | 普通结构化提及写入校验 | 两个专用证书目录；同时保留 team-leave 覆盖 |
+| `docker-compose.frontend.yaml` | 正式 Vue / Nginx，同源 API / WS 与回环入口 | 前端构建、实际页面 Origin |
 
-   全部可选覆盖、私有 YAML 开关与独立 mTLS 证书准备好后，运行一次 `python3 verify-cloud.py --full`。脚本先检查证书目录、合并后的 Compose 配置及当前容器的覆盖环境；缺证书或私有开关时一次列出全部缺项，输出 `NOT READY` 并在发群消息前退出。通过预检后，它依次验证真实模型问答、在线任务提示、团队群投递、群内 `@AI` 后台草稿、人工确认后的机器人回帖在线投递与历史持久化。它只在模型生成**单项、无负责人、无截止时间**的草稿时自动确认隔离测试任务；其他草稿会停在待人工审查状态。`PASS` 不涵盖撤权、故障恢复或浏览器交互；预检不验证证书握手和模型额度，这些由实际请求检验。不要在只有基础 Compose 的环境绕过预检发送团队群消息，否则 Push 可能保留未确认事件并停止推进聊天消费。未加这些参数时脚本会明确标记未检查，不能把基础脚本通过当作全项目验收通过。
+### 模型与私有开关
 
-   `--full` 通过后，可在服务器本目录用一次 `python3 verify-cloud-resilience.py --allow-push-stop` 验收两项剩余后端场景。脚本会短暂停止共享的 `im-push`，停机时让一次性账号发消息，随后自动尝试启动 `im-push`，核对消息在线送达且历史只保存一次；再让测试成员退出一次性团队，验证群历史、任务、通知、重新入群和既有 WebSocket 群发送均被拒绝。请在可接受短暂 Push 中断的时段执行，不要与其他部署/验收并行；若输出 `CRITICAL`，立即检查并恢复 `im-push`。脚本保留测试数据，不删除业务记录、不重建容器或数据库，也不验证整机/数据库崩溃恢复或浏览器操作。
+在 `.env` 填入真实的 `ARK_API_KEY` 和 `ARK_MODEL_ID`。前者为火山方舟 API 密钥，后者为可调用的模型/接入点 ID；Agent profile 缺少任一项会启动失败。`ARK_DRAFT_TIMEOUT_SECONDS` 默认 90，允许 15—180；这是草稿模型等待预算，不改变直接 Ask 的超时。
 
-   浏览器核心流程可在开发者电脑用 Chrome/Edge 和 Node 22+ 运行 `node deploy/verify-cloud-browser.cjs`。如果公网 8081/8082 未开放，先在开发者电脑建立并保持 `ssh -N -L 18082:127.0.0.1:8082 -L 18081:127.0.0.1:8081 root@<服务器 IP>`；脚本默认使用这两个本地隧道端口，也可用 `JOEY_BROWSER_URL` 与 `JOEY_BROWSER_WS` 指定其他回环地址。它会创建一次性账号/团队，在真实浏览器点击登录、聊天、建任务、直接 AI 问答、群内 `@AI` 草稿审查与确认，并用第二个连接验证在线消息和机器人回帖。测试数据保留；模型服务偶发 503/504 或后台草稿预算耗尽会按相应阶段报告，不把单次成功视为模型稳定性证明。
+在 `docker-config.local.yaml` 设置：
 
-群内 `@AI` 结构化草稿使用独立的 `ARK_DRAFT_TIMEOUT_SECONDS`，默认 90 秒，可在私有 `.env` 中设为 15—180 的整数秒；修改后须用完整 Compose 覆盖重建 Agent 容器配置。`--full` 按该值等待最多两次后台尝试及重试间隔。
+```yaml
+kafka:
+  agent_trigger_enabled: true
 
-上述命令与模板已经过本地静态核对，但不能代替部署者在目标环境完成第 6 步的实际验收。
+task_notifications:
+  push:
+    enabled: true
+  ws:
+    enabled: true
+```
+
+**只修改这三个开关，保留模板中同级的其他配置**。聊天、Agent 触发和任务提醒 Topic 分别默认为 `chat_messages`、`agent_task_triggers`、`task_notifications`，需要互不相同。若更名，同时修改相关发布方和消费方；Task 通知发布 Topic 与私有 Push YAML 的通知 Topic 必须一致。覆盖文件不会替你打开这些 YAML 开关。
+
+### 独立服务证书
+
+各变量指向部署机上仓库外的绝对目录，每个目录包含自己的 `cert.pem`、`key.pem`、`ca.pem`，不同角色使用不同私钥。
+
+| 覆盖 | `.env` 目录变量 |
+| --- | --- |
+| bot | `IM_BOT_CERT_DIR`、`AGENT_BOT_CERT_DIR` |
+| trigger | `USER_TRIGGER_CERT_DIR`、`IM_TRIGGER_CERT_DIR`、`IM_TRIGGER_USER_CERT_DIR`、`AGENT_TRIGGER_CERT_DIR` |
+| notifications | `WS_NOTIFICATION_CERT_DIR`、`PUSH_NOTIFICATION_CERT_DIR` |
+| team-leave | `USER_LEAVE_CERT_DIR`、`IM_LEAVE_CERT_DIR`、`USER_PUSH_CERT_DIR`、`PUSH_USER_CERT_DIR` |
+| mentions | `IM_MENTION_CERT_DIR`、`PUSH_IM_MENTION_CERT_DIR` |
+
+新单机 Linux 安装且尚无自管 CA / 证书时，可执行一次：
+
+```sh
+sh provision-mtls.sh /opt/joeyspace-secrets
+```
+
+脚本需要 OpenSSL 和 Python 3，生成私有 CA 与前四行的 12 个独立角色，并填写原来为空的 `.env` 路径。目标存在、变量已有值或文件为符号链接时拒绝覆盖；脚本不启用 YAML 开关、不重启服务。已有证书的环境按实际身份和信任填写目录，不重跑首次脚本。
+
+**提及链的两个角色尚未包含在此脚本中**。使用同一自管 CA 签发：IM 服务端的精确 DNS SAN 为 `im.go-im.internal`、用途为 `serverAuth`；Push 客户端为 `push.go-im.internal`、用途为 `clientAuth`。新安装可在首次脚本生成的 CA 下按以下 Linux 示例补齐（只创建不存在的目录）：
+
+```sh
+umask 077
+joey_secret_dir=/opt/joeyspace-secrets
+test -f "$joey_secret_dir/ca.pem" && test -f "$joey_secret_dir/ca-key.pem" || exit 1
+for joey_role in 'im-mention im.go-im.internal serverAuth sslserver' 'push-im-mention push.go-im.internal clientAuth sslclient'; do
+  set -- $joey_role
+  joey_cert_dir="$joey_secret_dir/$1"
+  test ! -e "$joey_cert_dir" || exit 1
+  mkdir -m 700 "$joey_cert_dir" || exit 1
+  openssl req -new -newkey rsa:3072 -nodes -subj "/CN=$2" \
+    -keyout "$joey_cert_dir/key.pem" -out "$joey_cert_dir/request.csr" || exit 1
+  printf 'basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=%s\nsubjectAltName=DNS:%s\n' \
+    "$3" "$2" > "$joey_cert_dir/extensions.cnf"
+  openssl x509 -req -in "$joey_cert_dir/request.csr" -CA "$joey_secret_dir/ca.pem" \
+    -CAkey "$joey_secret_dir/ca-key.pem" -CAcreateserial -days 365 -sha256 \
+    -extfile "$joey_cert_dir/extensions.cnf" -out "$joey_cert_dir/cert.pem" || exit 1
+  cp "$joey_secret_dir/ca.pem" "$joey_cert_dir/ca.pem" || exit 1
+  openssl verify -CAfile "$joey_cert_dir/ca.pem" -purpose "$4" \
+    -verify_hostname "$2" "$joey_cert_dir/cert.pem" || exit 1
+done
+```
+
+随后在 `.env` 中填写 `IM_MENTION_CERT_DIR=/opt/joeyspace-secrets/im-mention` 和 `PUSH_IM_MENTION_CERT_DIR=/opt/joeyspace-secrets/push-im-mention`。CA 私钥只用于私下签发和轮换，不挂载给业务容器；更新服务证书后需重启对应进程。目录变量不应指向另一个服务的私钥。
+
+Windows 部署使用 Docker Desktop 可挂载的独立目录，并自行按相同 SAN / 用途准备证书；上述首次脚本和签发示例针对 Linux。
+
+### 机器人资料
+
+新库初始化建表，但不会自动插入 `task-assistant` 机器人。启用回帖前，通过 MySQL 客户端连接已经准备好的 `go_im`，先检查：
+
+```sql
+SELECT id, code, display_name, status FROM im_bots;
+```
+
+若选定 code 与 ID 均未占用，插入启用的机器人。以下 ID 1 只是示例，已有库应使用实际未占用的正 ID：
+
+```sql
+INSERT INTO im_bots (id, code, display_name, status)
+VALUES (1, 'task-assistant', 'AI 助手', 1);
+```
+
+`.env` 的 `IM_BOT_CODE` 默认为 `task-assistant`，应与资料一致。机器人使用独立身份空间，不需要用户密码、JWT 或群成员账号；没有资料时可能出现“任务已创建、回帖未受理”。
+
+### 完整启动命令
+
+数据库、模型、证书、开关与机器人资料全部就绪后，在 `deploy` 目录加载**基础文件和全部六个覆盖**：
+
+```sh
+docker compose --env-file .env --profile agent \
+  -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+  -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml \
+  -f docker-compose.mentions.yaml -f docker-compose.frontend.yaml config --quiet
+docker compose --env-file .env --profile agent \
+  -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+  -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml \
+  -f docker-compose.mentions.yaml -f docker-compose.frontend.yaml up -d --build
+docker compose --env-file .env --profile agent \
+  -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
+  -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml \
+  -f docker-compose.mentions.yaml -f docker-compose.frontend.yaml ps
+```
+
+完整组合共 12 个容器。服务启动不等于模型已调用、证书握手已完成或业务链可用。`config --quiet` 只做结构检查，也不核验证书和模型预算；查看 Compose 日志时保留在本机，不发布凭证或聊天正文。
+
+更新已有完整环境时，`build`、`up`、`ps`、`logs` 等命令沿用同一组文件、profile 和项目名。缺少覆盖再更新服务可能丢失证书挂载和功能配置。`depends_on` 也不能替代业务就绪检查。
+
+## 页面访问
+
+| 入口 | 用途 |
+| --- | --- |
+| `http://127.0.0.1:18083/login` | 正式 Vue 工作区，默认仅宿主机回环可达 |
+| `http://127.0.0.1:8082/demo/chat` | 原生后端诊断页，保留作接口排查 |
+| `:8082/api/v1/**` | Gateway HTTP；正式 Vue 经 Nginx 同源访问 |
+| `:8081/ws-ticket`、`:8081/ws` | WS 票据与连接；正式 Vue 经 Nginx 同源访问 |
+
+在远程服务器部署时，在自己的电脑执行：
+
+```sh
+ssh -N -L 18083:127.0.0.1:18083 '<user>@<server>'
+```
+
+保持终端连接，浏览器打开 `http://127.0.0.1:18083/login`。这里的地址始终指浏览器所在电脑；未建隧道时不会自动指向云服务器。
+
+前端覆盖始终保留旧诊断页的两个本机 Origin，并加入 `http://127.0.0.1:18083`。用其他浏览器地址（包括 `localhost`）或 Vite 时，在私有 `.env` 的 `WS_ALLOWED_ORIGINS` 追加完整 Origin，逗号分隔，再用完整组合更新 WS。错误 Origin 会返回 403；无效或重复票据返回 401。
+
+新账号要先通过[团队与群 API](../api/README.md#准备团队与群聊)建立或加入团队。Vue 展示真实本人目录，不会自动生成团队、群或私聊样例。
+
+## 验证与排查
+
+先在浏览器按[Vue 验收清单](../docs/frontend-f6-acceptance-checklist.md)检查两账号聊天、任务、通知、Ask 和逐项草稿。已通过的云端证据见[F6 审查](../docs/frontend-f6-review.md)，后端前置见[阶段 7 清单](../docs/stage7-acceptance.md)。
+
+| 工具 | 作用与副作用 |
+| --- | --- |
+| `node verify-frontend-routes.cjs` | 匿名检查 Vue 深链、资源 404 与 API 错误透传，不写业务数据；默认回环 18083 |
+| `node verify-vue-browser.cjs` | Node 22+ 与 Chrome/Edge，正式页登录/刷新/深链/同源冒烟；创建并保留一次性账号、团队、群、任务 |
+| `python3 verify-cloud.py` | 基础后端 API 与单聊，创建并保留一次性测试数据 |
+| `python3 verify-cloud.py --full` | 先预检脚本所需覆盖和开关，再跑真实模型、通知、团队群、后台草稿与机器人在线/历史链 |
+| `python3 verify-cloud-resilience.py --allow-push-stop` | 停止/恢复共享 Push 并测试离队撤权，需要可接受聊天中断的维护窗口 |
+
+Node 工具的 `JOEY_F6_URL` 可指定正式页面地址，`JOEY_CHROME_PATH` 可指定浏览器路径。浏览器脚本用临时 profile，冒烟通过不等于整份 F6 验收通过。Python 工具按[后端清单](../docs/stage7-acceptance.md)使用；`--full` 不覆盖 Vue 或普通提及，只自动确认符合安全限制的单项测试草稿，其他输出停在人工审查。以上写入脚本只用于允许创建测试数据的环境，失败后数据保留供排查。
+
+| 现象 | 优先检查 |
+| --- | --- |
+| 页面打不开 | 前端容器、18083 回环监听、本机 SSH 隧道是否仍连接 |
+| 登录或本人查询失败 | Gateway / User、MySQL 密码、各进程 JWT 是否一致 |
+| WS 返回 403 / 401 | 实际 Origin 白名单、单次票据、Token 与 Redis |
+| ACK 成功但历史/另一账号无消息 | Push、Kafka 消费、团队投递证书与权限；ACK 不代表已经落库 |
+| 未读总览或本人任务查询失败 | 已有库是否执行 036/037，User/IM/Task 是否正常 |
+| AI 503 / 504 / 耗尽 | Agent profile、方舟凭证/额度、请求等待预算和持久触发状态 |
+| 已有任务但无机器人回帖 | `im_bots` 资料、bot 覆盖、双方 mTLS、逐项回帖状态 |
+| 有通知记录但无实时提示 | notification 覆盖、私有 YAML 两个开关、Topic 和 WS 路由/证书 |
+
+`Makefile` 的 `run-*` / `build` 只覆盖三个聊天进程，`docker-up` 只加载基础 Compose；完整部署请使用本指南的显式组合。
+
+## 历史操作参考
+
+下面保留早期配置解释和开发期逐步接线记录。涉及“待实际执行”“尚未接线”等措辞均是当时快照，当前入口、功能组合与步骤以本文上方为准。
+
+<details>
+<summary>展开开发期配置与设计记录</summary>
 
 ## 开发期配置与设计记录
 
@@ -355,3 +507,5 @@ Agent、Gateway、页面需协调升级：模型输出新增三个必填时间�
 更新本批 Agent 前，已有库须在 018 后核对并执行一次 [019_agent_draft_collection.sql](mysql/migrations/019_agent_draft_collection.sql)。新库初始化包含 run 的 `draft_mode/item_count` 和 draft 的独立 `status`；已有数据卷不会因更新 init.sql 自动升级。默认 single/1 与空项状态保留旧 run 的权威状态、内容、版本、Task 键/结果和回帖；新集合明确保存 collection 模式、实际项数和每项 waiting 状态。
 
 本批没有新服务、端口、环境变量、依赖或模型账号，沿原 Agent/Gateway 配置接入新生成和读取接口。旧单项入口拒绝集合，当前页面仍走原单项入口；多项页面、逐项确认/跳过/回帖后续实现。迁移文件只准备，真实 MySQL、模型、容器和云同步均未执行，最终部署时再协调版本与数据库结构。[完整审查](../docs/multi-draft-storage-review.md)。
+
+</details>

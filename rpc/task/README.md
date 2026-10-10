@@ -1,3 +1,42 @@
+# Task RPC：任务与通知
+
+负责人工或 Agent 确认后的任务创建、团队/本人分页、详情、状态变化、操作记录、个人通知与通知 Outbox。任务来源通过 IM 核验，负责人和操作者资格通过 User 核验，服务不直接读取这两个服务的业务表。
+
+[整体架构](../../docs/architecture.md) · [HTTP 入口](../../api/README.md) · [部署](../../deploy/README.md)
+
+## 当前能力
+
+- [task.proto](task.proto) 提供创建、团队列表、本人开放/已完成分页、详情、状态更新、通知列表与显式已读。
+- 管理 `tasks`、`task_operations`、`task_status_notifications`、`task_notification_outbox`。
+- 创建请求按操作者和请求键去重：同键同内容返回原任务，同键不同内容冲突；人工和 Agent 创建都遵循此规则。
+- 状态为 0 待处理、1 进行中、2 已完成；更新检查权限与可选 `expected_status`，Vue 使用当前读取的状态作为前提。
+- 状态、操作、个人通知和 Outbox 在同一事务中保存；实时提醒不替代通知列表，不自动标为已读。
+- 有来源 ID 的任务必须核对消息属于当前有权访问的团队群。查询任务返回来源 ID 不授予原消息读取权。
+
+## 本地运行
+
+从仓库根目录运行；先设置 `TASK_MYSQL_DSN`、`USER_RPC_ADDR`、`IM_RPC_ADDR`，准备数据库并启动 User/IM：
+
+```sh
+go run ./rpc/task -f rpc/task/etc/task.yaml
+go test ./rpc/task
+```
+
+默认监听 `127.0.0.1:9003`，Snowflake 节点默认 4，由 `TASK_SNOWFLAKE_NODE_ID` 设置。Compose 地址使用 `user-rpc:9001`、`im-rpc:9002`。
+
+通知发布默认关闭，`docker-compose.notifications.yaml` 显式启用 Task 发布器；Push/WS 的私有 YAML 开关和证书需要同时准备。即使发布关闭，状态更新仍写 Outbox，因此当前数据库表必须齐全。已有库应核对任务/通知迁移及 037 本人分页索引；新库通过完整 `init.sql` 初始化。
+
+## 进一步阅读
+
+[前端任务 API](../../docs/frontend-f4-api-contract.md)、[个人分页索引验证](../../docs/frontend-f4-mysql-explain.md)、[通知 Outbox](../../docs/stage7-notification-outbox-contract.md)、[通知已读](../../docs/stage7-notification-read-state-contract.md)。云端任务与实时通知已测范围见[F6 报告](../../docs/frontend-f6-review.md)。
+
+## 开发过程记录
+
+下面保留早期逐步实现与验证细节，描述当时范围；当前启动方式与能力以上方说明为准。
+
+<details>
+<summary>展开历史实现记录</summary>
+
 # 任务 RPC：创建、查询与状态更新
 
 `CreateTask(team_id, title, description, assignee_id, source_group_id, source_message_id, due_at_unix_ms)` 使用 gRPC metadata 中的 `authorization: Bearer <Token>` 和 `idempotency-key`。任务服务先调用用户与团队 RPC 的 `CheckTeamMember` 核对创建者仍在团队；未找到已有同键创建时，如指定 `assignee_id > 0`，再调用 `CheckTeamMemberByID` 核对负责人仍是该团队的可用成员。`assignee_id = 0` 表示暂不指派。两个来源 ID 同时为 0 表示无来源；填写时须同时为正数，任务服务带原 Token 调用 IM 的 `CheckTeamGroupMessage` 核对消息、群、团队归属及当前访问权，校验失败不写任务。`due_at_unix_ms = 0` 表示无截止时间；正数是 UTC Unix 毫秒，最大为 `253402300799999`，直接存为可空整数，避免数据库连接时区改变解释。任务服务只写自己拥有的 `tasks` 表，不读取团队或 IM 表。
@@ -21,3 +60,5 @@ go run ./rpc/task -f rpc/task/etc/task.yaml
 默认 Snowflake 节点号为 `4`，可用 `TASK_SNOWFLAKE_NODE_ID` 覆盖；不同写入进程不能共用节点号。Compose 中任务 RPC 只在容器网络监听 `9003`，并通过 `im-rpc:9002` 校验来源。Gateway 的 `/demo/chat` 已有基础任务列表、创建、状态和来源查看；页面创建表单可填本地截止时间并转成 UTC 毫秒，任务列表按浏览器本地时区显示，经过本地 Node 测试。尚未连接真实 MySQL，也未做容器或浏览器联调。
 
 A69的Task后台发布器默认关闭。启用需 `TASK_NOTIFICATION_PUBLISH_ENABLED=true`、逗号分隔的 `TASK_NOTIFICATION_KAFKA_BROKERS`（如容器网络 `kafka:19092`）、独立 `TASK_NOTIFICATION_TOPIC`（如 `task_notifications`）。Topic须与聊天、Agent触发区分，默认保留名分别为chat_messages/agent_task_triggers；私有配置若改了这两个名称，同时传 `TASK_NOTIFICATION_CHAT_TOPIC`、`TASK_NOTIFICATION_AGENT_TOPIC`。不开启时不构造Kafka writer，但新的待发记录仍留存；029不回填历史通知。每轮读最多100条，只有同步Kafka ACK后才锁定原事实标记发布；失败重建复用同key/payload，可能重复发送。发布循环及数据库不在等待Kafka时持SQL锁，停机取消并等循环退出后关闭writer；published不等于Push消费、浏览器收到或本人已读。Push消费、专用mTLS/WS和页面提醒本批尚未接通，不能把开关设true当整个实时链已完成。[本批契约与验证范围](../../docs/stage7-notification-outbox-contract.md)。
+
+</details>

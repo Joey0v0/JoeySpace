@@ -1,3 +1,44 @@
+# User RPC：用户与团队
+
+负责注册登录、本人资料、团队与成员事实、基础角色、成员资格代际以及本人退出协调。Gateway、IM、Task 与 Agent 使用该服务核对身份和当前团队资格。
+
+[整体架构](../../docs/architecture.md) · [HTTP 入口](../../api/README.md) · [部署](../../deploy/README.md)
+
+## 当前能力与协议
+
+- [user.proto](user.proto)：注册/登录、本人活动团队、成员列表/角色、群创建授权、成员解析、本人退出与操作查询、有限显示名补充。
+- [trigger.proto](trigger.proto)：IM 后台触发使用的受限团队资格与负责人解析入口。
+- [push.proto](push.proto)：Push 使用的受限当前团队资格入口。
+- 普通本人方法从 Bearer Token 派生身份；后台方法使用专用 mTLS 身份和既定范围，不接受模型指定用户身份。
+
+User 管理 `users`、`teams`、`team_members`、`user_team_leave_operations`。成员退出先进入 `leaving` 并保存固定操作，再调用 IM 关闭群资格，完成后置为退出；不清除旧聊天和阅读记录。拥有者再次添加已完成退出的成员时推进资格版本，旧群资格不自动恢复。
+
+## 本地运行
+
+从仓库根目录运行，先在本地环境中设置 `USER_MYSQL_DSN`、`USER_JWT_SECRET`，并准备当前数据库：
+
+```sh
+go run ./rpc/user -f rpc/user/etc/user.yaml -profile
+go test ./rpc/user
+```
+
+配置默认监听 `127.0.0.1:9001`，Snowflake 节点默认 2，可用 `USER_SNOWFLAKE_NODE_ID` 设置。多个写入进程需使用不同节点；JWT 与 IM/WS 的实际配置一致。
+
+**`-profile` 才启用数据库业务。** 不带该参数的 `GetUserInfo` 是保留的固定资料通信演示，不是正式用户服务启动方式。Compose 镜像已使用 `-profile`。
+
+完整退出、后台触发和 Push 投递核权还需要专用证书和环境配置，通过[部署覆盖](../../deploy/README.md#完整功能部署)启用；普通 9001 端口不注册这些专用服务。
+
+## 进一步阅读
+
+[团队接口](../../docs/team-schema.md)、[负责人解析](../../docs/agent-assignee-design.md)、[资格代际](../../docs/stage7-team-membership-foundation-contract.md)、[本人退出协议](../../docs/stage7-team-leave-public-rpc-contract.md)、[重新入队](../../docs/stage7-team-rejoin-contract.md)。云端已测范围见[F6 报告](../../docs/frontend-f6-review.md)。
+
+## 开发过程记录
+
+下面保留早期逐步实现与验证细节，描述当时范围；当前启动方式与能力以上方说明为准。
+
+<details>
+<summary>展开历史实现记录</summary>
+
 # 第一个用户 RPC：本地通信演示
 
 后续小步已新增 GetMyInfo 本人查询、Login 登录和 Register 注册，使用 `-profile` 启用；见 [本人资料查询](../../docs/user-profile.md)、[用户登录](../../docs/user-login.md)、[用户注册](../../docs/user-register.md)。下文仍介绍不带 `-profile` 的原演示方式。
@@ -122,3 +163,5 @@ User进程现可选启用独立Push监听：设置`USER_PUSH_LISTEN_ON`、`USER_
 非法输入返回 `InvalidArgument`，无效身份返回 `Unauthenticated`，停用调用者或非团队成员返回 `PermissionDenied`，查询故障返回 `Unavailable`，不会把故障包装成未匹配。沿用现有团队表，无新增迁移。
 
 验证命令：`go test ./rpc/user -run TestResolveTeamMember -count=1`、`go test ./... -count=1`。本轮定向与全量测试通过，Linux User 编译通过；SQL 替身检查完整范围/启用状态/二进制比较条件和绑定参数，本机 TCP gRPC 验证协议、身份与响应。未执行真实 MySQL 字符比较或接入真实模型；第一版模型负责人提取、歧义处理与本人选择仍待实现。方案、取舍及完整修改文件见[审查记录](../../docs/agent-assignee-design.md#7-user-解析接口实现与审查2026-10-03)。
+
+</details>

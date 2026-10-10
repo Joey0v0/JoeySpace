@@ -1,234 +1,158 @@
-# JoeySpace：Go 微服务协作平台与 Agent
+# JoeySpace
 
-一个面向小团队协作的 Go 微服务项目，提供用户与团队、单聊与团队群、任务协作、通知和 AI 助手。HTTP 由 API Gateway 接入，业务通过 go-zero/gRPC 分为 User、IM、Task、Agent 服务；实时消息使用 WebSocket、Kafka、Redis 和 MySQL。Agent 使用 Go 与 Eino，支持接入火山方舟／豆包模型。
+**从团队讨论到任务协作的 Go 微服务平台，配有 TypeScript / Vue 3 桌面 Web 前端。**
 
-项目功能代码与部署模板已提供。部署者按[快速开始](#快速开始)准备自己的数据库凭证、JWT 密钥、模型接入点和服务证书；已有数据库还需按实际版本升级。自动化测试及部分隔离 MySQL、HTTP 和浏览器链路已通过，完整部署仍需在目标环境验收。功能边界见[项目方案](docs/project-plan.md)，验收范围见[阶段 7 清单](docs/stage7-acceptance.md)。
+JoeySpace 将团队、聊天、任务、通知和 AI 助手放在同一个工作流程中：先阅读讨论，再处理自己的任务；需要整理待办时，在群里显式请求 AI，审查生成的草稿后逐项创建任务，并将结果回传到原群。
 
-## 架构
+这是一个个人全栈项目，后端以 Go、go-zero、gRPC 和 Eino 为核心，前端使用 Vue 3 与 Vite，运行于 Docker Compose。第一版核心功能已实现，并完成云端真实浏览器和跨服务链路验收。当前部署入口经 SSH 隧道访问，未提供公开演示站点；AI 模型稳定性及部分故障专项仍有验证边界，见[验收记录](docs/frontend-f6-review.md)。
+
+[架构说明](docs/architecture.md) · [运行与部署](deploy/README.md) · [前端开发](frontend/README.md) · [HTTP 接口](api/README.md) · [文档导航](docs/README.md)
+
+## 可以做什么
+
+| 能力 | 当前实现 |
+| --- | --- |
+| 用户与团队 | 注册、登录、本人资料；后端提供团队创建、成员管理、角色与本人退出接口 |
+| 即时沟通 | Vue 团队群与已有私聊目录、文本收发、历史分页、断线重连、离线补拉 |
+| 消息关注 | 按会话汇总未读、普通成员结构化提及、`@我` 筛选、显式标记已读 |
+| 任务协作 | 我的任务、团队筛选、人工创建、负责人和期限、状态变更、返回来源讨论 |
+| 任务通知 | 持久通知列表、逐条已读、WebSocket 实时提示后重读权威记录 |
+| AI 助手 | 当前群只读问答、群内 `@AI` 整理 1—5 项草稿、逐项编辑/确认/跳过、机器人回帖与回帖重试 |
+
+Vue 优先覆盖“看讨论 → 处理任务 → 审查 AI 草稿”的日常流程。团队创建、添加成员、角色和退出等管理操作目前通过 HTTP API 完成；完整管理后台、音视频、文件协作、移动端全量适配不在第一版范围内。
+
+## 一个完整的协作流程
+
+1. 准备两个账号，将它们加入同一团队与团队群。
+2. 在 Vue 消息页讨论工作，查看未读和提及消息。
+3. 发送 `@AI 整理任务`，从自己的原消息打开 AI 处理状态。
+4. 核对草稿的来源、标题、说明、负责人和截止时间，逐项确认或跳过。
+5. 确认后的任务进入“我的任务”，机器人将任务结果回传到群里。
+6. 更新任务状态，在通知列表查看结果，并按需返回原讨论。
+
+模型只生成建议。创建任务需要用户确认；任务创建结果、机器人回帖受理和消息已读分别记录，不把模型输出当成执行成功。
+
+## 架构概览
 
 ```mermaid
 flowchart LR
-    Client[浏览器/客户端] -->|HTTP| Gateway[API Gateway]
-    Client <-->|WebSocket| WS[WS Gateway]
-    Gateway --> User[User RPC]
-    Gateway --> IM[IM RPC]
-    Gateway --> Task[Task RPC]
-    Gateway --> Agent[Agent RPC / Eino]
+    Browser["浏览器 · Vue 3"] --> Web["Nginx · 静态页面 / 同源代理"]
+    Web -->|HTTP| Gateway["API Gateway · go-zero"]
+    Web <-->|WebSocket / 票据| WS["WS Gateway"]
+    Gateway --> User["User RPC"]
+    Gateway --> IM["IM RPC"]
+    Gateway --> Task["Task RPC"]
+    Gateway --> Agent["Agent RPC · Eino"]
+    Agent -->|授权上下文 / 成员| IM
     Agent --> User
-    Agent --> IM
-    Agent --> Task
-    WS -->|消息事件| Kafka[(Kafka)]
-    Kafka --> Push[Push Worker]
+    Agent -->|确认建任务| Task
+    Agent --> Model["火山方舟模型"]
+    WS -->|聊天事件| Kafka[(Kafka)]
+    Kafka --> Push["Push Worker"]
     Push -->|在线投递| WS
-    User --> MySQL[(MySQL)]
-    IM --> MySQL
-    Task --> MySQL
-    Agent --> MySQL
-    Push --> MySQL
-    WS --> Redis[(Redis)]
-    Push --> Redis
+    Push -->|AI 触发 Outbox| Kafka
+    Kafka -->|AI 触发事件| Agent
+    Task -->|通知 Outbox| Kafka
+    User & IM & Task & Agent & Push --> DB[(MySQL)]
+    WS & Push --> Redis[(Redis)]
 ```
 
-## 核心特性
+图中展示主要链路，完整的服务职责、数据归属和三条消息流见[架构说明](docs/architecture.md)。User、IM、Task、Agent 按业务拆分；WS 与 Push 负责接入和投递。当前 Compose 共用一个 MySQL 实例和 `go_im` 库，各业务服务负责自己的表；**聊天消息仍由 Push 消费 Kafka 后写入**，IM 提供消息读取与权限契约。
 
-- **业务微服务**：User 管用户与团队，IM 管消息与访问资格，Task 管任务与通知，Agent 管 AI 运行和草稿；Gateway 统一提供新 HTTP 入口。
-- **Agent 任务链**：群内指令可生成待审查草稿，由本人逐项确认或跳过，创建成功后以机器人身份回帖。
-- **任务与消息未读**：任务状态通知、团队群和单聊均有本人显式确认入口；客户端不能把读取历史或离线 ACK 当成已读。
-- **接入与实时服务**：HTTP API、WebSocket Gateway 与 Push Worker 分别负责请求接入、长连接和异步投递
-- **发送请求去重**：客户端生成 `msg_id`，WS 网关借助 Redis 限制重复入队；Kafka/Push 重试仍可能重复在线推送，接收端按 `msg_id` 去重
-- **离线消息拉取**：用户离线时消息写入 offline_messages 表，上线后通过 API 拉取
-- **Kafka 削峰解耦**：WS 网关收到消息后写入 Kafka，Push 服务异步消费，避免网关阻塞
-- **在线状态管理**：Redis 存储 `online:{user_id} → ws_addr`，心跳刷新 TTL，支持精准路由
-- **群聊扇出推送**：Push 服务逐成员在线检查并推送/离线存储；团队群接收名单按当前 MySQL 成员资格查询
-- **JWT 认证**：API 和 WS 连接均使用 JWT Token 鉴权
-- **Snowflake ID**：消息 ID 使用 Snowflake 算法生成，天然有序
-- **结构化日志**：Zap + Lumberjack，关键业务节点带 Context 字段输出
-- **Docker Compose 部署**：基础服务与可选 Agent、机器人、群内触发、通知、团队退出覆盖分别配置；私有凭证和证书不入库
+## 工程实现
+
+| 关注点 | 实现方式 |
+| --- | --- |
+| 服务边界 | Gateway 解析 HTTP 并调用 RPC，业务服务核对资源权限；Agent 经业务 RPC 读取和操作数据 |
+| 重试与重复请求 | 消息 `msg_id` 去重、任务请求键、草稿版本检查、逐项确认与独立回帖状态 |
+| 异步可靠性 | 持久 Outbox / Inbox、Kafka 消费确认、有限重试、后台任务租约和失败终态 |
+| 权限变化 | 当前团队/群资格复核、离队代际与关闭记录、专用内部 mTLS 入口 |
+| 浏览器一致性 | 单次 WS 票据与 Origin 限制；读取历史不自动已读；切群/换账号丢弃旧请求结果 |
+| 数据精度 | HTTP 和浏览器中的大整数 ID 使用十进制字符串；时间使用 Unix 毫秒 |
+
+这些机制用于控制重复执行和恢复不确定结果，不声称消息系统具有端到端 exactly-once 保证。
 
 ## 技术栈
 
-| 组件 | 技术选型 |
-|------|---------|
-| 语言 | Go 1.26.1 |
-| HTTP 框架 | go-zero Gateway、Gin API |
-| 服务通信 | gRPC / Protobuf |
-| Agent 编排 | Eino |
-| WebSocket | gorilla/websocket |
-| ORM | GORM + MySQL 8.0 |
-| 缓存 | Redis 7 (go-redis) |
-| 消息队列 | Kafka (kafka-go) |
-| 认证 | JWT v5 |
-| 配置 | Viper、go-zero 配置 |
-| 日志 | Zap + Lumberjack |
-| ID 生成 | Snowflake |
-| 容器化 | Docker + Docker Compose |
+| 层次 | 技术 |
+| --- | --- |
+| 前端 | TypeScript 5.9、Vue 3、Vue Router、Vite 8；原生 CSS 与局部状态 |
+| HTTP / RPC | Go 1.26.1、go-zero、gRPC / Protobuf；保留 Gin 兼容 API |
+| Agent | Eino、火山方舟 ChatModel，受权限约束的消息与任务工具 |
+| 实时与存储 | gorilla/websocket、Kafka / kafka-go、Redis 7、MySQL 8 / GORM |
+| 运行 | Docker Compose、Nginx 多阶段前端镜像、JWT、内部专用 mTLS |
 
-## 项目结构
-
-```text
-go-im/
-├── cmd/
-│   ├── api/main.go              # HTTP API 进程入口
-│   ├── ws/main.go               # WebSocket 网关入口
-│   └── push/main.go             # 异步推送服务入口
-├── api/                          # go-zero API Gateway
-├── rpc/user/                     # 用户与团队 gRPC 服务
-├── rpc/im/                       # 消息与群组 gRPC 服务
-├── rpc/task/                     # 任务与通知 gRPC 服务
-├── rpc/agent/                    # Agent gRPC 服务
-├── internal/
-│   ├── config/                  # 配置加载
-│   ├── model/                   # GORM 数据模型
-│   ├── handler/                 # HTTP Handler（Gin）
-│   ├── service/                 # 业务逻辑层
-│   ├── repository/              # 数据访问层（MySQL + Redis）
-│   ├── ws/                      # WebSocket 网关核心逻辑
-│   ├── push/                    # 推送服务逻辑
-│   ├── middleware/              # Gin 中间件
-│   └── pkg/                     # 公共组件（JWT、响应、错误码、雪花ID、日志）
-├── config/go-im.yaml            # 本地开发配置
-├── deploy/
-│   ├── docker-compose.yaml      # 容器编排
-│   ├── Dockerfile               # 多阶段构建
-│   ├── docker-config.yaml       # 脱敏容器配置模板
-│   ├── api-gateway.yaml         # API Gateway 容器配置
-│   ├── user-rpc.yaml            # 用户 RPC 容器配置
-│   ├── docker-compose.*.yaml    # 可选能力覆盖文件
-│   ├── .env.example              # 私有环境变量模板
-│   └── mysql/                   # 新库初始化与旧库增量迁移
-├── Makefile
-└── README.md
-```
+依赖的具体锁定版本见 [go.mod](go.mod) 和 [frontend/package.json](frontend/package.json)。
 
 ## 快速开始
 
-以下是部署者需要填写的**环境信息**，不是缺失的项目源码。[详细部署配置](deploy/README.md)说明证书、服务地址和增量迁移；[最终验收清单](docs/stage7-acceptance.md)说明应观察的业务结果。先确认 Docker Compose 可用。
+推荐先在自己的 Linux / Docker 环境启动基础后端和正式 Vue 页面，再按需启用 AI 与专用投递链。需要 Docker Engine 与 Compose 插件；在 Windows 使用 Docker Desktop 时，证书路径和 shell 命令按[部署指南](deploy/README.md)处理。
 
-1. 进入 `deploy`，从模板复制私有文件；已有文件保持原样，不覆盖：
-
-```bash
-cd deploy
+```sh
+git clone https://github.com/Joey0v0/JoeySpace.git
+cd JoeySpace/deploy
 test -e .env || cp .env.example .env
 test -e docker-config.local.yaml || cp docker-config.yaml docker-config.local.yaml
 ```
 
-Windows PowerShell 的对应复制命令见[部署配置说明](deploy/README.md#凭证与云端原文件的区别)。在 `.env` 填数据库密码、JWT 密钥及各服务 ID；在 `docker-config.local.yaml` 填相同的数据库凭证和 JWT 密钥。根目录的 `config/go-im.yaml` 是本地开发配置，不作为生产凭证文件。**旧 MySQL 数据卷应沿用实际数据库密码**，改 `.env` 不会替它修改数据库密码。私有文件已被 Git 和 Docker 构建上下文排除，不要提交。
+先在 `.env` 填 `MYSQL_ROOT_PASSWORD` 和 `JWT_SECRET`，再在 `docker-config.local.yaml` 填相同数据库凭证与 `jwt.secret`。全新空卷自动执行 `mysql/init.sql`；已有数据卷先备份并按实际结构执行缺失迁移，不能重跑初始化代替升级。
 
-2. 数据库：全新空卷由 `mysql/init.sql` 初始化；已有数据卷先备份、核对实际表结构和已执行迁移，再按[验收清单](docs/stage7-acceptance.md#3-最终启动前核对全部待执行)执行尚缺的 `mysql/migrations`。不要对已有库重跑 `init.sql`，也不要执行 `down -v`。
-
-3. 先校验基础配置，再启动不含 Agent 的基础服务：
-
-```bash
-docker compose --env-file .env -f docker-compose.yaml config --quiet
-docker compose --env-file .env -f docker-compose.yaml up -d --build
-docker compose --env-file .env -f docker-compose.yaml ps
+```sh
+docker compose --env-file .env \
+  -f docker-compose.yaml -f docker-compose.frontend.yaml config --quiet
+docker compose --env-file .env \
+  -f docker-compose.yaml -f docker-compose.frontend.yaml up -d --build
 ```
 
-Gateway 的聊天演示页位于 `http://localhost:8082/demo/chat`。基础启动**不会**启用 Agent、机器人回帖、后台 `@AI`、实时任务提醒及团队退出的专用证书链。要启用完整业务，先在 `.env` 填方舟 `ARK_API_KEY`/`ARK_MODEL_ID` 和各覆盖文件要求的私有证书目录，在私有 YAML 启用相应角色，并完成所需迁移；然后合并 `docker-compose.bot.yaml`、`docker-compose.trigger.yaml`、`docker-compose.notifications.yaml`、`docker-compose.team-leave.yaml` 与 `agent` profile。先运行合并后的 `config --quiet`，再使用**同一组参数**执行 `up -d --build`。具体证书用途、开关与顺序见[部署配置说明](deploy/README.md)和[阶段 7 验收清单](docs/stage7-acceptance.md)。
+在运行 Docker 的电脑打开 **http://127.0.0.1:18083/login**。若 Docker 运行于远程服务器，先在自己的电脑建立隧道，保持终端连接，再打开同一地址：
 
-在上述前提全部满足后，可于 `deploy` 目录用 Linux shell 检查并启动完整组合：
-
-```bash
-docker compose --env-file .env --profile agent \
-  -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
-  -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml config --quiet
-docker compose --env-file .env --profile agent \
-  -f docker-compose.yaml -f docker-compose.bot.yaml -f docker-compose.trigger.yaml \
-  -f docker-compose.notifications.yaml -f docker-compose.team-leave.yaml up -d --build
+```sh
+ssh -N -L 18083:127.0.0.1:18083 '<user>@<server>'
 ```
 
-4. 用至少两个账号实际验证登录、团队群聊天、任务、`@AI` 草稿审查与回帖、通知和重连查询。只有这些部署环境验证通过，才能称该环境的项目已完整运行；仓库中的本地测试结果不能替代它们。
+基础组合用于先检查登录、页面与基础 API，**不包含完整团队群投递、结构化提及、AI 回帖、实时任务提示和退出链**。体验完整流程需要准备模型接入点、机器人资料、独立证书和私有配置，再加载全部覆盖文件；具体命令与准备顺序见[完整功能部署](deploy/README.md#完整功能部署)。已有完整部署每次操作都要保留同一组覆盖文件。
 
-本地代码回归可运行：
+新注册账号不会自动拥有团队，需通过[团队 API](api/README.md#准备团队与群聊)准备数据。旧的 `http://127.0.0.1:8082/demo/chat` 保留作后端诊断页，正式工作界面在 Vue 中。
 
-```bash
+## 开发与验证
+
+Go 直接开发需要 Go 1.26.1；前端本地推荐 Node.js 24，前端容器使用 Node.js 22 构建。
+
+```sh
+# 仓库根目录：后端与诊断页测试
 go test ./...
 node --test examples/*.test.cjs
+
+# frontend 目录：正式前端
+cd frontend
+npm ci
+npm test
+npm run build
 ```
 
-`Makefile` 的 `run-*` 只覆盖三个聊天进程，`docker-up` 只加载基础 Compose；两者都不代表上述可选能力已启用。
+`npm run build` 包含 TypeScript 类型检查。开发页面用 `npm run dev`，其 API / WS 代理目标见[前端指南](frontend/README.md)。单独构建静态文件不会提供后端数据。
 
-## HTTP 与 WebSocket 接口示例
+截至 2026-10-10 的记录：全仓 Go 测试、Vue 133 项测试与构建通过；真实双账号浏览器验证了聊天、任务/通知、AI 草稿成功链、撤权和 Push 进程恢复。AI 请求曾间歇失败，整机/数据库崩溃恢复与物理中文输入法等专项未覆盖。证据和限制见[前端验收](docs/frontend-f6-acceptance-checklist.md)与[后端验收](docs/stage7-acceptance.md)，不以历史通过记录保证新的部署环境可用。
 
-下表展示 `:8080` 的 HTTP 接口；Gateway 入口与 Agent/任务接口见 `api/` 和相应契约文档。
+## 代码与文档入口
 
-### 用户模块
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/v1/user/register` | 用户注册 |
-| POST | `/api/v1/user/login` | 用户登录 |
-| GET | `/api/v1/user/info` | 获取用户信息 |
-
-### 好友模块
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/v1/friend/add` | 发送好友申请 |
-| POST | `/api/v1/friend/accept` | 同意好友申请 |
-| GET | `/api/v1/friend/list` | 获取好友列表 |
-
-### 群组模块
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/v1/group/create` | 创建群组 |
-| POST | `/api/v1/group/join` | 加入群组 |
-| GET | `/api/v1/group/list` | 我的群组列表 |
-| GET | `/api/v1/group/members` | 获取群成员 |
-
-### 消息模块
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/message/offline` | 拉取未确认的离线消息，不删除 |
-| POST | `/api/v1/message/offline/ack` | 处理后用字符串消息 ID 确认，格式见[迁移说明](docs/im-migration.md) |
-| GET | `/api/v1/message/history` | 历史消息（游标分页） |
-
-### WebSocket
-- 连接地址：`ws://host:8081/ws?token=<JWT_TOKEN>`
-- 上行消息格式：`{"type": "chat", "data": {"msg_id": "...", "to_id": 123, "chat_type": 1, "content_type": 1, "content": "hello"}}`
-- 下行消息格式：`{"type": "ack", "data": {"msg_id": "..."}}` / `{"type": "chat", "data": {...}}`
-
-## 单聊消息时序图
-
-```mermaid
-sequenceDiagram
-    participant A as 用户A (发送方)
-    participant WS as WS Gateway
-    participant K as Kafka
-    participant PS as Push Server
-    participant R as Redis
-    participant DB as MySQL
-    participant WS2 as WS Gateway
-    participant B as 用户B (接收方)
-
-    A->>WS: WebSocket 发送 ChatData
-    WS->>R: 预约 msg_dedup:{msg_id} (发送中)
-    R-->>WS: 预约成功
-    WS->>K: 写入 chat_messages Topic
-    WS->>R: 确认 msg_dedup:{msg_id} (已入队)
-    WS-->>A: ACK {msg_id}
-
-    K->>PS: 消费消息
-    PS->>DB: INSERT INTO messages (持久化)
-    PS->>R: GET online:{user_b_id}
-    R-->>PS: ws_gateway_addr (在线)
-
-    PS->>WS2: POST /internal/push (内部 HTTP)
-    WS2->>B: WebSocket 推送 ServerMsg{type: "chat"}
-
-    Note over PS,DB: 若用户B离线，则写入 offline_messages 表
+```text
+JoeySpace/
+├── frontend/          # Vue：登录、消息、任务、通知、AI 审查
+├── api/               # go-zero HTTP Gateway
+├── rpc/
+│   ├── user/          # 用户与团队
+│   ├── im/            # 消息读取、群权限、专用内部入口
+│   ├── task/          # 任务、操作记录、通知与 Outbox
+│   └── agent/         # Eino、运行、草稿、触发 Inbox / Worker
+├── cmd/               # api（Gin）、ws、push、agent 的进程入口
+├── internal/          # WS / Push、存储、认证及公共组件
+├── deploy/            # Compose、Dockerfile、Nginx、SQL、验证脚本
+├── examples/          # 嵌入 Gateway 的原生诊断页面
+└── docs/              # 架构、设计、接口契约与验收记录
 ```
 
-## 统一响应格式
-
-```json
-{
-    "code": 0,
-    "msg": "success",
-    "data": {}
-}
-```
-
-- `code = 0` 表示成功
-- `code != 0` 对应 `internal/pkg/errcode` 中定义的业务错误码
+想了解实现，先读[架构说明](docs/architecture.md)，再进入对应服务 README；想运行项目，先读[部署指南](deploy/README.md)。[文档导航](docs/README.md)按用途索引资料，开发阶段编号和历史讨论集中在项目计划及契约文档中。
 
 ## License
 
