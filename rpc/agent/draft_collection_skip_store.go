@@ -9,7 +9,8 @@ import (
 )
 
 const skipDraftCollectionItemSQL = `UPDATE agent_task_drafts SET status = ?
-    WHERE run_id = ? AND item_index = ? AND revision = ? AND status = 'waiting_confirmation' AND task_request_key = '' AND task_id = 0`
+    WHERE run_id = ? AND item_index = ? AND revision = ? AND status = 'waiting_confirmation'
+      AND (task_request_key IS NULL OR task_request_key = '') AND (task_id IS NULL OR task_id = 0)`
 
 func (s *draftStore) skipDraftCollectionItem(ctx context.Context, authorized taskDraftCollection, index int32) (taskDraftCollection, error) {
 	if s == nil || s.db == nil {

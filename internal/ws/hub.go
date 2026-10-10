@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"sync"
 
 	"go.uber.org/zap"
@@ -12,8 +13,6 @@ type Hub struct {
 	clients map[int64]*Client
 	mu      sync.RWMutex
 
-	// register 注册通道
-	register chan *Client
 	// unregister 注销通道
 	unregister chan *Client
 
@@ -24,7 +23,6 @@ type Hub struct {
 func NewHub(logger *zap.Logger) *Hub {
 	return &Hub{
 		clients:    make(map[int64]*Client),
-		register:   make(chan *Client, 256),
 		unregister: make(chan *Client, 256),
 		logger:     logger,
 	}
@@ -34,21 +32,6 @@ func NewHub(logger *zap.Logger) *Hub {
 func (h *Hub) Run() {
 	for {
 		select {
-		case client := <-h.register:
-			h.mu.Lock()
-			// 如果该用户已有旧连接，关闭旧连接
-			if old, ok := h.clients[client.UserID]; ok {
-				old.Close()
-				h.logger.Info("replaced old connection",
-					zap.Int64("user_id", client.UserID),
-				)
-			}
-			h.clients[client.UserID] = client
-			h.mu.Unlock()
-			h.logger.Info("client registered",
-				zap.Int64("user_id", client.UserID),
-			)
-
 		case client := <-h.unregister:
 			h.mu.Lock()
 			// 只有当前连接和注册的一致时才删除
@@ -73,7 +56,29 @@ func (h *Hub) GetClient(userID int64) (*Client, bool) {
 
 // Register 注册客户端
 func (h *Hub) Register(client *Client) {
-	h.register <- client
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if old, ok := h.clients[client.UserID]; ok {
+		old.Close()
+		h.logger.Info("replaced old connection", zap.Int64("user_id", client.UserID))
+	}
+	h.clients[client.UserID] = client
+	h.logger.Info("client registered", zap.Int64("user_id", client.UserID))
+}
+
+// PublishOnline serializes lease publication with connection replacement.
+func (h *Hub) PublishOnline(ctx context.Context, client *Client) (bool, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.clients[client.UserID] != client {
+		return false, nil
+	}
+	select {
+	case <-client.closeCh:
+		return false, nil
+	default:
+	}
+	return true, client.setOnline(ctx)
 }
 
 // Unregister 注销客户端

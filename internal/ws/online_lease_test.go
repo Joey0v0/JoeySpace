@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yjydist/go-im/internal/repository"
+	"go.uber.org/zap"
 )
 
 type onlineLeaseFake struct {
@@ -72,5 +73,30 @@ func TestReplacedSocketCannotEraseOrRefreshNewOnlineRoute(t *testing.T) {
 	repo.mu.Unlock()
 	if owner != "" || addr != "" {
 		t.Fatalf("new route survived close: owner=%q addr=%q", owner, addr)
+	}
+}
+
+func TestLateOldSocketCannotPublishOverReplacement(t *testing.T) {
+	repo := &onlineLeaseFake{}
+	hub := NewHub(zap.NewNop())
+	old := &Client{UserID: 42, wsRPCAddr: "im-ws:9091", redisRepo: repo, onlineLease: "old", closeCh: make(chan struct{})}
+	newer := &Client{UserID: 42, wsRPCAddr: "im-ws:9091", redisRepo: repo, onlineLease: "new", closeCh: make(chan struct{})}
+	hub.Register(old)
+	// Model the old read loop finishing before its delayed Start publishes.
+	old.closeOnce.Do(func() { close(old.closeCh) })
+	hub.Register(newer)
+	current, err := hub.PublishOnline(context.Background(), newer)
+	if err != nil || !current {
+		t.Fatalf("new publication: current=%v err=%v", current, err)
+	}
+	current, err = hub.PublishOnline(context.Background(), old)
+	if err != nil || current {
+		t.Fatalf("stale publication: current=%v err=%v", current, err)
+	}
+	repo.mu.Lock()
+	owner := repo.owner
+	repo.mu.Unlock()
+	if owner != "new" {
+		t.Fatalf("new route overwritten by stale socket: %q", owner)
 	}
 }

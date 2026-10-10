@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const multiSkipSQL = "UPDATE agent_task_drafts SET status = ? WHERE run_id = ? AND item_index = ? AND revision = ? AND status = 'waiting_confirmation' AND task_request_key = '' AND task_id = 0"
+const multiSkipSQL = "UPDATE agent_task_drafts SET status = ? WHERE run_id = ? AND item_index = ? AND revision = ? AND status = 'waiting_confirmation' AND (task_request_key IS NULL OR task_request_key = '') AND (task_id IS NULL OR task_id = 0)"
 
 type multiSkipFlow struct{ *multiConfirmFlow }
 

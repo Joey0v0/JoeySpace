@@ -103,17 +103,21 @@ func (c *Client) Start() {
 		return
 	}
 	c.onlineLease = hex.EncodeToString(leaseBytes)
-	go c.readPump()
-	go c.writePump()
-
 	// 注册在线状态
 	ctx := context.Background()
-	if err := c.setOnline(ctx); err != nil {
+	current, err := c.hub.PublishOnline(ctx, c)
+	if !current {
+		c.Close()
+		return
+	}
+	if err != nil {
 		c.logger.Error("set online status failed",
 			zap.Int64("user_id", c.UserID),
 			zap.Error(err),
 		)
 	}
+	go c.readPump()
+	go c.writePump()
 }
 
 func (c *Client) setOnline(ctx context.Context) error {
