@@ -655,6 +655,6 @@ root在codex/stage7-team-leave-intent先以e9fe666固定[函数契约、两个�
 | --- | --- | --- |
 | 主 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-acceptance`，`codex/frontend-f6-acceptance` | `deploy/docker-compose.frontend.yaml`、`deploy/.env.example`、`deploy/README.md`、`deploy/verify-frontend-routes.cjs` 及测试、共同 `docs/` 和最终集成 |
 | Nginx 执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-nginx`，`codex/frontend-f6-nginx` | 仅 `deploy/Dockerfile.frontend`、`deploy/frontend-nginx.conf`；提交 `66aa712`，主分支集成 `1fb0d5c` |
-| Vue 浏览器执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-browser`，`codex/frontend-f6-browser` | 仅 `deploy/verify-vue-browser.cjs`；审查与集成状态在本批完成后补记 |
+| Vue 浏览器执行 agent | `D:/zy/GoLang/JoeySpace/.worktrees/frontend-f6-browser`，`codex/frontend-f6-browser` | 仅 `deploy/verify-vue-browser.cjs`；提交 `2415a75`、修复 `7b8f6b3`，主分支集成 `c00f6a8`、`8dc4eb6` |
 
-Task 1 静态规格与质量审查通过，前端依赖安装/构建通过，但 Docker daemon 不可用，镜像和 Nginx 运行检查标 `BLOCKED`。Task 2 的占位 Compose 合并解析通过，Task 3 的四项路由检查器单测通过；真实入口未启动，实际代理验证仍留任务 6。任务 4/5 结果和完整本地证据以本批审查记录为准；本批不合 main、不推送、不部署。
+Task 1 静态规格与质量审查通过，前端依赖安装/构建通过，但 Docker daemon 不可用，镜像和 Nginx 运行检查标 `BLOCKED`。Task 2 的占位 Compose 合并解析通过。Task 3 先写失败测试，修复审查发现的匿名 204 漏检后 5/5 通过。Task 4 真实 Chrome 与临时 HTTP/WS 替身通过登录、刷新、深链与同源观察；跨源负例和环境阻断分类也通过，脚本审查发现的 Chrome 启动分类问题已定向修复。Task 5 的本地 Go/前端回归、占位 Compose 静态解析与操作单已准备，目标服务器只读审计因缺少云端访问而标 `BLOCKED`；真实入口和业务验收留任务 6—12。本批不合 main、不推送、不部署。

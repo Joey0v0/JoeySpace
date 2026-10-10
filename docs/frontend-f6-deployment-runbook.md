@@ -6,7 +6,7 @@
 
 | 项目 | 本地事实 | 目标服务器状态 |
 | --- | --- | --- |
-| 源代码 | `codex/frontend-f6-acceptance`；冻结 SHA 在本批提交后填写 | 当前 SHA、工作树是否干净：**BLOCKED，未连接** |
+| 源代码 | `codex/frontend-f6-acceptance`；已集成代码提交 `8dc4eb6`，执行前以 `git rev-parse HEAD` 记录最终文档提交 | 当前 SHA、工作树是否干净：**BLOCKED，未连接** |
 | 入口 | 新增 `Dockerfile.frontend`、`frontend-nginx.conf`、`docker-compose.frontend.yaml`；回环 18083 | 18083 是否空闲、Docker daemon/版本：**BLOCKED** |
 | Compose | 拟用基础 + bot + trigger + notifications + team-leave + mentions + frontend，`--profile agent` | 实际项目名、已启用覆盖及容器状态：**BLOCKED** |
 | 数据 | 本地 036 建 `im_group_message_mentions`；037 给 `tasks` 增复合索引 | 已有 `go_im` 数据卷、备份、036/037 与所有前置迁移：**BLOCKED** |
