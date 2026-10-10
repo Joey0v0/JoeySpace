@@ -6,28 +6,28 @@
 
 | 字段 | 实际值 |
 | --- | --- |
-| 日期、执行者、服务端环境 | NOT RUN |
-| Git SHA、Compose 覆盖列表、前端镜像 | NOT RUN |
-| 页面 URL、浏览器版本、Origin | NOT RUN |
-| 迁移 036/037、私有证书和模型状态 | NOT RUN |
-| 一次性账号 A/B、团队/群标识（不记录密码或 Token） | NOT RUN |
-| 回退基线和证据路径 | NOT RUN |
+| 日期、执行者、服务端环境 | 2026-10-10；主 agent；阿里云 `/opt/JoeySpace`，SSH 隧道连接 |
+| Git SHA、Compose 覆盖列表、前端镜像 | `ee4fcd89999bcf16b59ffb69ebdc26b8a94bdd5b`；基础 + bot + trigger + notifications + team-leave + mentions + frontend，项目 `deploy`；`deploy-frontend-web:latest` 构建并运行 |
+| 页面 URL、浏览器版本、Origin | `http://127.0.0.1:18083`；本机真实 Chrome；Origin 为该地址；公网未开放 |
+| 迁移 036/037、私有证书和模型状态 | 036 表存在；037 索引五列存在；提及专用 mTLS 证书已挂载；模型链路本任务未验 |
+| 一次性账号 A/B、团队/群标识（不记录密码或 Token） | 本任务仅单账号浏览器烟测 `f6_vue_b1b5c3753c`、团队 `2108808518181068800`、群 `2108808518390788096`、任务 `2108808518847971328`；双账号 A/B 待任务 7。另有失败前置账号 `f6_vue_0f74040658` 和票据账号 `f6_ticket_460ff3fb66`，数据保留 |
+| 回退基线和证据路径 | 旧代码 `c9eb885a5aaca43771470271dc49afdb00173b14`；旧七服务镜像 ID 保存在服务器私有 `/tmp/joeyspace-f6-old-images.txt`；备份与恢复见[操作单](frontend-f6-deployment-runbook.md) |
 
 每项填写 **PASS / FAIL / BLOCKED / NOT RUN**、实际行为、脱敏请求 ID/日志或截图路径。`BLOCKED` 写清缺少的环境条件；模型失败与页面失败分开记录。所有测试数据只使用一次性账号和团队。
 
-本地准备证据（不计入下方真实验收）：`verify-frontend-routes.test.cjs` 的 5 项替身检查通过；`verify-vue-browser.cjs` 在真实 Chrome 与临时 HTTP/WS 替身上完成 Vue 登录、消息刷新、群/任务深链及同源 API/WS 观察，跨源注入按预期失败。临时替身不是 Nginx 或真实业务服务，故下方仍为 `NOT RUN`。
+本地准备证据（不计入下方真实验收）：`verify-frontend-routes.test.cjs` 的 5 项替身检查通过；`verify-vue-browser.cjs` 在真实 Chrome 与临时 HTTP/WS 替身上完成 Vue 登录、消息刷新、群/任务深链及同源 API/WS 观察，跨源注入按预期失败。正式环境的结果单独记录在任务 6 表内。
 
-第 6 步部署前审计（2026-10-10）：**BLOCKED**。服务器 `/opt/JoeySpace` 为干净的 `main`，SHA `c9eb885`；Compose 项目 `deploy` 有 11 个运行容器，活动覆盖为基础、bot、trigger、notifications、team-leave；`18083` 无监听。运行库 `go_im` 的 23 张表均为 InnoDB，031—035 关键对象已核对，036 提及关系表和 037 任务索引缺失。现有 12 个角色证书文件存在，Agent/通知三项私有开关为 `true`；F11 两份专用证书已签发、验证并加入私有 `.env`，但尚未启用覆盖。数据卷为 `deploy_mysql_data`；私有 SQL 备份已生成，并在隔离 MySQL 8.0 恢复 23 张表成功，临时容器已清理。本机免交互 SSH 已连通；尚未同步文件、构建镜像、执行迁移、重建原有容器或创建业务测试数据。具体备份文件和待核对项见[部署操作单](frontend-f6-deployment-runbook.md)。
+第 6 步部署前审计历史记录（2026-10-10，当时 **BLOCKED**）：服务器 `/opt/JoeySpace` 为干净的 `main`，SHA `c9eb885`；Compose 项目 `deploy` 有 11 个运行容器，活动覆盖为基础、bot、trigger、notifications、team-leave；`18083` 无监听。运行库 `go_im` 的 23 张表均为 InnoDB，031—035 关键对象已核对，036 提及关系表和 037 任务索引缺失。现有 12 个角色证书文件存在，Agent/通知三项私有开关为 `true`；F11 两份专用证书已签发、验证并加入私有 `.env`，但尚未启用覆盖。数据卷为 `deploy_mysql_data`；私有 SQL 备份已生成，并在隔离 MySQL 8.0 恢复 23 张表成功，临时容器已清理。本机免交互 SSH 已连通。部署后的实际结果见下表，备份文件见[部署操作单](frontend-f6-deployment-runbook.md)。
 
 ## 入口与路由（任务 6）
 
 | 检查 | 预期 | 结果与证据 |
 | --- | --- | --- |
-| `/login`、群聊和任务深链刷新 | 返回 Vue HTML，浏览器路由正常 | NOT RUN |
-| 缺失 `/assets/f6-missing.js` | HTTP 404，不回退首页 | NOT RUN |
-| 未登录 API、`/ws-ticket` | 保留非 200 状态与非 HTML 响应 | NOT RUN |
-| 有效一次性 WS 票据 | 同源 `/ws` 升级成功，Origin 保真 | NOT RUN |
-| 无效及重复使用的 WS 票据 | 服务端拒绝 | NOT RUN |
+| `/login`、群聊和任务深链刷新 | 返回 Vue HTML，浏览器路由正常 | **PASS**：隧道 CLI 对 `/login`、`/messages/teams/2/groups/3`、`/tasks/teams/2/3` 均为 200 HTML；真实 Chrome 登录后刷新消息页并打开本人真实群、任务深链成功 |
+| 缺失 `/assets/f6-missing.js` | HTTP 404，不回退首页 | **PASS**：CLI 404，服务器回环直测也为 404 |
+| 未登录 API、`/ws-ticket` | 保留非 200 状态与非 HTML 响应 | **PASS**：未登录 `/api/v1/user/info` 为 401 JSON；GET `/ws-ticket` 为 405 文本；未知 API 为 404 |
+| 有效一次性 WS 票据 | 同源 `/ws` 升级成功，Origin 保真 | **PASS**：Chrome 观察 43 次 API/票据请求、4 次 WS 101 升级，所见请求均同源；独立票据握手亦为 101 |
+| 无效及重复使用的 WS 票据 | 服务端拒绝 | **PASS**：错误 Origin 403；无效票据 401；同一有效票据 101 后重放 401 |
 
 ## 双账号聊天（任务 7）
 
@@ -80,4 +80,4 @@
 
 ## 结论
 
-F6 真实环境结果：**NOT RUN**。每项证据填写后再汇总，不以本地构建或替身测试替代真实服务与浏览器验证。
+F6 真实环境结果：**任务 6 PASS；任务 7—11 NOT RUN**。服务器 `ee4fcd8` 工作树干净，12 个预期容器均运行，18083 仅绑定回环，旧 `/demo/chat` 仍返回 200。先前审计记录反映部署前状态；正式入口已部署。Chrome 首次在本机受限沙箱中 DevTools 连接中断，使用获准的非沙箱浏览器运行复测通过；该次前置账号/团队/群/任务保留。任务 6 的浏览器烟测只验证入口、路由和同源连接，不替代双账号聊天、任务通知或 AI 业务验收。

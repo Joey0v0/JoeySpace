@@ -1,10 +1,22 @@
-# F6 Vue 部署前审计与回退操作单（待审查，未执行）
+# F6 Vue 部署与回退记录
 
-日期：2026-10-10。目标是让 Vue 构建产物经服务器回环 `127.0.0.1:18083` 的 Nginx 入口访问，同时保留现有 Gateway、WS、旧 `/demo/chat` 与数据卷。**本文是拟执行步骤；服务器同步、数据库写入和容器重建均未获本轮执行确认，也未执行。** F6 分支还包含 F1—F5 的后端/前端改动，不能把部署差异理解为只有一个 Nginx 容器。
+日期：2026-10-10。目标是让 Vue 构建产物经服务器回环 `127.0.0.1:18083` 的 Nginx 入口访问，同时保留现有 Gateway、WS、旧 `/demo/chat` 与数据卷。用户审查了具体部署差异并要求继续后，第 6 步已按下述顺序执行；前期审计与候选命令保留为历史记录。F6 分支还包含 F1—F5 的后端/前端改动，不能把部署差异理解为只有一个 Nginx 容器。
 
-## 1. 已核实与待核实
+## 第 6 步实际执行结果
 
-| 项目 | 本地事实 | 目标服务器状态 |
+服务器旧提交为 `c9eb885a5aaca43771470271dc49afdb00173b14`，已切换到干净的 `codex/frontend-f6-acceptance`，部署提交为 `ee4fcd89999bcf16b59ffb69ebdc26b8a94bdd5b`。本地 Git bundle 与服务器文件 SHA-256 同为 `d399f62bcc8a2928fef0457a0a08877d5ee2002773acf18c96224f0dab7d8a68`，双方 `git bundle verify` 通过；没有传输私有 `.env`、YAML、证书或密钥。服务器原有五份 Compose 覆盖加 mentions/frontend 覆盖在同一 `deploy` 项目中 `config --quiet` 通过。
+
+迁移前再次核对已演练的 SQL 备份 SHA-256 为 `c9f9039247f726ca887d927825b1862cd69dd83e55c4ec8e404d3515b9e98490`；036 和 037 依次执行退出码均为 0。生产库中 `im_group_message_mentions` 为 1 张表；`idx_tasks_assignee_team_status_due` 的五列依次为 `assignee_id,team_id,status,due_at_unix_ms,id`。未对旧数据卷做删除或整库恢复。
+
+服务器构建 `user-rpc`、`im-rpc`、`task-rpc`、`api-gateway`、`im-ws`、`im-push`、`agent-rpc`、`frontend-web` 八个镜像；八个构建完成标记及镜像 ID 均已核对。七个后端服务按依赖顺序逐个 `--no-deps --no-build --force-recreate` 更新，每个容器都通过运行状态检查；`frontend-web` 先经 `nginx -t`，再启动。旧 `im-api` 与 MySQL、Redis、Kafka 保留。最终 12 个预期容器均运行，18083 仅绑定 `127.0.0.1`；服务器仓库仍干净。
+
+服务器回环 `/login`、`/messages`、`/tasks` 均为 200；缺失资源 404，未知 API 404，GET `/ws-ticket` 405，旧 `/demo/chat` 200。本机经 SSH 隧道运行 `node deploy/verify-frontend-routes.cjs`，5/5 通过；真实 Chrome 运行 `node deploy/verify-vue-browser.cjs`，登录、消息刷新、本人群和任务深链、同源 API/WS 通过，观察到 43 次 API/票据请求及 4 次 WS 101 升级。独立 WS 票据握手验证错误 Origin 403、无效票据 401、有效票据 101、重放 401。完整逐项结果见[Vue 验收清单](frontend-f6-acceptance-checklist.md)；双账号聊天、任务通知和 AI 仍待任务 7—9。首次 Chrome 运行受本机沙箱限制，获准的非沙箱复测通过，未改产品代码。
+
+回退基线仍为旧提交 `c9eb885a5aaca43771470271dc49afdb00173b14`；本次更新前七个后端容器的镜像 ID 保存在服务器私有 `/tmp/joeyspace-f6-old-images.txt`。SQL 备份位于 `/opt/joeyspace-backups/go_im-20261010T060712Z.sql`；数据库对象默认向前保留，不自动删除。回退尚未触发或演练实际服务切换，不能把备份恢复演练等同于部署回退演练。服务器代码提交 `ee4fcd8`；本地后续文档提交未部署到服务器。
+
+## 1. 部署前快照（历史）
+
+| 项目 | 当时本地事实 | 目标服务器部署前状态 |
 | --- | --- | --- |
 | 源代码 | `codex/frontend-f6-acceptance`；当前 F6 提交以本地 `git rev-parse HEAD` 为准 | 用户在服务器核对：`main` / `c9eb885a5aaca43771470271dc49afdb00173b14`，工作树无未提交条目；本地 Git 确认该提交是 F6 的祖先 |
 | 入口 | 新增 `Dockerfile.frontend`、`frontend-nginx.conf`、`docker-compose.frontend.yaml`；回环 18083 | 用户回传 `ss` 结果中 18083 无监听；直接 SSH 核对 Docker Server `29.8.2` |
@@ -111,7 +123,7 @@ docker compose --env-file .env -f docker-compose.yaml exec -T mysql \
   < mysql/migrations/037_task_personal_indexes.sql
 ```
 
-## 4. 拟执行的 Compose、验证与回退（用户审查后）
+## 4. 部署前候选 Compose、验证与回退命令（历史）
 
 服务器旧提交到本地 F6 分支的代码差异要求重建并按依赖顺序更新 `user-rpc`、`im-rpc`、`task-rpc`、`api-gateway`、`im-ws`、`im-push`，最后启动 `frontend-web`。`agent-rpc` 自身源码未变，但生产包引用本次变化的 IM/Task/User 生成协议与共享模型；为保持整套二进制对应同一提交，也重建并检查 `agent-rpc`。旧 `im-api` 没有本轮需要的新入口，先保留为原有诊断服务，不能把它的旧版本用于 F6 验收。旧覆盖列表为基础 + bot + trigger + notifications + team-leave；拟新增 mentions 和 frontend，保留原有五份及同一 `deploy` 项目，不更换 MySQL 卷。先升级 User，再 IM/Task，随后 Gateway/WS，最后 Push、Agent 和正式页；每步检查容器状态，异常立即停下并执行相应回退。不对 036/037 做自动 `DROP`。
 
@@ -153,4 +165,4 @@ git switch --detach <OLD_SHA>
 
 本批本地结果（2026-10-10）：`frontend/npm test` **132/132 PASS**，`frontend/npm run build` **PASS**，`go test ./... -count=1` **PASS**，使用占位环境合并基础、bot、trigger、notifications、team-leave、mentions、frontend 覆盖的 `docker compose config --quiet` **PASS**。`git diff --check` 在最终提交前复核。占位环境只验证 YAML 合并，不证明目标私有证书或配置可用。
 
-Docker daemon 在当前 Windows 环境不可用，`docker build`、`nginx -t` 和真实路由/WS 验证均为 **BLOCKED**，不得标记正式入口已验收。当前未执行云端同步、迁移、容器重建或业务写入。用户审查本操作单及最终差异后，再进入任务 6。
+以上是任务 1—5 结束时的本地门槛：当时 Windows Docker daemon 不可用，镜像与真实路由/WS 尚未验证。任务 6 的服务器构建、`nginx -t`、迁移、切换和真实入口结果现已记录在本文开头；两次时间点不可混用。
