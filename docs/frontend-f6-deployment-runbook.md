@@ -4,6 +4,8 @@
 
 ## 第 6 步实际执行结果
 
+Ask 超时分类续报（2026-10-10）：本地 `864468da190403ad68afc73353a7ce0335f23bee` 的超时/普通故障回归与全仓 Go 测试通过。Git bundle SHA-256 `4974cdc5c74a0b511c2a422b9b1d288ea5b8cfe9013835600d5002ca68163ab9` 两端核对、远端 bundle 校验通过；服务器从干净 `33defb7` 快进到 `864468d`，七份 Compose `config --quiet` 通过。只构建并切换 `agent-rpc`，旧镜像 `sha256:22c7ca24e8da51587dec89c4023f8bc239914539cece1649f201d69a01d73d0d` 记录于服务器 `/tmp/joeyspace-f6-ask-timeout-old-agent-image.txt`，新镜像 `sha256:1f96ae5fe89849b1d52eccc9a780a63b93fc5d84897b5f32c8f2a9194ae10a19` 的二进制检查与运行状态通过。服务器仓库干净、12 容器运行；本机隧道同源路由 5/5，真实 Vue Ask HTTP 200 且准确概括持久群讨论。新镜像构建后磁盘 `/opt` 剩余约 5.8 GB（85% 已用），Docker 构建缓存约 27 GB；未在本轮清理缓存。云端未注入真实模型超时，因此 HTTP 504 仅有本地错误分类与既有 Gateway 映射测试证据。
+
 第 9 步与代码审查续报（2026-10-10）：Vue 草稿跳过和直接 API 跳过同样返回 409；生产库待审草稿的 `task_request_key`/`task_id` 为 NULL，旧 SQL 用空串/零作为条件，更新 0 行。审查还发现同一用户并发重连时旧 WS 连接可在新连接之后发布在线租约。`db191c4090b950cfadd73ef5e2e329fc470b56fb` 分别让跳过条件接受未提交的 NULL、将 Hub 注册和租约发布串行化并拒绝旧连接发布。全仓 Go 测试通过；Git bundle SHA-256 `4ef1f380faba27e295817c818d97e523fcf57e96cf87acf79568f9d1e354a33e` 两端校验，服务器从 `5873cf7` 干净快进，七份 Compose 覆盖 `config --quiet` 通过。只重建 `agent-rpc` 与 `im-ws`，旧镜像 ID 分别存于 `/tmp/joeyspace-f6-task9-old-agent-image.txt`、`/tmp/joeyspace-f6-task9-old-ws-image.txt`；新镜像 ID 分别为 `sha256:22c7ca24e8da51587dec89c4023f8bc239914539cece1649f201d69a01d73d0d`、`sha256:73d32010ac126a1336c46191ba3b0fa484c8c9afe7dfc12c1cc2577a8caaff43`。12 容器运行、仓库干净、入口路由 5/5；新草稿 Vue 跳过 HTTP 200 且库内 `skipped`/无任务关联，双浏览器完整聊天回归通过。早期模型 503 仍是待观察问题。
 
 WS 复审续报（2026-10-10）：`db191c4` 的在线发布在 Redis I/O 期间持有全局 Hub 锁，可能阻塞其他用户。`33defb7b9a8b7285effa694e00a2942a68a0bea5` 改为同用户引用计数锁，并把 Redis 写入限时 5 秒；跨用户非阻塞回归先失败后通过、全仓 Go 测试通过，复审未发现同一路径的新竞态。bundle SHA-256 `b1b1446b377fdd0de7494a58446a3939d45d935c4fb989f369bfc4700156b2b7` 两端校验，服务器从干净 `db191c4` 快进，七份 Compose `config --quiet` 通过；仅构建/切换 `im-ws`。旧 WS 镜像 `sha256:73d32010ac126a1336c46191ba3b0fa484c8c9afe7dfc12c1cc2577a8caaff43` 留在 `/tmp/joeyspace-f6-user-lock-old-ws-image.txt`，当前镜像 `sha256:d8ce184ebfa1aebb56081062f637b9a0ed985136f4df27d5cc48c106bdc62ed2`。服务器仓库干净、12 容器运行、同源路由 5/5；最终镜像下双浏览器群/私聊、未读/提及、分页、离线重登全链通过。Agent、前端、数据库和私有配置未随本次切换修改。
@@ -20,7 +22,7 @@ WS 复审续报（2026-10-10）：`db191c4` 的在线发布在 Redis I/O 期间�
 
 服务器回环 `/login`、`/messages`、`/tasks` 均为 200；缺失资源 404，未知 API 404，GET `/ws-ticket` 405，旧 `/demo/chat` 200。本机经 SSH 隧道运行 `node deploy/verify-frontend-routes.cjs`，5/5 通过；真实 Chrome 运行 `node deploy/verify-vue-browser.cjs`，登录、消息刷新、本人群和任务深链、同源 API/WS 通过，观察到 43 次 API/票据请求及 4 次 WS 101 升级。独立 WS 票据握手验证错误 Origin 403、无效票据 401、有效票据 101、重放 401。完整逐项结果见[Vue 验收清单](frontend-f6-acceptance-checklist.md)；双账号聊天、任务通知和 AI 仍待任务 7—9。首次 Chrome 运行受本机沙箱限制，获准的非沙箱复测通过，未改产品代码。
 
-回退基线仍为旧提交 `c9eb885a5aaca43771470271dc49afdb00173b14`；本次更新前七个后端容器的镜像 ID 保存在服务器私有 `/tmp/joeyspace-f6-old-images.txt`。SQL 备份位于 `/opt/joeyspace-backups/go_im-20261010T060712Z.sql`；数据库对象默认向前保留，不自动删除。回退尚未触发或演练实际服务切换，不能把备份恢复演练等同于部署回退演练。服务器代码提交 `ee4fcd8`；本地后续文档提交未部署到服务器。
+第 6 步的回退基线为旧提交 `c9eb885a5aaca43771470271dc49afdb00173b14`；当次更新前七个后端容器的镜像 ID 保存在服务器私有 `/tmp/joeyspace-f6-old-images.txt`。SQL 备份位于 `/opt/joeyspace-backups/go_im-20261010T060712Z.sql`；数据库对象默认向前保留，不自动删除。回退尚未触发或演练实际服务切换，不能把备份恢复演练等同于部署回退演练。第 6 步结束时服务器代码为 `ee4fcd8`；后续更新版本见本节开头的续报。
 
 ## 1. 部署前快照（历史）
 

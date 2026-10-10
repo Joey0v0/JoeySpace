@@ -21,18 +21,18 @@
 
 ## 版本、验证与回退
 
-- 服务器代码 `33defb7b9a8b7285effa694e00a2942a68a0bea5`，工作树干净；`deploy` 七份 Compose 覆盖、12 个容器运行，同源路由 5/5。当前 Agent 镜像 `sha256:22c7ca24e8da51587dec89c4023f8bc239914539cece1649f201d69a01d73d0d`、WS 镜像 `sha256:d8ce184ebfa1aebb56081062f637b9a0ed985136f4df27d5cc48c106bdc62ed2`；各自前一镜像 ID 留在服务器 `/tmp/joeyspace-f6-task9-old-agent-image.txt` 和 `/tmp/joeyspace-f6-user-lock-old-ws-image.txt`。前端镜像仍为 `sha256:58cb7c446a0c85dfb6334bf3e5622033e043301617db8eb9a91521fecf0231fa`。
+- 服务器代码 `864468da190403ad68afc73353a7ce0335f23bee`，工作树干净；`deploy` 七份 Compose 覆盖、12 个容器运行，同源路由 5/5。当前 Agent 镜像 `sha256:1f96ae5fe89849b1d52eccc9a780a63b93fc5d84897b5f32c8f2a9194ae10a19`、WS 镜像 `sha256:d8ce184ebfa1aebb56081062f637b9a0ed985136f4df27d5cc48c106bdc62ed2`；本次 Agent 旧镜像 ID 留在服务器 `/tmp/joeyspace-f6-ask-timeout-old-agent-image.txt`，WS 上一镜像留在 `/tmp/joeyspace-f6-user-lock-old-ws-image.txt`。前端镜像仍为 `sha256:58cb7c446a0c85dfb6334bf3e5622033e043301617db8eb9a91521fecf0231fa`。
 - MySQL 备份 `/opt/joeyspace-backups/go_im-20261010T060712Z.sql` 的 SHA-256 为 `c9f9039247f726ca887d927825b1862cd69dd83e55c4ec8e404d3515b9e98490`，已在隔离 MySQL 8.0 恢复演练；迁移不做自动 `DROP`。
-- `33defb7` 后 `go test ./... -count=1` 通过；此前前端 `npm test` 133/133、`npm run typecheck`、`npm run build` 通过。本轮正式入口匿名路由检查 5/5，最终 WS 镜像下双浏览器完整聊天回归与 Vue 草稿跳过、Ask 成功样本通过。本机缺少 GCC，`go test -race` 未运行；一次性脚本和桌面截图留在本地忽略目录 `.superpowers/sdd/2026-10-10-frontend-f6-acceptance/`。完整服务器故障演练未做。
-- 本地隔离分支 `codex/frontend-f6-acceptance`；服务器代码和镜像对应 `33defb7`，本地后续共同文档比服务器新。`main` 未合并，远端未推送。
+- `864468d` 后 `go test ./... -count=1` 通过；Ask 模型超时测试先失败后通过，普通模型故障仍保持脱敏 `Unavailable`。此前前端 `npm test` 133/133、`npm run typecheck`、`npm run build` 通过。本轮正式入口匿名路由检查 5/5，新 Agent 镜像下真实 Vue Ask HTTP 200 并准确引用已保存消息；最终 WS 镜像下双浏览器完整聊天回归与 Vue 草稿跳过此前已通过。本机缺少 GCC，`go test -race` 未运行；一次性脚本和桌面截图留在本地忽略目录 `.superpowers/sdd/2026-10-10-frontend-f6-acceptance/`。真实模型超时与完整服务器故障演练未做。
+- 本地隔离分支 `codex/frontend-f6-acceptance`；服务器代码与 Agent 镜像对应 `864468d`，本地后续验收文档比服务器新。`main` 未合并，远端未推送。
 
 ## 本阶段实际修改文件
 
-以 F6 起点 `cdb878a` 为基线，代码/配置：`deploy/.env.example`、`deploy/Dockerfile.frontend`、`deploy/README.md`、`deploy/docker-compose.frontend.yaml`、`deploy/frontend-nginx.conf`、`deploy/verify-frontend-routes.cjs`、`deploy/verify-frontend-routes.test.cjs`、`deploy/verify-vue-browser.cjs`、`frontend/src/messages/sourceContext.ts`、`frontend/src/messages/sourceContext.test.ts`、`frontend/src/tasks/mutations.ts`、`frontend/src/tasks/mutations.test.ts`、`api/multi_draft_skip_flow_test.go`、`rpc/agent/draft_collection_skip_store.go`、`internal/repository/redis_repo.go`、`internal/ws/client.go`、`internal/ws/hub.go`、`internal/ws/online_lease_test.go`、`internal/ws/task_notification_socket_flow_test.go`、`internal/ws/ticket_test.go`。
+以 F6 起点 `cdb878a` 为基线，代码/配置：`deploy/.env.example`、`deploy/Dockerfile.frontend`、`deploy/README.md`、`deploy/docker-compose.frontend.yaml`、`deploy/frontend-nginx.conf`、`deploy/verify-frontend-routes.cjs`、`deploy/verify-frontend-routes.test.cjs`、`deploy/verify-vue-browser.cjs`、`frontend/src/messages/sourceContext.ts`、`frontend/src/messages/sourceContext.test.ts`、`frontend/src/tasks/mutations.ts`、`frontend/src/tasks/mutations.test.ts`、`api/multi_draft_skip_flow_test.go`、`rpc/agent/draft_collection_skip_store.go`、`rpc/agent/eino_group_reply.go`、`rpc/agent/eino_group_reply_test.go`、`internal/repository/redis_repo.go`、`internal/ws/client.go`、`internal/ws/hub.go`、`internal/ws/online_lease_test.go`、`internal/ws/task_notification_socket_flow_test.go`、`internal/ws/ticket_test.go`。
 
 共同文档：`docs/architecture-decisions.md`、`docs/frontend-f6-acceptance-design.md`、`docs/frontend-f6-acceptance-checklist.md`、`docs/frontend-f6-deployment-runbook.md`、`docs/frontend-f6-review.md`、`docs/project-plan.md`、`docs/superpowers/plans/2026-10-10-frontend-f6-acceptance.md`、`docs/worktree-collaboration-plan.md`。未跟踪的一次性脚本、截图和 bundle 不计入交付提交。
 
 ## 后续待解决
 
-1. 继续观察 Ark 模型的 503 与后台预算耗尽；新增三个独立一次性团队的 Vue Ask 复测均为 HTTP 200，约 14、14、9 秒，回答正确引用已保存群消息，证明链路当前可用，不证明持续稳定。现有 Agent Ask 的模型错误分类会将 SDK 自身超时也归为 `Unavailable`，故早期 HTTP 503 的原始原因无法仅凭状态码和现有脱敏日志确定。后续若调整分类，应先以失败测试确认超时返回 504、其他上游错误仍返回 503，再部署复验；`exhausted` 的页面终态尚未单独复测。
+1. 继续观察 Ark 模型的 503 与后台预算耗尽；新增三个独立一次性团队的 Vue Ask 复测均为 HTTP 200，约 14、14、9 秒，新 Agent 镜像再有一次真实 Vue Ask HTTP 200，回答均正确引用已保存消息，证明链路当前可用，不证明持续稳定。Ask 超时与普通模型错误现已分开分类，但早期 HTTP 503 的原始原因无法从当时状态码和日志追溯。云端真实模型超时尚未主动注入，`exhausted` 的页面终态也未单独复测。
 2. 在维护窗口单独执行共享 Push 停止/恢复专项；未执行前不可声明该故障恢复能力通过。云端旧在途回包注入、真实物理中文输入法及模型 504/回帖失败等专项也未覆盖。
