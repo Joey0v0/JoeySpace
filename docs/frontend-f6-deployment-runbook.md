@@ -6,14 +6,18 @@
 
 | 项目 | 本地事实 | 目标服务器状态 |
 | --- | --- | --- |
-| 源代码 | `codex/frontend-f6-acceptance`；已集成代码提交 `8dc4eb6`，执行前以 `git rev-parse HEAD` 记录最终文档提交 | 当前 SHA、工作树是否干净：**BLOCKED，未连接** |
-| 入口 | 新增 `Dockerfile.frontend`、`frontend-nginx.conf`、`docker-compose.frontend.yaml`；回环 18083 | 18083 是否空闲、Docker daemon/版本：**BLOCKED** |
-| Compose | 拟用基础 + bot + trigger + notifications + team-leave + mentions + frontend，`--profile agent` | 实际项目名、已启用覆盖及容器状态：**BLOCKED** |
-| 数据 | 本地 036 建 `im_group_message_mentions`；037 给 `tasks` 增复合索引 | 已有 `go_im` 数据卷、备份、036/037 与所有前置迁移：**BLOCKED** |
-| 私有配置 | 本地隔离 worktree 无 `deploy/.env`、`deploy/docker-config.local.yaml`；未读取凭证 | 私有 `.env`、YAML、F11 两份专用证书和模型额度：**BLOCKED** |
+| 源代码 | `codex/frontend-f6-acceptance`；当前 F6 提交以本地 `git rev-parse HEAD` 为准 | 用户在服务器核对：`main` / `c9eb885a5aaca43771470271dc49afdb00173b14`，工作树无未提交条目；本地 Git 确认该提交是 F6 的祖先 |
+| 入口 | 新增 `Dockerfile.frontend`、`frontend-nginx.conf`、`docker-compose.frontend.yaml`；回环 18083 | 用户回传 `ss` 结果中 18083 无监听；Docker 容器在运行，daemon 版本未核对 |
+| Compose | 拟用基础 + bot + trigger + notifications + team-leave + mentions + frontend，`--profile agent` | 项目名 `deploy`；实际覆盖为基础 + bot + trigger + notifications + team-leave，共 11 个运行容器；mentions/frontend 尚未启用 |
+| 数据 | 本地 036 建 `im_group_message_mentions`；037 给 `tasks` 增复合索引 | 用户在运行中的 `deploy-mysql-1` 核对：036 表和 037 索引均不存在；035 `idx_messages_direct_pair` 已存在。数据卷 `deploy_mysql_data`，MySQL 目录约 200 MB，宿主机 `/opt`、`/tmp` 所在分区可用约 19 GB；备份“没有或不确定”，恢复未演练 |
+| 私有配置 | 本地隔离 worktree 无 `deploy/.env`、`deploy/docker-config.local.yaml`；未读取凭证 | 用户只读检查：`IM_MENTION_CERT_DIR`、`PUSH_IM_MENTION_CERT_DIR` 均未设置；对应证书与私有开关待准备/核对 |
 | 运行验证 | Vue 构建、Node 测试与 Compose 静态解析另记本批结果 | 镜像、Nginx、API/WS 和真实浏览器：**NOT RUN** |
 
-第 6 步只读审计更新（2026-10-10）：本机没有 SSH Host 别名，仓库文档没有可执行的服务器地址或仓库绝对路径；`127.0.0.1:18083`、`18082`、`18081` 均无监听。尚无目标环境连接，因此本节右栏继续为 `BLOCKED/NOT RUN`。本地 `main` 到 F6 分支的差异覆盖 `api/`、`rpc/user/`、`rpc/im/`、`rpc/task/`、`rpc/agent/`、`internal/push/`、`internal/ws/`、`cmd/push/`、`cmd/ws/`，并含 036/037 迁移；这只是**本地参考差异**，目标服务器旧 SHA 未知，不能据此直接生成服务重建清单。当前 F6 SHA：`440ae24711cca0ee3573ceccf74843177338e3a5`。
+第 6 步只读审计起点（2026-10-10）：本机没有 SSH Host 别名或现成隧道；本地参考差异不能代替服务器版本比较。随后取得服务器 SHA 并在本地确认它是 F6 分支祖先。服务端 `c9eb885` 到当前 F6 提交的实际差异覆盖 Gateway、User/IM/Task RPC、Push/WS、Vue、Compose 和 036/037；没有 `rpc/agent/` 代码差异。不能只重建前端就宣称整链可用。
+
+连接补充（2026-10-10）：用户已提供目标 SSH 地址；服务器命令确认仓库目录为 `/opt/JoeySpace`。对目标地址执行 `BatchMode=yes`、主机密钥严格校验的只读 `pwd` 探测，SSH 返回 `Permission denied (publickey,password)`，远程命令未执行。后续由用户在服务器运行单行只读命令并回传脱敏结果；不索取密码或私钥。
+
+用户只读回传已确认 `/opt/JoeySpace`、服务器 SHA、干净工作树、活动 Compose 项目/覆盖及容器状态；`18083` 无监听。有效单行 SQL 查询确认 035 索引已存在、036 表和 037 索引均不存在；F11 两个证书目录变量均未设置。用户称可恢复的 `go_im` 备份“没有或不确定”；运行库使用 `deploy_mysql_data`，目录约 200 MB，宿主机可用约 19 GB。此前多行命令被终端合并，其错误输出不作为环境事实。仍待核对其余前置迁移、证书签发、备份和私有开关，不执行同步或重建。
 
 服务器审计前不得根据仓库的 `init.sql` 推断旧数据卷已升级，也不得运行 `down -v`。以下所有命令中的 `<SERVER>`、`<REPO>`、`<OLD_SHA>`、`<F6_SHA>`、`<BACKUP>` 必须在只读核对后替换为审查过的真实值；这些占位符未填写时，命令不可执行。
 
@@ -22,7 +26,7 @@
 在服务器已存在的仓库目录 `<REPO>` 中记录，不输出 `.env`、完整 `compose config`、Token 或私钥：
 
 ```sh
-cd <REPO>
+cd /opt/JoeySpace
 pwd
 git rev-parse HEAD
 git branch --show-current
@@ -50,7 +54,7 @@ ORDER BY SEQ_IN_INDEX;
 SQL
 ```
 
-还须确认 030、031—035 和 Agent/通知链的实际迁移状态，不能只凭 036/037 的对象存在就认定全链可运行。核对私有目录是否存在、证书用途/DNS SAN/有效期及 `.env` 追加 Origin；只记录布尔结果和到期日，不展示密钥。若目标当前覆盖列表与拟用列表不同，先改写本操作单并重新审查。
+035 索引和 030、033、034 对应表已从只读输出确认；其余 031—032 和 Agent/通知链的实际迁移状态仍须按对象核对，不能仅凭表名认定全链可运行。F11 两个变量缺失；按 `deploy/README.md` 由现有自管 CA 在仓库外签发两份不同私钥的证书，IM 服务端 DNS SAN 为 `im.go-im.internal`，Push 客户端 DNS SAN 为 `push.go-im.internal`，分别核对服务端/客户端用途、CA、有效期和目录权限。首次安装脚本不负责这两份证书，不能重跑它覆盖现有凭证。核对私有 YAML 开关与 `.env` 追加 Origin；只记录布尔结果和到期日，不展示密钥。拟新增的 mentions/frontend 覆盖已与当前五份覆盖列表比对，启用仍须先满足迁移、证书和备份条件。
 
 ## 3. 拟执行的同步、备份与迁移（用户审查后）
 

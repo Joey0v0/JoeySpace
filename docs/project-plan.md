@@ -45,6 +45,8 @@
 
 前端 F6 第 6 步预审计（2026-10-10）：用户要求继续。主 agent 已核对本机没有 SSH Host 别名、现成 18083/18082/18081 隧道或目标仓库私有配置；仓库文档未保存可用的服务器地址及仓库绝对路径。F6 分支相对本地 main 的参考差异包含 Gateway、User/IM/Task/Agent RPC、Push/WS 与 036/037 迁移，目标服务器旧 SHA 未知，不能只重建前端。已将这些事实和可脱敏回传的只读命令写入[部署前操作单](frontend-f6-deployment-runbook.md)，并在[Vue 验收清单](frontend-f6-acceptance-checklist.md)将目标环境审计标为 `BLOCKED`。服务器同步、迁移、镜像构建、服务重建和真实浏览器业务验收均未执行；F6 阶段仍未完成。
 
+前端 F6 服务器只读审计续报（2026-10-10）：用户从 `/opt/JoeySpace` 回传干净 `main` 的 `c9eb885`、运行中 `deploy` 项目 11 容器和五份既有覆盖；18083 无监听。该服务器提交是 F6 分支祖先，实际差异涉及 Gateway、User/IM/Task、Push/WS、Vue 与两项迁移；本次服务端差异没有 Agent 代码。运行库已具 035 消息索引，但缺 036 提及表和 037 任务索引；F11 两个证书目录变量均未设置。MySQL 使用 `deploy_mysql_data`，约 200 MB；宿主机约 19 GB 可用。用户确认可恢复备份“没有或不确定”。因此仍须先完成备份及恢复核验、证书与其余前置迁移核对，再审查具体发布命令；目前没有同步、数据库写入、镜像构建或容器重建，F6 第 6 步及真实环境验收继续 `BLOCKED`。详情见[操作单](frontend-f6-deployment-runbook.md)。
+
 前端 F1 实施进展（2026-10-09）：用户已认可[完整前端设计](frontend-design.md)并允许按[消息页面首批实施计划](superpowers/plans/2026-10-09-frontend-message-foundation.md)开发，追加核心体验优先、控制非核心范围的要求。独立 `codex/frontend-message-foundation` 工作区已完成 TypeScript + Vue 3 + Vite 工程、未读总览、群聊/私聊合并样例、会话切换与任务入口说明。模型测试 7/7、类型检查、生产构建及本地 Chrome 导航/键盘/1280×720、1440×900、1920×1080 桌面检查通过；页面已明确标注样例，查看不清未读，发送不可用。此成果待用户审查，尚未合入 `main`、推送或部署；登录、真实会话目录与消息、服务端 @提及、任务数据及显式已读操作仍待后续契约与接线。取舍见[架构记录 F01—F05](architecture-decisions.md#前端设计记录2026-10-09)。
 
 前端 F2 方案待审查（2026-10-09）：从 F1 提交 `e75c322` 建立独立 `codex/frontend-f2-navigation` 工作区，完成现有 User/IM/Gateway 接口的只读核对，并写成[真实登录与会话导航设计](frontend-f2-navigation-design.md)和[八任务实施计划](superpowers/plans/2026-10-09-frontend-f2-navigation.md)。推荐复用现有 Bearer 登录、按本标签页保存会话；User/IM 分属目录数据，Gateway 组合有限显示名；F2 先交付真实导航，完整消息阅读、未读/@我和主群配置后续单独接线。这些涉及身份保存、资料读取和跨服务读契约，[F06—F08](architecture-decisions.md#前端设计记录2026-10-09)仍待用户审查确认。当前 F2 仅有文档，未修改产品代码、协议或数据库；F1/main 均未合并或部署。
