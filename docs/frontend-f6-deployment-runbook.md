@@ -10,7 +10,7 @@
 | 入口 | 新增 `Dockerfile.frontend`、`frontend-nginx.conf`、`docker-compose.frontend.yaml`；回环 18083 | 用户回传 `ss` 结果中 18083 无监听；直接 SSH 核对 Docker Server `29.8.2` |
 | Compose | 拟用基础 + bot + trigger + notifications + team-leave + mentions + frontend，`--profile agent` | 项目名 `deploy`；实际覆盖为基础 + bot + trigger + notifications + team-leave，共 11 个运行容器；mentions/frontend 尚未启用 |
 | 数据 | 本地 036 建 `im_group_message_mentions`；037 给 `tasks` 增复合索引 | 运行库缺 036 表和 037 索引，035 已存在，23 张表均为 InnoDB。数据卷 `deploy_mysql_data`，MySQL 目录约 200 MB，宿主机可用约 19 GB；已生成私有 SQL 备份并在隔离 MySQL 8.0 中恢复 23 张表成功，生产库未写入 |
-| 私有配置 | 本地隔离 worktree 无 `deploy/.env`、`deploy/docker-config.local.yaml`；未读取凭证 | 直接 SSH 只读检查：现有 12 个角色的证书目录均有三份所需文件，三项 Agent/通知私有开关为 `true`；F11 两个目录变量未设置。自管 CA 证书与私钥文件存在，两个新角色目录尚不存在；未读取密钥内容 |
+| 私有配置 | 本地隔离 worktree 无 `deploy/.env`、`deploy/docker-config.local.yaml`；未读取凭证 | 原 12 个角色证书目录完整，三项 Agent/通知私有开关为 `true`；F11 两份独立证书已由原 CA 签发、验证并加入私有 `.env`，有效期至 2027-10-10 UTC。`.env` 为 600；未读取或输出密钥内容 |
 | 运行验证 | Vue 构建、Node 测试与 Compose 静态解析另记本批结果 | 镜像、Nginx、API/WS 和真实浏览器：**NOT RUN** |
 
 第 6 步只读审计起点（2026-10-10）：本机没有 SSH Host 别名或现成隧道；本地参考差异不能代替服务器版本比较。随后取得服务器 SHA 并在本地确认它是 F6 分支祖先。服务端 `c9eb885` 到当前 F6 提交的实际差异覆盖 Gateway、User/IM/Task RPC、Push/WS、Vue、Compose 和 036/037；没有 `rpc/agent/` 代码差异。不能只重建前端就宣称整链可用。
@@ -54,7 +54,7 @@ ORDER BY SEQ_IN_INDEX;
 SQL
 ```
 
-035 索引和 030、033、034 对应表已从只读输出确认；直接 SSH 又核对到 031 的 `membership_state`/`generation` 列和 032 表。Agent/通知链的全部实际迁移状态仍须按对象核对，不能仅凭表名认定全链可运行。F11 两个变量缺失；按 `deploy/README.md` 由现有自管 CA 在仓库外签发两份不同私钥的证书，IM 服务端 DNS SAN 为 `im.go-im.internal`，Push 客户端 DNS SAN 为 `push.go-im.internal`，分别核对服务端/客户端用途、CA、有效期和目录权限。首次安装脚本不负责这两份证书，不能重跑它覆盖现有凭证。现有 12 个角色的证书目录文件齐全，Agent/通知三项私有 YAML 开关均为 `true`；仍须核对 `.env` 追加 Origin，只记录布尔结果和到期日，不展示密钥。拟新增的 mentions/frontend 覆盖已与当前五份覆盖列表比对，启用仍须先满足迁移、证书和备份条件。
+035 索引和 030、033、034 对应表已从只读输出确认；直接 SSH 又核对到 031 的 `membership_state`/`generation` 列和 032 表。Agent/通知链的全部实际迁移状态仍须按对象核对，不能仅凭表名认定全链可运行。现有 12 个角色的证书目录文件齐全，Agent/通知三项私有 YAML 开关均为 `true`。F11 已复用原 CA，在仓库外签发两份不同私钥：IM 服务端 DNS SAN `im.go-im.internal`、Push 客户端 DNS SAN `push.go-im.internal`，用途/CA/主机名验证通过，到期日为 2027-10-10 UTC；两个变量在 `.env` 中各出现一次，路径和所需文件存在，原仓库仍干净。尚未叠加新覆盖或重启容器。拟新增的 mentions/frontend 覆盖已与当前五份覆盖列表比对，启用仍须先执行缺失迁移和审查代码发布顺序。
 
 ## 3. 拟执行的同步、备份与迁移（用户审查后）
 
@@ -115,7 +115,7 @@ docker compose --env-file .env -f docker-compose.yaml exec -T mysql \
 
 服务器旧提交到本地 F6 分支的代码差异要求重建并按依赖顺序更新 `user-rpc`、`im-rpc`、`task-rpc`、`api-gateway`、`im-ws`、`im-push`，最后启动 `frontend-web`。`agent-rpc` 自身源码未变，但生产包引用本次变化的 IM/Task/User 生成协议与共享模型；为保持整套二进制对应同一提交，也重建并检查 `agent-rpc`。旧 `im-api` 没有本轮需要的新入口，先保留为原有诊断服务，不能把它的旧版本用于 F6 验收。旧覆盖列表为基础 + bot + trigger + notifications + team-leave；拟新增 mentions 和 frontend，保留原有五份及同一 `deploy` 项目，不更换 MySQL 卷。先升级 User，再 IM/Task，随后 Gateway/WS，最后 Push、Agent 和正式页；每步检查容器状态，异常立即停下并执行相应回退。不对 036/037 做自动 `DROP`。
 
-证书准备是新增覆盖的前置步骤：复用 `/opt/joeyspace-secrets` 现有 CA，只签发两个**新私钥**，目录分别为 `im-mention` 与 `push-im-mention`；前者为 `im.go-im.internal` 的服务端证书，后者为 `push.go-im.internal` 的客户端证书，均包含各自 DNS SAN 与用途，并用原 CA 验证。新目录/私钥采用仅 root 可读权限，私有 `.env` 只追加 `IM_MENTION_CERT_DIR` 与 `PUSH_IM_MENTION_CERT_DIR` 两项路径；不修改原 12 份证书、CA 私钥或其他 `.env` 值。签发与 `.env` 更新后只输出文件存在、证书用途/到期日和 Compose `config --quiet` 结果，不输出密钥。此安全配置步骤尚未执行，需与服务发布步骤一同审查。
+证书准备已完成：复用 `/opt/joeyspace-secrets` 现有 CA，只签发两个**新私钥**，目录分别为 `im-mention` 与 `push-im-mention`；前者为 `im.go-im.internal` 的服务端证书，后者为 `push.go-im.internal` 的客户端证书，均包含各自 DNS SAN 与用途，并用原 CA 验证。新目录/私钥采用仅 root 可读权限，私有 `.env` 只追加 `IM_MENTION_CERT_DIR` 与 `PUSH_IM_MENTION_CERT_DIR` 两项路径；未修改原 12 份证书或 CA 私钥。签发和路径验证退出码均为 0；`config --quiet` 尚未对新覆盖在目标服务器执行，待代码同步后核对。
 
 以下函数是目标覆盖列表的**候选值**；先与第 2 节真实列表比较，核实每份覆盖所需私有证书、开关和模型预算，再运行。`config --quiet` 不打印展开后的凭证。已有环境若尚未启用任一覆盖，不能为了 F6 直接套用整组命令。
 
